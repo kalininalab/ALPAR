@@ -1,0 +1,5 @@
+./example/example_files/amikacin/resistant/287.855.fna
+./example/example_files/amikacin/resistant/287.871.fna
+./example/example_files/amikacin/resistant/287.887.fna
+./example/example_files/amikacin/susceptible/287.916.fna
+./example/example_files/amikacin/susceptible/287.980.fna

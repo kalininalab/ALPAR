@@ -25,7 +25,20 @@ def check_contigs(input):
         else:
             return False
 
-def snippy_runner(bacterium, input, output, temp, cpus = 1, memory = 1, parallel_run = False):
+# Maybe can be improved by using parallel run
+def snippy_runner(input, output, reference, temp, cpus = 1, memory = 4, parallel_run = False):
+
+    """
+    
+    input (str): Path to the input file
+    output (str): Path to the output directory
+    reference (str): Path to the reference file
+    temp (str): Path to the temporary directory
+    cpus (int): Number of cpus to use
+    memory (int): Amount of memory to use
+    parallel_run (bool): If True, run snippy in parallel mode
+
+    """
 
     main_path = os.getcwd()
 
@@ -45,10 +58,7 @@ def snippy_runner(bacterium, input, output, temp, cpus = 1, memory = 1, parallel
 
     contigs = check_contigs(input)
 
-    # Check extension for reference file
-    reference_path = f"{PATH_OF_SCRIPT}/reference_files/{bacterium}.fasta"
-
-    run_command = f"snippy --cpus {cpus} --ram {memory} --outdir {output} --reference {reference_path}"
+    run_command = f"snippy --cpus {cpus} --ram {memory} --outdir {output} --reference {reference}"
 
     if contigs == True:
         run_command = f"{run_command} --ctgs"
