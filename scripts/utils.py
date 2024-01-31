@@ -1,0 +1,340 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+import argparse
+import pathlib
+import subprocess
+import random
+import string
+import shutil
+import pandas as pd
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
+from Bio.SeqFeature import SeqFeature, FeatureLocation
+from Bio import SeqIO
+import matplotlib.pyplot as plt
+import numpy as np
+from collections import Counter
+from datetime import datetime
+from joblib import Parallel, delayed
+import time
+import copy
+
+# Get the path of the script
+PATH_OF_SCRIPT = pathlib.Path(__file__).parent.resolve()
+
+
+def check_contigs(input):
+    """
+    Check if the input file is a fasta file and if it has more than 1 contig
+    """
+    
+    with open(input, 'r') as f:
+        contigs = 0
+        for line in f.readlines():
+            if line.startswith('>'):
+                contigs += 1
+        if contigs > 1:
+            return True
+        else:
+            return False
+
+# Maybe can be improved by using parallel run
+def snippy_runner(input, strain_random_name, output, reference, log_file, cpus = 1, memory = 4, parallel_run = False):
+
+    """
+    
+    input (str): Path to the input file
+    output (str): Path to the output directory
+    reference (str): Path to the reference file
+    temp (str): Path to the temporary directory
+    cpus (int): Number of cpus to use
+    memory (int): Amount of memory to use
+    parallel_run (bool): If True, run snippy in parallel mode
+
+    """
+
+    #main_path = os.getcwd()
+
+    # Create the output directory
+
+    # if not os.path.exists(f"{output}/{strain_random_name}"):
+    #     os.mkdir(f"{output}/{strain_random_name}")
+
+    contigs = check_contigs(input)
+
+    run_command = f"snippy --cpus {cpus} --ram {memory} --outdir {output}/{strain_random_name} --reference {reference} --force"
+
+    if contigs == True:
+        run_command = f"{run_command} --ctgs"
+    
+
+    run_command = f"{run_command} {input} > {log_file} 2>&1"
+
+    # Run snippy
+    os.system(run_command)
+
+
+# Maybe can be improved by using parallel run
+def prokka_runner(input, strain_random_name, output, reference, log_file, cpus = 1, parallel_run = False):
+
+    """
+
+    input (str): Path to the input file
+    output (str): Path to the output directory
+    reference (str): Path to the reference file
+    temp (str): Path to the temporary directory
+    cpus (int): Number of cpus to use
+    parallel_run (bool): If True, run prokka in parallel mode
+
+    """
+
+    main_path = os.getcwd()
+
+    # Create the output directory
+
+    # if not os.path.exists(f"{output}/{strain_random_name}"):
+    #     os.mkdir(f"{output}/{strain_random_name}")
+
+    # Check extension for reference file
+    #reference_path = f"{PATH_OF_SCRIPT}/reference_files/{bacterium}.fasta"
+
+    run_command = f"prokka --cpus {cpus} --outdir {output}/{strain_random_name} --proteins {reference} --force {input} > {log_file} 2>&1"
+
+
+    # Run prokka
+    os.system(run_command)
+
+
+def generate_random_key():
+    return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(8))
+
+random_names = {}
+
+def random_name_giver(strains_text_file, random_name_file_output):
+
+    with open(strains_text_file, "r") as infile:
+        lines = infile.readlines()
+        for line in lines:
+            strain = os.path.splitext(line.split("/")[-1].strip())[0]
+            random_key = generate_random_key()
+            # make sure it is unique
+            while random_key in random_names.keys():
+                random_key = generate_random_key()
+            
+            random_names[strain] = random_key
+
+    with open(random_name_file_output, "w") as ofile:
+        for key in random_names.keys():
+            ofile.write(f"{key}\t{random_names[key]}\n")
+
+    return random_names
+
+
+def panaroo_input_creator(random_names_txt, prokka_output_folder, temp_folder):
+
+    with open(random_names_txt, "r") as infile:
+        lines = infile.readlines()
+        for line in lines:
+            splitted = line.split("\t")
+            given_random_name = splitted[1].strip()
+            for prokka_output_file in os.listdir(f"{prokka_output_folder}/{given_random_name}"):
+                if prokka_output_file.endswith(".gff"):
+                    shutil.copyfile(f"{prokka_output_folder}/{given_random_name}/{prokka_output_file}", f"{temp_folder}/{given_random_name}.gff")
+
+
+def panaroo_runner(panaroo_input_folder, panaroo_output_folder, log_file):
+
+    run_command = f"panaroo -i {panaroo_input_folder}/*.gff -o {panaroo_output_folder}  --clean-mode strict > {log_file} 2>&1"
+    
+    os.system(run_command)
+
+
+def read_vcf_and_return_snp_class_list(vcf_path):
+
+    with open(f"{vcf_path}") as infile:
+        lines = infile.readlines()
+
+    snp_list = []
+    
+    for line in lines:
+        if not line.startswith("#"):
+            splitted = line.split("\t")
+            pos = splitted[1]
+            ref = splitted[3]
+            alt = splitted[4]
+            splitted_info = splitted[7].split(';')
+            for p in splitted_info:
+                if p.startswith("TYPE"):
+                    splitted_info2 = p.split('=')
+                    mut_type = splitted_info2[1]
+
+            temp_str = ref + ":" + alt
+            temp_mutation_name = f"'{pos}','{temp_str}','{mut_type}'"
+            #temp_tuple = (pos,temp_str,mut_type)
+
+            snp_list.append(temp_mutation_name)
+
+    return snp_list
+
+
+def process_folder(snippy_out_path, folder):
+    vcf_file_path = f"{snippy_out_path}/{folder}/snps.vcf"
+    snp_list = read_vcf_and_return_snp_class_list(vcf_file_path)
+    return folder, snp_list
+
+
+def read_vcf_files_and_store_data(snippy_out_path, n_jobs):
+    snp_combined_list = []
+    mutation_dict = {}
+    folders = [folder for folder in os.listdir(snippy_out_path) if os.path.isfile(f"{snippy_out_path}/{folder}/snps.vcf")]
+
+    results = Parallel(n_jobs)(
+        delayed(process_folder)(snippy_out_path, folder) for folder in folders
+    )
+
+    for folder, snp_list in results:
+        mutation_dict[folder] = snp_list
+        snp_combined_list = snp_combined_list + snp_list
+    
+    snp_combined_set = set(snp_combined_list)
+    
+    return mutation_dict, snp_combined_set
+
+
+def temp_dict_creator(combined_set):
+    temp_dict = {}
+
+    for i in combined_set:
+        temp_dict[i] = 0
+
+    return temp_dict
+
+
+def mutation_presence_absence_dict_creator(mut_dict, temp_dict, n_jobs):
+    mutation_presence_absence_dict = {}
+
+    results = Parallel(n_jobs)(
+        delayed(strain_presence_absence)(mut_dict[strain], temp_dict) for strain in mut_dict.keys()
+    )
+
+    for idx, strain in enumerate(mut_dict.keys()):
+        mutation_presence_absence_dict[strain] = results[idx]
+
+    return mutation_presence_absence_dict
+
+
+def strain_presence_absence(list_of_mutations, temp_dict):
+
+    mut_presence_absence_dict = copy.deepcopy(temp_dict)
+
+    for mutation in list_of_mutations:
+        mut_presence_absence_dict[mutation] = 1
+    
+    return mut_presence_absence_dict
+
+
+def binary_table_creator (input_folder, output_file, number_of_cores):
+    number_of_cores = int(number_of_cores)
+    start_time = time.time()
+    #print(f"Pipeline starting with {number_of_cores} cores")
+    mut_dict, snp_combined_set = read_vcf_files_and_store_data(f"{input_folder}", number_of_cores)
+    #print(f"VCF Files reading step completed")
+    #print(f"Creating temp dictionary")
+    temp_dict = temp_dict_creator(snp_combined_set)
+    #print(f"Temp dictionary creation step completed")
+    #print(f"Creating mutation presence absence dictionary")
+    mutation_presence_absence_dict = mutation_presence_absence_dict_creator(mut_dict, temp_dict, number_of_cores)
+    #print(f"Mutation presence absence dictionary creation step completed")
+    #print(f"Creating data frame")
+    df = pd.DataFrame.from_dict(mutation_presence_absence_dict, orient='index')
+    #print(f"Data frame has been created")
+    #print(df)
+    #print(f"Writing data frame to file")
+    df.to_csv(f"{output_file}", sep="\t")
+    #print(f"Pipeline completed")
+    end_time = time.time() - start_time
+    #print(f"Pipeline took : {end_time:.2f} seconds")
+
+
+def binary_mutation_table_gpa_information_adder(binary_mutation_table, panaroo_output_gpa, binary_mutation_table_with_gpa_information):
+
+    binary_mutation_table_df = pd.read_csv(binary_mutation_table, sep="\t", index_col=0)
+
+    binary_mutation_table_df_dict = binary_mutation_table_df.to_dict(orient='index')
+
+    binary_mutation_table_gpa_dict = copy.deepcopy(binary_mutation_table_df_dict)
+
+    strain_index_dict = {}
+
+    with open (panaroo_output_gpa) as infile:
+        lines = infile.readlines()
+
+        index_line = lines[0]
+
+        index_line_split = index_line.split(",")
+
+        for strain_idx in range(len(index_line_split)):
+            
+            if strain_idx < 3:
+                continue
+
+            strain_index_dict[strain_idx] = index_line_split[strain_idx].strip()
+
+
+        for line in lines[1:]:
+            splitted = line.split(",")
+
+            gene = splitted[0].strip()
+
+            cnt = 3
+
+            for ocome in splitted[3:]:
+                
+                if ocome.strip() != "":
+                    binary_mutation_table_gpa_dict[strain_index_dict[cnt]][gene] = 1
+                    cnt += 1
+                
+                else:
+                    binary_mutation_table_gpa_dict[strain_index_dict[cnt]][gene] = 0
+                    cnt += 1
+
+
+    binary_mutation_table_gpa_df = pd.DataFrame.from_dict(binary_mutation_table_gpa_dict, orient='index')
+
+    binary_mutation_table_gpa_df.to_csv(binary_mutation_table_with_gpa_information, sep="\t")
+
+        
+def phenotype_dataframe_creator(data_folder_path, output_file, random_names_dict):
+    list_of_antibiotics = os.listdir(data_folder_path)
+
+    phenotype_dict = {}
+
+    strain_phenotype_dict = {}
+
+    for antibiotic in list_of_antibiotics:
+        phenotype_dict[antibiotic] = 2
+
+    for antibiotic in list_of_antibiotics:
+        res_strains = os.listdir(f"{data_folder_path}/{antibiotic}/Resistant")
+
+        sus_strains = os.listdir(f"{data_folder_path}/{antibiotic}/Susceptible")
+
+        for strain in res_strains:
+            if strain.endswith(".fna"):
+                if not random_names_dict[strain[:-4]] in strain_phenotype_dict.keys():
+                    strain_phenotype_dict[random_names_dict[strain[:-4]]] = copy.deepcopy(phenotype_dict)
+                
+                strain_phenotype_dict[random_names_dict[strain[:-4]]][antibiotic] = 1
+        
+        for strain in sus_strains:
+            if strain.endswith(".fna"):
+                if not random_names_dict[strain[:-4]] in strain_phenotype_dict.keys():
+                    strain_phenotype_dict[random_names_dict[strain[:-4]]] = copy.deepcopy(phenotype_dict)
+                
+                strain_phenotype_dict[random_names_dict[strain[:-4]]][antibiotic] = 0
+
+    df = pd.DataFrame.from_dict(strain_phenotype_dict, orient="index")
+
+    df.to_csv(output_file, sep="\t")
