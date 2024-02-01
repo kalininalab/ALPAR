@@ -18,7 +18,7 @@ from datetime import datetime
 from joblib import Parallel, delayed
 import time
 import copy
-from utils import snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator
+from utils import snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, panacota_pipeline, pyseer_runner, pyseer_similarity_matrix_creator, pyseer_phenotype_file_creator, pyseer_genotype_matrix_creator
 
 # SNIPPY VCF EMPTY ISSUE SOLUTION = conda install snippy vt=0.57721
 
@@ -26,34 +26,56 @@ def main():
     # Create the parser
     parser = argparse.ArgumentParser(description="Single reference AMR is a tool to get mutation and gene presence absence information from genome sequences.")
 
-    # Add the arguments
-    parser.add_argument('-i', '--input', type=str, nargs=1, help='txt file that contains path of each strain per line or input folder path (check folder structure)', required=True)
+    parser.add_argument('--version', action='version', version='%(prog)s 0.0.1')
 
-    parser.add_argument('-o', '--output', type=str, nargs=1, help='path of the output folder', required=True)
+    subparsers = parser.add_subparsers(help='Suggested pipeline = create_binary_tables -> panacota -> gwas')
 
-    parser.add_argument('--reference', type=str, nargs=1, help='path of the reference file', required=True)
+    parser_main_pipeline = subparsers.add_parser('create_binary_tables', help='from genomic files, create binary mutation table and phenotype table')
+    parser_main_pipeline.add_argument('-i', '--input', type=str, nargs=1, help='txt file that contains path of each strain per line or input folder path (check folder structure)', required=True)
+    parser_main_pipeline.add_argument('-o', '--output', type=str, nargs=1, help='path of the output folder', required=True)
+    parser_main_pipeline.add_argument('--reference', type=str, nargs=1, help='path of the reference file', required=True)
+    parser_main_pipeline.add_argument('--temp', type=str, nargs=1, help='path of the temporary directory', required=True)
+    parser_main_pipeline.add_argument('--override', action='store_true', help='override the output and temp folder if exists')
+    parser_main_pipeline.add_argument('--keep-temp-files', action='store_true', help='keep the temporary files')
+    parser_main_pipeline.add_argument('--cpus', type=int, nargs=1, help='number of cpus to use', default=1)
+    parser_main_pipeline.add_argument('--ram', type=int, nargs=1, help='amount of ram to use in GB', default=4)
+    parser_main_pipeline.add_argument('--create_phenotype_from_folder', action='store_true', help='create phenotype file from the folders that contains genomic files, folder path should be given with --phenotype_folder option')
+    parser_main_pipeline.add_argument('--phenotype_folder', type=str, nargs=1, help='folder path to create phenotype file')
+    parser_main_pipeline.set_defaults(func=binary_table_pipeline)
 
-    parser.add_argument('--temp', type=str, nargs=1, help='path of the temporary directory', required=True)
-
-    parser.add_argument('--override', action='store_true', help='override the output and temp folder if exists')
+    parser_panacota = subparsers.add_parser('panacota', help='run panacota analysis')
+    parser_panacota.add_argument('-i', '--input', type=str, nargs=1, help='txt file that contains path of each strain per line or input folder path, can be found create_binary_tables output path as strains.txt', required=True)
+    parser_panacota.add_argument('--reference', type=str, nargs=1, help='reference genome path, either gbk or gbff', required=True)
+    parser_panacota.add_argument('-o', '--output', type=str, nargs=1, help='path of the output folder', required=True)
+    parser_panacota.add_argument('--override', action='store_true', help='override the output folder if exists')
+    parser_panacota.add_argument('--cpus', type=int, nargs=1, help='number of cpus to use', default=1)
+    parser_panacota.add_argument('--name', type=str, nargs=1, help='name of the analysis', default="WIBI")
+    parser_panacota.add_argument('--min_seq_id', type=float, nargs=1, help='Minimum sequence identity to be considered in the same cluster (float between 0 and 1). Default is 0.8', default=0.8)
+    parser_panacota.add_argument('--clustering_mode', type=int, nargs=1, help='Choose the clustering mode: 0 for set cover, 1 for single-linkage, 2 for CD-Hit. Default is single-linkage (1)', default=1)
+    parser_panacota.set_defaults(func=panacota_pipeline)
     
-    parser.add_argument('--keep-temp-files', action='store_true', help='keep the temporary files')
-
-    parser.add_argument('--cpus', type=int, nargs=1, help='number of cpus to use', default=1)
-
-    parser.add_argument('--ram', type=int, nargs=1, help='amount of ram to use in GB', default=4)
-
-    parser.add_argument('--create_phenotype_from_folder', action='store_true', help='create phenotype file from the folders that contains genomic files, folder path should be given with --phenotype_folder option')
-
-    parser.add_argument('--phenotype_folder', type=str, nargs=1, help='folder path to create phenotype file')
-
-    parser.add_argument('--version', action='version', version='%(prog)s 1.0')
-
-    parser.add_argument('--gwas', action='store_true', help='run gwas analysis')
+    parser_gwas = subparsers.add_parser('gwas', help='run gwas analysis')
+    parser_gwas.add_argument('-i', '--input', type=str, nargs=1, help='binary mutation table path', required=True)
+    parser_gwas.add_argument('-p', '--phenotype', type=str, nargs=1, help='phenotype table path', required=True)
+    parser.gwas.add_argument('-t', '--tree', type=str, nargs=1, help='phylogenetic tree path', required=True)
+    parser_gwas.add_argument('-o', '--output', type=str, nargs=1, help='path of the output folder', required=True)
+    parser_gwas.add_argument('--override', action='store_true', help='override the output folder if exists')
+    parser_gwas.set_defaults(func=gwas_pipeline)
 
     # Parse the arguments
     args = parser.parse_args()
 
+    if hasattr(args, 'func'):
+        args.func(args)
+    else:
+        parser.print_help()
+        sys.exit(1)
+
+    args.func(args)
+
+
+def binary_table_pipeline(args):
+    
     # Sanity checks
 
     # Check the arguments
@@ -216,8 +238,37 @@ def main():
         # Create the phenotype dataframe
         phenotype_dataframe_creator(input_folder, f"{args.output[0]}/phenotype_table.tsv", random_names)
 
-    # # Run gwas analysis if argument is given
-    # if args.gwas:
+
+def panacota_pipeline(args):
+
+    panacota_pipeline(args.input[0], args.reference[0], args.output[0], args.name[0], args.cpus[0])
+
+
+def gwas_pipeline(args):
+
+    # Sanity checks
+
+    # Check the output_folder
+    if not os.path.exists(args.output[0]):
+        os.mkdir(args.output[0])
+        os.mkdir(f"{args.output[0]}/gwas_output")
+        os.mkdir(f"{args.output[0]}/pyseer_phenotypes")
+
+    # Check if output folder empty
+    if os.path.exists(args.output[0]) and os.path.isdir(args.output[0]) and os.listdir(args.output[0]):
+        if not args.override:
+            print("Error: Output folder is not empty.")
+            sys.exit(1)
+
+    # pyseer_genotype_matrix_creator(binary_mutation_table, output_file):
+    pyseer_genotype_matrix_creator(args.input[0], f"{args.output[0]}/genotype_matrix.tsv")
+    # pyseer_phenotype_file_creator(phenotype_file, output_file_directory):
+    pyseer_phenotype_file_creator(args.phenotype[0], f"{args.output[0]}/pyseer_phenotypes/")
+    # pyseer_similarity_matrix_creator(phylogenetic_tree, output_file):
+    pyseer_similarity_matrix_creator(args.tree[0], f"{args.output[0]}/similarity_matrix.tsv")
+    # pyseer_runner(genotype_file_path, phenotype_file_path, similarity_matrix, output_file_directory, cpus):
+    pyseer_runner(f"{args.output[0]}/genotype_matrix.tsv", f"{args.output[0]}/pyseer_phenotypes/", f"{args.output[0]}/similarity_matrix.tsv", f"{args.output[0]}/gwas_output")
+
 
 
 if __name__ == "__main__":

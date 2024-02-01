@@ -1,146 +1,0 @@
-/home/alper/miniconda3/envs/sr/lib/python3.9/site-packages/scipy/__init__.py:146: UserWarning: A NumPy version >=1.17.3 and <1.25.0 is required for this version of SciPy (detected version 1.26.3
-  warnings.warn(f"A NumPy version >={np_minversion} and <{np_maxversion}"
-/home/alper/miniconda3/envs/sr/lib/python3.9/site-packages/Bio/Application/__init__.py:40: BiopythonDeprecationWarning: The Bio.Application modules and modules relying on it have been deprecated.
-
-Due to the on going maintenance burden of keeping command line application
-wrappers up to date, we have decided to deprecate and eventually remove these
-modules.
-
-We instead now recommend building your command line and invoking it directly
-with the subprocess module.
-  warnings.warn(
-pre-processing gff3 files...
-  0%|          | 0/5 [00:00<?, ?it/s] 20%|██        | 1/5 [00:00<00:03,  1.06it/s] 40%|████      | 2/5 [00:01<00:02,  1.07it/s] 60%|██████    | 3/5 [00:02<00:01,  1.08it/s] 80%|████████  | 4/5 [00:03<00:00,  1.09it/s]100%|██████████| 5/5 [00:04<00:00,  1.10it/s]100%|██████████| 5/5 [00:04<00:00,  1.09it/s]
-running cmd: cd-hit -T 1 -i /home/alper/git/SR-AMR/example/example_output/panaroo/combined_protein_CDS.fasta -o /home/alper/git/SR-AMR/example/example_output/panaroo/combined_protein_cdhit_out.txt -c 0.98 -s 0.98 -aL 0.0 -AL 99999999 -aS 0.0 -AS 99999999 -M 0 -d 999 -g 1 -n 2
-================================================================
-Program: CD-HIT, V4.8.1 (+OpenMP), Apr 07 2021, 10:57:21
-Command: cd-hit -T 1 -i
-         /home/alper/git/SR-AMR/example/example_output/panaroo/combined_protein_CDS.fasta
-         -o
-         /home/alper/git/SR-AMR/example/example_output/panaroo/combined_protein_cdhit_out.txt
-         -c 0.98 -s 0.98 -aL 0.0 -AL 99999999 -aS 0.0 -AS
-         99999999 -M 0 -d 999 -g 1 -n 2
-
-Started: Wed Jan 31 22:27:44 2024
-================================================================
-                            Output                              
-----------------------------------------------------------------
-Your word length is 2, using 5 may be faster!
-total seq: 31421
-longest and shortest : 5428 and 29
-Total letters: 10051651
-Sequences have been sorted
-
-Approximated minimal memory consumption:
-Sequence        : 13M
-Buffer          : 1 X 12M = 12M
-Table           : 1 X 0M = 0M
-Miscellaneous   : 0M
-Total           : 26M
-
-Table limit with the given memory limit:
-Max number of representatives: 4000000
-Max number of word counting entries: 250714000
-
-comparing sequences from          0  to      31421
-....................    10000  finished       2872  clusters
-....................    20000  finished       5733  clusters
-....................    30000  finished       9090  clusters
-.
-    31421  finished       9691  clusters
-
-Approximated maximum memory consumption: 38M
-writing new database
-writing clustering information
-program completed !
-
-Total CPU time 3.27
-generating initial network...
-Processing paralogs...
-  0%|          | 0/18 [00:00<?, ?it/s]100%|██████████| 18/18 [00:00<00:00, 900.24it/s]
-collapse mistranslations...
-Processing depth:  1
-Iteration:  1
-  0%|          | 0/9713 [00:00<?, ?it/s] 22%|██▏       | 2137/9713 [00:00<00:00, 21346.91it/s] 47%|████▋     | 4523/9713 [00:00<00:00, 22802.98it/s] 73%|███████▎  | 7127/9713 [00:00<00:00, 24254.19it/s]100%|██████████| 9713/9713 [00:00<00:00, 25779.78it/s]
-Iteration:  2
-  0%|          | 0/487 [00:00<?, ?it/s]100%|██████████| 487/487 [00:00<00:00, 13632.05it/s]
-Iteration:  3
-  0%|          | 0/28 [00:00<?, ?it/s]100%|██████████| 28/28 [00:00<00:00, 6506.76it/s]
-Iteration:  4
-  0%|          | 0/4 [00:00<?, ?it/s]100%|██████████| 4/4 [00:00<00:00, 4296.34it/s]
-Iteration:  5
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 3695.42it/s]
-Processing depth:  2
-Iteration:  1
-  0%|          | 0/9088 [00:00<?, ?it/s] 39%|███▊      | 3518/9088 [00:00<00:00, 35162.68it/s] 77%|███████▋  | 7035/9088 [00:00<00:00, 35067.73it/s]100%|██████████| 9088/9088 [00:00<00:00, 33105.38it/s]
-Iteration:  2
-  0%|          | 0/19 [00:00<?, ?it/s]100%|██████████| 19/19 [00:00<00:00, 3943.77it/s]
-Iteration:  3
-  0%|          | 0/1 [00:00<?, ?it/s]100%|██████████| 1/1 [00:00<00:00, 3196.88it/s]
-Processing depth:  3
-Iteration:  1
-  0%|          | 0/9068 [00:00<?, ?it/s] 39%|███▉      | 3556/9068 [00:00<00:00, 35514.56it/s] 78%|███████▊  | 7108/9068 [00:00<00:00, 34512.13it/s]100%|██████████| 9068/9068 [00:00<00:00, 31716.15it/s]
-Iteration:  2
-  0%|          | 0/10 [00:00<?, ?it/s]100%|██████████| 10/10 [00:00<00:00, 4183.43it/s]
-collapse gene families...
-Processing depth:  1
-Iteration:  1
-  0%|          | 0/9058 [00:00<?, ?it/s] 38%|███▊      | 3438/9058 [00:00<00:00, 34337.30it/s] 85%|████████▌ | 7710/9058 [00:00<00:00, 39241.87it/s]100%|██████████| 9058/9058 [00:00<00:00, 36618.27it/s]
-Iteration:  2
-  0%|          | 0/434 [00:00<?, ?it/s]100%|██████████| 434/434 [00:00<00:00, 8990.83it/s]
-Iteration:  3
-  0%|          | 0/78 [00:00<?, ?it/s]100%|██████████| 78/78 [00:00<00:00, 4951.95it/s]
-Iteration:  4
-  0%|          | 0/25 [00:00<?, ?it/s]100%|██████████| 25/25 [00:00<00:00, 4018.46it/s]
-Iteration:  5
-  0%|          | 0/16 [00:00<?, ?it/s]100%|██████████| 16/16 [00:00<00:00, 3291.75it/s]
-Iteration:  6
-  0%|          | 0/7 [00:00<?, ?it/s]100%|██████████| 7/7 [00:00<00:00, 3030.88it/s]
-Iteration:  7
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 5256.02it/s]
-Iteration:  8
-  0%|          | 0/1 [00:00<?, ?it/s]100%|██████████| 1/1 [00:00<00:00, 60787.01it/s]
-Processing depth:  2
-Iteration:  1
-  0%|          | 0/8429 [00:00<?, ?it/s] 67%|██████▋   | 5679/8429 [00:00<00:00, 56730.14it/s]100%|██████████| 8429/8429 [00:00<00:00, 38724.70it/s]
-Iteration:  2
-  0%|          | 0/28 [00:00<?, ?it/s]100%|██████████| 28/28 [00:00<00:00, 2864.19it/s]
-Iteration:  3
-  0%|          | 0/14 [00:00<?, ?it/s]100%|██████████| 14/14 [00:00<00:00, 3145.33it/s]
-Iteration:  4
-  0%|          | 0/5 [00:00<?, ?it/s]100%|██████████| 5/5 [00:00<00:00, 3640.89it/s]
-Iteration:  5
-  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 2755.78it/s]
-Processing depth:  3
-Iteration:  1
-  0%|          | 0/8379 [00:00<?, ?it/s] 72%|███████▏  | 6012/8379 [00:00<00:00, 59972.64it/s]100%|██████████| 8379/8379 [00:00<00:00, 40100.08it/s]
-Iteration:  2
-  0%|          | 0/13 [00:00<?, ?it/s]100%|██████████| 13/13 [00:00<00:00, 3036.14it/s]
-Iteration:  3
-  0%|          | 0/7 [00:00<?, ?it/s]100%|██████████| 7/7 [00:00<00:00, 3423.92it/s]
-Iteration:  4
-  0%|          | 0/6 [00:00<?, ?it/s]100%|██████████| 6/6 [00:00<00:00, 5733.84it/s]
-Iteration:  5
-  0%|          | 0/3 [00:00<?, ?it/s]100%|██████████| 3/3 [00:00<00:00, 3373.43it/s]
-Iteration:  6
-  0%|          | 0/1 [00:00<?, ?it/s]100%|██████████| 1/1 [00:00<00:00, 2131.25it/s]
-trimming contig ends...
-refinding genes...
-Number of searches to perform:  2100
-Searching...
-0it [00:00, ?it/s]1it [00:02,  2.89s/it]2it [00:06,  3.09s/it]3it [00:11,  4.18s/it]4it [00:14,  3.66s/it]5it [00:17,  3.42s/it]5it [00:17,  3.49s/it]
-translating hits...
-removing by consensus...
-Updating output...
-Number of refound genes:  72
-collapse gene families with refound genes...
-Processing depth:  1
-Iteration:  1
-  0%|          | 0/7402 [00:00<?, ?it/s] 95%|█████████▌| 7063/7402 [00:00<00:00, 70475.32it/s]100%|██████████| 7402/7402 [00:00<00:00, 56084.38it/s]
-Processing depth:  2
-Iteration:  1
-  0%|          | 0/7402 [00:00<?, ?it/s] 89%|████████▉ | 6603/7402 [00:00<00:00, 65882.41it/s]100%|██████████| 7402/7402 [00:00<00:00, 46151.00it/s]
-Processing depth:  3
-Iteration:  1
-  0%|          | 0/7402 [00:00<?, ?it/s] 91%|█████████ | 6733/7402 [00:00<00:00, 67285.63it/s]100%|██████████| 7402/7402 [00:00<00:00, 46457.28it/s]
-writing output...

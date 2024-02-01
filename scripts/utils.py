@@ -369,15 +369,14 @@ def pyseer_phenotype_file_creator(phenotype_file, output_file_directory):
         df_column.to_csv(output_file, sep="\t")
 
 
-
 def pyseer_similarity_matrix_creator(phylogenetic_tree, output_file):
     
-    script_command = f"./phylogeny_distance.py --lmm {phylogenetic_tree} > {output_file}"
+    script_command = f"{PATH_OF_SCRIPT}/phylogeny_distance.py --lmm {phylogenetic_tree} > {output_file}"
 
     os.system(script_command)
 
 
-def pyseer_runner(genotype_file_path, phenotype_file_path, similarity_matrix, output_file_directory, cpus):
+def pyseer_runner(genotype_file_path, phenotype_file_path, similarity_matrix, output_file_directory):
 
     phenotypes = os.listdir(f"{phenotype_file_path}")
 
@@ -390,7 +389,7 @@ def pyseer_runner(genotype_file_path, phenotype_file_path, similarity_matrix, ou
         os.system(script_command)
 
 
-def panacota_pipeline(list_file, reference, output_directory, run_name, n_cores):
+def panacota_pipeline(list_file, reference, output_directory, run_name, n_cores, type="nucl", mode=1, min_seq_id=0.8):
 
     # PanACota annotate -l "$list_file" -d "$dbpath" -r "./annotate_out/" -n "$run_name" --threads 32
     
@@ -402,15 +401,15 @@ def panacota_pipeline(list_file, reference, output_directory, run_name, n_cores)
 
     # PanACota corepers -p "./pangenome_out/PanGenome-$run_name.All.prt-clust-0.8-mode1.lst" -o "./corepers_out/"
     # clust-0.8-mode1 can be change !!!
-    pc_corepers_command = f"PanACota corepers -p {output_directory}/pangenome_out/PanGenome-{run_name}.All.prt-clust-0.8-mode1.lst -o {output_directory}/corepers_out/"
+    pc_corepers_command = f"PanACota corepers -p {output_directory}/pangenome_out/PanGenome-{run_name}.All.prt-clust-{min_seq_id}-mode{mode}.lst -o {output_directory}/corepers_out/"
 
     # PanACoTA align -c "./corepers_out/PersGenome_PanGenome-$run_name.All.prt-clust-0.8-mode1.lst-all_1.lst" -l "./annotate_out/LSTINFO-$list_file" -n "$run_name" -d "./annotate_out/" -o "./align_out" --threads 32
     # clust-0.8-mode1.lst-all_1.ls can be change !!!
-    pc_align_command =  f"PanACoTA align -c {output_directory}/corepers_out/PersGenome_PanGenome-{run_name}.All.prt-clust-0.8-mode1.lst-all_1.lst -l {output_directory}/annotate_out/LSTINFO-{list_file} -n {run_name} -d {output_directory}/annotate_out/ -o {output_directory}/align_out --threads {n_cores}"
+    pc_align_command =  f"PanACoTA align -c {output_directory}/corepers_out/PersGenome_PanGenome-{run_name}.All.prt-clust-{min_seq_id}-mode{mode}.lst-all_1.lst -l {output_directory}/annotate_out/LSTINFO-{list_file} -n {run_name} -d {output_directory}/annotate_out/ -o {output_directory}/align_out --threads {n_cores}"
     
     # PanACoTA tree -a "./align_out/Phylo-$run_name/$run_name.nucl.grp.aln" -o "./tree/" --threads 32
 
-    pc_tree_command = f"PanACoTA tree -a {output_directory}/align_out/Phylo-{run_name}/{run_name}.nucl.grp.aln -o {output_directory}/tree/ --threads {n_cores}"
+    pc_tree_command = f"PanACoTA tree -a {output_directory}/align_out/Phylo-{run_name}/{run_name}.{type}.grp.aln -o {output_directory}/tree/ --threads {n_cores}"
 
     os.system(pc_annotate_command)
     os.system(pc_pangenome_command)

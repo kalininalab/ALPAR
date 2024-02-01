@@ -1,5 +1,0 @@
-/home/alper/git/SR-AMR/example/example_files/amikacin/Resistant/287.855.fna
-/home/alper/git/SR-AMR/example/example_files/amikacin/Resistant/287.871.fna
-/home/alper/git/SR-AMR/example/example_files/amikacin/Resistant/287.887.fna
-/home/alper/git/SR-AMR/example/example_files/amikacin/Susceptible/287.916.fna
-/home/alper/git/SR-AMR/example/example_files/amikacin/Susceptible/287.980.fna
