@@ -47,6 +47,10 @@ def main():
 
     parser.add_argument('--phenotype_folder', type=str, nargs=1, help='folder path to create phenotype file')
 
+    parser.add_argument('--version', action='version', version='%(prog)s 1.0')
+
+    parser.add_argument('--gwas', action='store_true', help='run gwas analysis')
+
     # Parse the arguments
     args = parser.parse_args()
 
@@ -211,6 +215,10 @@ def main():
         print("Creating phenotype dataframe...")
         # Create the phenotype dataframe
         phenotype_dataframe_creator(input_folder, f"{args.output[0]}/phenotype_table.tsv", random_names)
+
+    # # Run gwas analysis if argument is given
+    # if args.gwas:
+
 
 if __name__ == "__main__":
     main()

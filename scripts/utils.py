@@ -338,3 +338,82 @@ def phenotype_dataframe_creator(data_folder_path, output_file, random_names_dict
     df = pd.DataFrame.from_dict(strain_phenotype_dict, orient="index")
 
     df.to_csv(output_file, sep="\t")
+
+
+# TODO
+def pyseer_genotype_matrix_creator(binary_mutation_table, output_file):
+
+    genotype_df = pd.read_csv(binary_mutation_table, sep="\t", index_col=0)
+
+    genotype_df_transposed = genotype_df.transpose()
+
+    genotype_df_transposed.index.name = "Gene"
+    
+    genotype_df_transposed.to_csv(output_file, sep="\t")
+
+
+# TODO
+def pyseer_phenotype_file_creator(phenotype_file, output_file_directory):
+
+    phenotype_df = pd.read_csv(phenotype_file, sep="\t", index_col=0)
+
+    for antibiotic in phenotype_df.columns:
+        df_column = phenotype_df[[antibiotic]]
+
+        df_column.index.name = "samples"
+
+        # Create a file name based on the column name
+        output_file = f"{output_file_directory}/{antibiotic}.pheno"
+
+        # Write the DataFrame to a file
+        df_column.to_csv(output_file, sep="\t")
+
+
+
+def pyseer_similarity_matrix_creator(phylogenetic_tree, output_file):
+    
+    script_command = f"./phylogeny_distance.py --lmm {phylogenetic_tree} > {output_file}"
+
+    os.system(script_command)
+
+
+def pyseer_runner(genotype_file_path, phenotype_file_path, similarity_matrix, output_file_directory, cpus):
+
+    phenotypes = os.listdir(f"{phenotype_file_path}")
+
+    for phenotype in phenotypes:
+        script_command = f"pyseer --lmm --phenotypes {phenotype_file_path}/{phenotype} --pres {genotype_file_path} --similarity {similarity_matrix} > {output_file_directory}/{phenotype}.tsv"
+                
+        if not os.path.exists(f"{output_file_directory}"):
+            os.mkdir(f"{output_file_directory}")
+
+        os.system(script_command)
+
+
+def panacota_pipeline(list_file, reference, output_directory, run_name, n_cores):
+
+    # PanACota annotate -l "$list_file" -d "$dbpath" -r "./annotate_out/" -n "$run_name" --threads 32
+    
+    pc_annotate_command = f"PanACota annotate -l {list_file} -d {reference} -r {output_directory}/annotate_out -n {run_name} --threads {n_cores}"
+
+    # PanACota pangenome -l "./annotate_out/LSTINFO-$list_file" -d "./annotate_out/Proteins/" -o "./pangenome_out/" -n "$run_name" --threads 32
+
+    pc_pangenome_command = f"PanACota pangenome -l {output_directory}/annotate_out/LSTINFO-{list_file} -d {output_directory}/annotate_out/Proteins/ -o {output_directory}/pangenome_out/ -n {run_name} --threads {n_cores}"
+
+    # PanACota corepers -p "./pangenome_out/PanGenome-$run_name.All.prt-clust-0.8-mode1.lst" -o "./corepers_out/"
+    # clust-0.8-mode1 can be change !!!
+    pc_corepers_command = f"PanACota corepers -p {output_directory}/pangenome_out/PanGenome-{run_name}.All.prt-clust-0.8-mode1.lst -o {output_directory}/corepers_out/"
+
+    # PanACoTA align -c "./corepers_out/PersGenome_PanGenome-$run_name.All.prt-clust-0.8-mode1.lst-all_1.lst" -l "./annotate_out/LSTINFO-$list_file" -n "$run_name" -d "./annotate_out/" -o "./align_out" --threads 32
+    # clust-0.8-mode1.lst-all_1.ls can be change !!!
+    pc_align_command =  f"PanACoTA align -c {output_directory}/corepers_out/PersGenome_PanGenome-{run_name}.All.prt-clust-0.8-mode1.lst-all_1.lst -l {output_directory}/annotate_out/LSTINFO-{list_file} -n {run_name} -d {output_directory}/annotate_out/ -o {output_directory}/align_out --threads {n_cores}"
+    
+    # PanACoTA tree -a "./align_out/Phylo-$run_name/$run_name.nucl.grp.aln" -o "./tree/" --threads 32
+
+    pc_tree_command = f"PanACoTA tree -a {output_directory}/align_out/Phylo-{run_name}/{run_name}.nucl.grp.aln -o {output_directory}/tree/ --threads {n_cores}"
+
+    os.system(pc_annotate_command)
+    os.system(pc_pangenome_command)
+    os.system(pc_corepers_command)
+    os.system(pc_align_command)
+    os.system(pc_tree_command)
