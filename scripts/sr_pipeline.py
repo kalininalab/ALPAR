@@ -57,7 +57,7 @@ def main():
     parser_gwas = subparsers.add_parser('gwas', help='run gwas analysis')
     parser_gwas.add_argument('-i', '--input', type=str, nargs=1, help='binary mutation table path', required=True)
     parser_gwas.add_argument('-p', '--phenotype', type=str, nargs=1, help='phenotype table path', required=True)
-    parser.gwas.add_argument('-t', '--tree', type=str, nargs=1, help='phylogenetic tree path', required=True)
+    parser_gwas.add_argument('-t', '--tree', type=str, nargs=1, help='phylogenetic tree path', required=True)
     parser_gwas.add_argument('-o', '--output', type=str, nargs=1, help='path of the output folder', required=True)
     parser_gwas.add_argument('--override', action='store_true', help='override the output folder if exists')
     parser_gwas.set_defaults(func=gwas_pipeline)
@@ -70,8 +70,6 @@ def main():
     else:
         parser.print_help()
         sys.exit(1)
-
-    args.func(args)
 
 
 def binary_table_pipeline(args):

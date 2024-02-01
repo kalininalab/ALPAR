@@ -389,6 +389,7 @@ def pyseer_runner(genotype_file_path, phenotype_file_path, similarity_matrix, ou
         os.system(script_command)
 
 
+# TODO PanACoTA needs all the files in one folder, need to process them before running PanACoTA
 def panacota_pipeline(list_file, reference, output_directory, run_name, n_cores, type="nucl", mode=1, min_seq_id=0.8):
 
     # PanACota annotate -l "$list_file" -d "$dbpath" -r "./annotate_out/" -n "$run_name" --threads 32
