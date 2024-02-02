@@ -18,7 +18,7 @@ from datetime import datetime
 from joblib import Parallel, delayed
 import time
 import copy
-from utils import snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, panacota_pipeline, pyseer_runner, pyseer_similarity_matrix_creator, pyseer_phenotype_file_creator, pyseer_genotype_matrix_creator
+from utils import snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, panacota_pipeline_runner, pyseer_runner, pyseer_similarity_matrix_creator, pyseer_phenotype_file_creator, pyseer_genotype_matrix_creator, panacota_pre_processor, panacota_post_processor
 
 # SNIPPY VCF EMPTY ISSUE SOLUTION = conda install snippy vt=0.57721
 
@@ -34,7 +34,7 @@ def main():
     parser_main_pipeline.add_argument('-i', '--input', type=str, nargs=1, help='txt file that contains path of each strain per line or input folder path (check folder structure)', required=True)
     parser_main_pipeline.add_argument('-o', '--output', type=str, nargs=1, help='path of the output folder', required=True)
     parser_main_pipeline.add_argument('--reference', type=str, nargs=1, help='path of the reference file', required=True)
-    parser_main_pipeline.add_argument('--temp', type=str, nargs=1, help='path of the temporary directory', required=True)
+    parser_main_pipeline.add_argument('--temp', type=str, nargs=1, help='path of the temporary directory')
     parser_main_pipeline.add_argument('--override', action='store_true', help='override the output and temp folder if exists')
     parser_main_pipeline.add_argument('--keep-temp-files', action='store_true', help='keep the temporary files')
     parser_main_pipeline.add_argument('--cpus', type=int, nargs=1, help='number of cpus to use', default=1)
@@ -44,14 +44,18 @@ def main():
     parser_main_pipeline.set_defaults(func=binary_table_pipeline)
 
     parser_panacota = subparsers.add_parser('panacota', help='run panacota analysis')
-    parser_panacota.add_argument('-i', '--input', type=str, nargs=1, help='txt file that contains path of each strain per line or input folder path, can be found create_binary_tables output path as strains.txt', required=True)
-    parser_panacota.add_argument('--reference', type=str, nargs=1, help='reference genome path, either gbk or gbff', required=True)
-    parser_panacota.add_argument('-o', '--output', type=str, nargs=1, help='path of the output folder', required=True)
+    parser_panacota.add_argument('-i', '--input', type=str, help='txt file that contains path of each strain per line or input folder path, can be found create_binary_tables output path as strains.txt', required=True)
+    #parser_panacota.add_argument('--reference', type=str, nargs=1, help='reference genome path, either gbk or gbff', required=True)
+    parser_panacota.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
     parser_panacota.add_argument('--override', action='store_true', help='override the output folder if exists')
-    parser_panacota.add_argument('--cpus', type=int, nargs=1, help='number of cpus to use', default=1)
-    parser_panacota.add_argument('--name', type=str, nargs=1, help='name of the analysis', default="WIBI")
-    parser_panacota.add_argument('--min_seq_id', type=float, nargs=1, help='Minimum sequence identity to be considered in the same cluster (float between 0 and 1). Default is 0.8', default=0.8)
-    parser_panacota.add_argument('--clustering_mode', type=int, nargs=1, help='Choose the clustering mode: 0 for set cover, 1 for single-linkage, 2 for CD-Hit. Default is single-linkage (1)', default=1)
+    parser_panacota.add_argument('--cpus', type=int, help='number of cpus to use', default=1)
+    parser_panacota.add_argument('--name', type=str, help='name of the analysis', default="WIBI")
+    parser_panacota.add_argument('--min_seq_id', type=float, help='Minimum sequence identity to be considered in the same cluster (float between 0 and 1). Default is 0.8', default=0.8)
+    parser_panacota.add_argument('--clustering_mode', type=int, help='Choose the clustering mode: 0 for set cover, 1 for single-linkage, 2 for CD-Hit. Default is single-linkage (1)', default=1)
+    parser_panacota.add_argument('--temp', type=str, help='path of the temporary directory')
+    parser_panacota.add_argument('--keep-temp-files', action='store_true', help='keep the temporary files')
+    parser_panacota.add_argument('--random_names_dict', type=str, help='random names dictionary path')
+    parser_panacota.add_argument('--data_type', type=str, help='data type of the input, either "nucl" or "prot"', default="nucl")
     parser_panacota.set_defaults(func=panacota_pipeline)
     
     parser_gwas = subparsers.add_parser('gwas', help='run gwas analysis')
@@ -110,6 +114,10 @@ def binary_table_pipeline(args):
         if not args.override:
             print("Error: Output folder is not empty.")
             sys.exit(1)
+    
+    if args.temp is None:
+        args.temp = [f"{args.output[0]}/temp"]
+        os.mkdir(args.temp[0])
     
     # Check if temp folder empty
     if os.path.exists(args.temp[0]) and os.path.isdir(args.temp[0]) and os.listdir(args.temp[0]):
@@ -180,7 +188,7 @@ def binary_table_pipeline(args):
             resistant_strains = os.listdir(resistant_path)
             susceptible_strains = os.listdir(susceptible_path)
 
-            with open(f"{args.temp[0]}/strains.txt", "w") as outfile:
+            with open(f"{args.output[0]}/strains.txt", "w") as outfile:
                 for strain in resistant_strains:
                     # Make sure path is same in both Windows and Linux 
                     strain_path = os.path.join(resistant_path, strain)
@@ -191,10 +199,10 @@ def binary_table_pipeline(args):
                     strain_path = strain_path.replace("\\", "/")
                     outfile.write(f"{strain_path}\n")
 
-        input_file = f"{args.temp[0]}/strains.txt"
+        input_file = f"{args.output[0]}/strains.txt"
     
     if input_file is not None:
-        random_names = random_name_giver(input_file, f"{args.temp[0]}/random_names.txt")
+        random_names = random_name_giver(input_file, f"{args.output[0]}/random_names.txt")
 
     strain_list = []
 
@@ -217,7 +225,7 @@ def binary_table_pipeline(args):
 
     print("Creating panaroo input...")
     # Create the panaroo input
-    panaroo_input_creator(f"{args.temp[0]}/random_names.txt", prokka_output, f"{args.temp[0]}/panaroo")
+    panaroo_input_creator(f"{args.output[0]}/random_names.txt", prokka_output, f"{args.temp[0]}/panaroo")
 
     print("Running panaroo...")
     # Run panaroo
@@ -239,7 +247,37 @@ def binary_table_pipeline(args):
 
 def panacota_pipeline(args):
 
-    panacota_pipeline(args.input[0], args.reference[0], args.output[0], args.name[0], args.cpus[0])
+    if args.temp is None:
+        args.temp = os.path.join(args.output, "temp")
+        if not os.path.exists(args.temp):
+            os.mkdir(args.temp)
+
+    panacota_output = os.path.join(args.output,"panacota")
+    panacota_temp = os.path.join(args.temp,"panacota")
+
+    if not os.path.exists(panacota_temp):
+            os.mkdir(panacota_temp)
+    
+    if not os.path.exists(panacota_output):
+            os.mkdir(panacota_output)
+    
+    # Check if temp folder empty
+    if os.path.exists(panacota_temp) and os.path.isdir(panacota_temp) and os.listdir(panacota_temp):
+        if not args.override:
+            print("Error: Temp folder is not empty.")
+            sys.exit(1)
+        
+    # Check if output folder empty
+    if os.path.exists(panacota_output) and os.path.isdir(panacota_output) and os.listdir(panacota_output):
+        if not args.override:
+            print("Error: Output folder is not empty.")
+            sys.exit(1)
+    
+    panacota_pre_processor(args.input, panacota_temp, panacota_output, args.random_names_dict)
+
+    panacota_pipeline_runner(os.path.join(panacota_output, "panacota_input.lst"), panacota_temp, panacota_output, args.name, args.cpus, type=args.data_type, min_seq_id=args.min_seq_id, mode=args.clustering_mode)
+
+    panacota_post_processor(panacota_output, args.name, args.data_type)
 
 
 def gwas_pipeline(args):

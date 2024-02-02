@@ -389,26 +389,68 @@ def pyseer_runner(genotype_file_path, phenotype_file_path, similarity_matrix, ou
         os.system(script_command)
 
 
+def panacota_pre_processor(list_file, temp_folder, output_folder, random_names_dict):
+
+    random_names_will_be_used = False
+
+    if random_names_dict != None:
+        random_names_will_be_used = True
+        random_names = {}
+        with open(random_names_dict, "r") as infile:
+            lines = infile.readlines()
+            for line in lines:
+                splitted = line.split("\t")
+                random_names[splitted[0].strip()] = splitted[1].strip()
+
+    with open(list_file, "r") as infile:
+        lines = infile.readlines()
+        for line in lines:
+            strain_path = line.strip()
+            if random_names_will_be_used:
+                shutil.copy2(strain_path, f"{temp_folder}/{random_names[os.path.splitext(line.split('/')[-1].strip())[0]]}")
+            else:
+                shutil.copy2(strain_path, f"{temp_folder}/{line.split('/')[-1].strip()}")
+
+    with open(os.path.join(output_folder, "panacota_input.lst"), "w") as ofile:
+        for strain in os.listdir(temp_folder):
+            ofile.write(f"{strain}\n")
+
+def replace_values(line, replacements):
+    for key, value in replacements.items():
+        line = line.replace(key, value)
+    return line
+
+def panacota_post_processor(panacota_output_folder, run_name, type="nucl"):
+
+    new_name_to_origin_name = {}
+
+    with open(os.path.join(panacota_output_folder, "annotate_out", "LSTINFO-panacota_input.lst")) as infile:
+        lines = infile.readlines()
+        for line in lines:
+            splitted = line.split("\t")
+            new_name_to_origin_name[splitted[0].strip()] = splitted[1].strip()
+
+    with open(os.path.join(panacota_output_folder, "tree", f"{run_name}.{type}.grp.aln.iqtree_tree.treefile")) as infile:
+        line = infile.readline()
+        with open(os.path.join(panacota_output_folder, "phylogenetic_tree.newick"), "w") as ofile:
+            ofile.write(replace_values(line, new_name_to_origin_name))
+    
+            
 # TODO PanACoTA needs all the files in one folder, need to process them before running PanACoTA
-def panacota_pipeline(list_file, reference, output_directory, run_name, n_cores, type="nucl", mode=1, min_seq_id=0.8):
-
-    # PanACota annotate -l "$list_file" -d "$dbpath" -r "./annotate_out/" -n "$run_name" --threads 32
+def panacota_pipeline_runner(list_file, dbpath, output_directory, run_name, n_cores, type="nucl", mode=1, min_seq_id=0.8):
     
-    pc_annotate_command = f"PanACota annotate -l {list_file} -d {reference} -r {output_directory}/annotate_out -n {run_name} --threads {n_cores}"
+    pc_annotate_command = f"PanACoTA annotate -l {list_file} -d {dbpath} -r {output_directory}/annotate_out -n {run_name} --threads {n_cores}"
 
-    # PanACota pangenome -l "./annotate_out/LSTINFO-$list_file" -d "./annotate_out/Proteins/" -o "./pangenome_out/" -n "$run_name" --threads 32
+    pc_pangenome_command = f"PanACoTA pangenome -l {output_directory}/annotate_out/LSTINFO-{list_file.split('/')[-1]} -d {output_directory}/annotate_out/Proteins/ -o {output_directory}/pangenome_out/ -n {run_name} --threads {n_cores}"
 
-    pc_pangenome_command = f"PanACota pangenome -l {output_directory}/annotate_out/LSTINFO-{list_file} -d {output_directory}/annotate_out/Proteins/ -o {output_directory}/pangenome_out/ -n {run_name} --threads {n_cores}"
-
-    # PanACota corepers -p "./pangenome_out/PanGenome-$run_name.All.prt-clust-0.8-mode1.lst" -o "./corepers_out/"
-    # clust-0.8-mode1 can be change !!!
-    pc_corepers_command = f"PanACota corepers -p {output_directory}/pangenome_out/PanGenome-{run_name}.All.prt-clust-{min_seq_id}-mode{mode}.lst -o {output_directory}/corepers_out/"
-
-    # PanACoTA align -c "./corepers_out/PersGenome_PanGenome-$run_name.All.prt-clust-0.8-mode1.lst-all_1.lst" -l "./annotate_out/LSTINFO-$list_file" -n "$run_name" -d "./annotate_out/" -o "./align_out" --threads 32
-    # clust-0.8-mode1.lst-all_1.ls can be change !!!
-    pc_align_command =  f"PanACoTA align -c {output_directory}/corepers_out/PersGenome_PanGenome-{run_name}.All.prt-clust-{min_seq_id}-mode{mode}.lst-all_1.lst -l {output_directory}/annotate_out/LSTINFO-{list_file} -n {run_name} -d {output_directory}/annotate_out/ -o {output_directory}/align_out --threads {n_cores}"
+    if n_cores > 1:
+        pc_corepers_command = f"PanACoTA corepers -p {output_directory}/pangenome_out/PanGenome-{run_name}.All.prt-clust-{min_seq_id}-mode{mode}-th{n_cores}.lst -o {output_directory}/corepers_out/"
+        pc_align_command =  f"PanACoTA align -c {output_directory}/corepers_out/PersGenome_PanGenome-{run_name}.All.prt-clust-{min_seq_id}-mode{mode}-th{n_cores}.lst-all_1.lst -l {output_directory}/annotate_out/LSTINFO-{list_file.split('/')[-1]} -n {run_name} -d {output_directory}/annotate_out/ -o {output_directory}/align_out --threads {n_cores}"
     
-    # PanACoTA tree -a "./align_out/Phylo-$run_name/$run_name.nucl.grp.aln" -o "./tree/" --threads 32
+    else:
+        pc_corepers_command = f"PanACoTA corepers -p {output_directory}/pangenome_out/PanGenome-{run_name}.All.prt-clust-{min_seq_id}-mode{mode}.lst -o {output_directory}/corepers_out/"
+        pc_align_command =  f"PanACoTA align -c {output_directory}/corepers_out/PersGenome_PanGenome-{run_name}.All.prt-clust-{min_seq_id}-mode{mode}.lst-all_1.lst -l {output_directory}/annotate_out/LSTINFO-{list_file.split('/')[-1]} -n {run_name} -d {output_directory}/annotate_out/ -o {output_directory}/align_out --threads {n_cores}"
+
 
     pc_tree_command = f"PanACoTA tree -a {output_directory}/align_out/Phylo-{run_name}/{run_name}.{type}.grp.aln -o {output_directory}/tree/ --threads {n_cores}"
 
