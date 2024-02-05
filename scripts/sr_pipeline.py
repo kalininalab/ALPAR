@@ -59,10 +59,10 @@ def main():
     parser_panacota.set_defaults(func=panacota_pipeline)
     
     parser_gwas = subparsers.add_parser('gwas', help='run gwas analysis')
-    parser_gwas.add_argument('-i', '--input', type=str, nargs=1, help='binary mutation table path', required=True)
-    parser_gwas.add_argument('-p', '--phenotype', type=str, nargs=1, help='phenotype table path', required=True)
-    parser_gwas.add_argument('-t', '--tree', type=str, nargs=1, help='phylogenetic tree path', required=True)
-    parser_gwas.add_argument('-o', '--output', type=str, nargs=1, help='path of the output folder', required=True)
+    parser_gwas.add_argument('-i', '--input', type=str, help='binary mutation table path', required=True)
+    parser_gwas.add_argument('-p', '--phenotype', type=str, help='phenotype table path', required=True)
+    parser_gwas.add_argument('-t', '--tree', type=str, help='phylogenetic tree path', required=True)
+    parser_gwas.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
     parser_gwas.add_argument('--override', action='store_true', help='override the output folder if exists')
     parser_gwas.set_defaults(func=gwas_pipeline)
 
@@ -296,26 +296,33 @@ def gwas_pipeline(args):
 
     # Sanity checks
 
+    tool_list = ["pyseer"]
+
+    for tool in tool_list:
+        if not is_tool_installed(tool):
+            print(f"Error: {tool} is not installed.")
+            sys.exit(1)
+
     # Check the output_folder
-    if not os.path.exists(args.output[0]):
-        os.mkdir(args.output[0])
-        os.mkdir(f"{args.output[0]}/gwas_output")
-        os.mkdir(f"{args.output[0]}/pyseer_phenotypes")
+    if not os.path.exists(args.output):
+        os.mkdir(args.output)
+        os.mkdir(os.path.join(args.output, "gwas_output"))
+        os.mkdir(os.path.join(args.output, "pyseer_phenotypes"))
 
     # Check if output folder empty
-    if os.path.exists(args.output[0]) and os.path.isdir(args.output[0]) and os.listdir(args.output[0]):
+    if os.path.exists(args.output) and os.path.isdir(args.output) and os.listdir(args.output):
         if not args.override:
             print("Error: Output folder is not empty.")
             sys.exit(1)
 
     # pyseer_genotype_matrix_creator(binary_mutation_table, output_file):
-    pyseer_genotype_matrix_creator(args.input[0], f"{args.output[0]}/genotype_matrix.tsv")
+    pyseer_genotype_matrix_creator(args.input, os.path.join(args.output, args.output, "genotype_matrix.tsv"))
     # pyseer_phenotype_file_creator(phenotype_file, output_file_directory):
-    pyseer_phenotype_file_creator(args.phenotype[0], f"{args.output[0]}/pyseer_phenotypes/")
+    pyseer_phenotype_file_creator(args.phenotype, os.path.join(args.output, "pyseer_phenotypes"))
     # pyseer_similarity_matrix_creator(phylogenetic_tree, output_file):
-    pyseer_similarity_matrix_creator(args.tree[0], f"{args.output[0]}/similarity_matrix.tsv")
+    pyseer_similarity_matrix_creator(args.tree, os.path.join(args.output, "similarity_matrix.tsv"))
     # pyseer_runner(genotype_file_path, phenotype_file_path, similarity_matrix, output_file_directory, cpus):
-    pyseer_runner(f"{args.output[0]}/genotype_matrix.tsv", f"{args.output[0]}/pyseer_phenotypes/", f"{args.output[0]}/similarity_matrix.tsv", f"{args.output[0]}/gwas_output")
+    pyseer_runner(os.path.join(args.output, "genotype_matrix.tsv"), os.path.join(args.output, "pyseer_phenotypes"), os.path.join(args.output, "similarity_matrix.tsv"), os.path.join(args.output, "gwas_output"))
 
 
 
