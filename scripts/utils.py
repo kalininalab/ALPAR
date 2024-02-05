@@ -25,6 +25,12 @@ import copy
 PATH_OF_SCRIPT = pathlib.Path(__file__).parent.resolve()
 
 
+def is_tool_installed(tool_name):
+    # 'which' for Unix-based systems, 'where' for Windows
+    command = f"which {tool_name}" if os.name != 'nt' else f"where {tool_name}"
+    return os.system(command) == 0
+
+
 def check_contigs(input):
     """
     Check if the input file is a fasta file and if it has more than 1 contig
