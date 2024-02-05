@@ -259,6 +259,13 @@ def binary_table_pipeline(args):
 
 def panacota_pipeline(args):
 
+    tool_list = ["PanACoTA"]
+
+    for tool in tool_list:
+        if not is_tool_installed(tool):
+            print(f"Error: {tool} is not installed.")
+            sys.exit(1)
+
     if args.temp is None:
         args.temp = os.path.join(args.output, "temp")
         if not os.path.exists(args.temp):
