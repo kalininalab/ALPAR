@@ -31,7 +31,6 @@ Pipeline for generating binary matrices suitable for machine learning from genom
         │       │   fasta2.fna
         │       │   fasta1.fna
         │       │   ...
-        │   
         ```
     - For phenotype information:
         - `--create_phenotype_from_folder` and `--phenotype_folder {Genomes_folder_path}` should used
@@ -58,12 +57,18 @@ Pipeline for generating binary matrices suitable for machine learning from genom
         │   └───Susceptible
         │       │   fasta2.fna
         │       │   fasta1.fna
-        │       │   ...
-        │   
+        │       │   ...  
         ```
-- Required output: Empty folder path
+- Required output: Output folder path
 - Required reference: Path of reference file, accepted file formats: '.gbk', '.gbff'
 
 Basic usage:
-`python scripts/sr_pipeline.py create_binary_tables -i example/example_files/ -o sr_test_out/ --reference example/reference.gbff`
+`python scripts/sr_pipeline.py create_binary_tables -i example/example_files/ -o example_output/ --reference example/reference.gbff`
+
+## Panacota
+- Required input : txt file that contains path of each strain per line or input folder path, can be found in create_binary_tables output path as `strains.txt`
+- Required output: Output folder path
+
+Basic usage:
+`python scripts/sr_pipeline.py panacota -i example_output/strains.txt -o example_output/`
 
