@@ -332,6 +332,5 @@ def gwas_pipeline(args):
     pyseer_runner(os.path.join(args.output, "genotype_matrix.tsv"), os.path.join(args.output, "pyseer_phenotypes"), os.path.join(args.output, "similarity_matrix.tsv"), os.path.join(args.output, "gwas_output"))
 
 
-
 if __name__ == "__main__":
     main()

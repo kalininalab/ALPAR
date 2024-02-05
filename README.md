@@ -1,17 +1,69 @@
 # SR-AMR
-Pipeline of Single Reference Antimicrobial Resistance Project
 
-Single Reference Pipeline
-* Rename files with random names (Otherwise pandas creates a problem) -> Save them in text file
-* Run snippy on genomic fasta files -> Collect vcf files
-* Run prokka on genomic fasta files -> Collect gff files
-* Run panaroo on gff files that are created with prokka -> Collect gene presence absence file
-* Create binary table from mutations
-* Add gene presence absence information to binary table
-* From phenotype information -> Create phenotype table
-* Outputs : Genotype -> tsv file, Phenotype -> tsv file
-- GWAS (Optional) 
-* Preapare GWAS input files from Genotype & Phenotype tables
-* Run GWAS with pyseer
-* Sort GWAS results with column lrt-pvalue
-* (Optional) Apply bonferoni correction (# of features / 0.05)
+Pipeline for generating binary matrices suitable for machine learning from genomic fasta data.
+
+## Create Binary Tables
+- Required input:
+    - For genotype information:
+        - File that contains path of genomic fasta files per line
+        or
+        - Folder that have structure: input_folder -> antibiotic -> [Resistant, Susceptible]
+        ```
+        input_folder
+        └───antibiotic1
+        │   └───Resistant
+        │   │   │   fasta1.fna
+        │   │   │   fasta2.fna
+        │   │   │   ...
+        │   │
+        │   └───Susceptible
+        │       │   fasta3.fna
+        │       │   fasta4.fna
+        │       │   ...
+        │   
+        └───antibiotic2
+        │   └───Resistant
+        │   │   │   fasta5.fna
+        │   │   │   fasta6.fna
+        │   │   │   ...
+        │   │
+        │   └───Susceptible
+        │       │   fasta2.fna
+        │       │   fasta1.fna
+        │       │   ...
+        │   
+        ```
+    - For phenotype information:
+        - `--create_phenotype_from_folder` and `--phenotype_folder {Genomes_folder_path}` should used
+        - Genomes_folder_path should have structure: input_folder -> antibiotic -> [Resistant, Susceptible] -> genomic fasta files
+        ```
+        input_folder
+        └───antibiotic1
+        │   └───Resistant
+        │   │   │   fasta1.fna
+        │   │   │   fasta2.fna
+        │   │   │   ...
+        │   │
+        │   └───Susceptible
+        │       │   fasta3.fna
+        │       │   fasta4.fna
+        │       │   ...
+        │   
+        └───antibiotic2
+        │   └───Resistant
+        │   │   │   fasta5.fna
+        │   │   │   fasta6.fna
+        │   │   │   ...
+        │   │
+        │   └───Susceptible
+        │       │   fasta2.fna
+        │       │   fasta1.fna
+        │       │   ...
+        │   
+        ```
+- Required output: Empty folder path
+- Required reference: Path of reference file, accepted file formats: '.gbk', '.gbff'
+
+Basic usage:
+`python scripts/sr_pipeline.py create_binary_tables -i example/example_files/ -o sr_test_out/ --reference example/reference.gbff`
+
