@@ -76,7 +76,7 @@ def snippy_runner(input, strain_random_name, output, reference, log_file, cpus =
         run_command = f"{run_command} --ctgs"
     
 
-    run_command = f"{run_command} {input} > {log_file} 2>&1"
+    run_command = f"{run_command} {input} >> {log_file} 2>&1"
 
     # Run snippy
     os.system(run_command)
@@ -106,7 +106,7 @@ def prokka_runner(input, strain_random_name, output, reference, log_file, cpus =
     # Check extension for reference file
     #reference_path = f"{PATH_OF_SCRIPT}/reference_files/{bacterium}.fasta"
 
-    run_command = f"prokka --cpus {cpus} --outdir {output}/{strain_random_name} --proteins {reference} --force {input} > {log_file} 2>&1"
+    run_command = f"prokka --cpus {cpus} --outdir {output}/{strain_random_name} --proteins {reference} --force {input} >> {log_file} 2>&1"
 
 
     # Run prokka
@@ -152,7 +152,7 @@ def panaroo_input_creator(random_names_txt, prokka_output_folder, temp_folder):
 
 def panaroo_runner(panaroo_input_folder, panaroo_output_folder, log_file):
 
-    run_command = f"panaroo -i {panaroo_input_folder}/*.gff -o {panaroo_output_folder}  --clean-mode strict > {log_file} 2>&1"
+    run_command = f"panaroo -i {panaroo_input_folder}/*.gff -o {panaroo_output_folder}  --clean-mode strict >> {log_file} 2>&1"
     
     os.system(run_command)
 
@@ -443,26 +443,32 @@ def panacota_post_processor(panacota_output_folder, run_name, type="nucl"):
     
             
 # TODO PanACoTA needs all the files in one folder, need to process them before running PanACoTA
-def panacota_pipeline_runner(list_file, dbpath, output_directory, run_name, n_cores, type="nucl", mode=1, min_seq_id=0.8):
+def panacota_pipeline_runner(list_file, dbpath, output_directory, run_name, n_cores, log_file, type="nucl", mode=1, min_seq_id=0.8):
     
-    pc_annotate_command = f"PanACoTA annotate -l {list_file} -d {dbpath} -r {output_directory}/annotate_out -n {run_name} --threads {n_cores}"
-
-    pc_pangenome_command = f"PanACoTA pangenome -l {output_directory}/annotate_out/LSTINFO-{list_file.split('/')[-1]} -d {output_directory}/annotate_out/Proteins/ -o {output_directory}/pangenome_out/ -n {run_name} --threads {n_cores}"
+    pc_annotate_command = f"PanACoTA annotate -l {list_file} -d {dbpath} -r {output_directory}/annotate_out -n {run_name} --threads {n_cores} >> {log_file} 2>&1"
+    
+    pc_pangenome_command = f"PanACoTA pangenome -l {output_directory}/annotate_out/LSTINFO-{list_file.split('/')[-1]} -d {output_directory}/annotate_out/Proteins/ -o {output_directory}/pangenome_out/ -n {run_name} --threads {n_cores}  >> {log_file} 2>&1"
 
     if n_cores > 1:
-        pc_corepers_command = f"PanACoTA corepers -p {output_directory}/pangenome_out/PanGenome-{run_name}.All.prt-clust-{min_seq_id}-mode{mode}-th{n_cores}.lst -o {output_directory}/corepers_out/"
-        pc_align_command =  f"PanACoTA align -c {output_directory}/corepers_out/PersGenome_PanGenome-{run_name}.All.prt-clust-{min_seq_id}-mode{mode}-th{n_cores}.lst-all_1.lst -l {output_directory}/annotate_out/LSTINFO-{list_file.split('/')[-1]} -n {run_name} -d {output_directory}/annotate_out/ -o {output_directory}/align_out --threads {n_cores}"
+        pc_corepers_command = f"PanACoTA corepers -p {output_directory}/pangenome_out/PanGenome-{run_name}.All.prt-clust-{min_seq_id}-mode{mode}-th{n_cores}.lst -o {output_directory}/corepers_out/  >> {log_file} 2>&1"
+        pc_align_command =  f"PanACoTA align -c {output_directory}/corepers_out/PersGenome_PanGenome-{run_name}.All.prt-clust-{min_seq_id}-mode{mode}-th{n_cores}.lst-all_1.lst -l {output_directory}/annotate_out/LSTINFO-{list_file.split('/')[-1]} -n {run_name} -d {output_directory}/annotate_out/ -o {output_directory}/align_out --threads {n_cores}  >> {log_file} 2>&1"
     
     else:
-        pc_corepers_command = f"PanACoTA corepers -p {output_directory}/pangenome_out/PanGenome-{run_name}.All.prt-clust-{min_seq_id}-mode{mode}.lst -o {output_directory}/corepers_out/"
-        pc_align_command =  f"PanACoTA align -c {output_directory}/corepers_out/PersGenome_PanGenome-{run_name}.All.prt-clust-{min_seq_id}-mode{mode}.lst-all_1.lst -l {output_directory}/annotate_out/LSTINFO-{list_file.split('/')[-1]} -n {run_name} -d {output_directory}/annotate_out/ -o {output_directory}/align_out --threads {n_cores}"
+        pc_corepers_command = f"PanACoTA corepers -p {output_directory}/pangenome_out/PanGenome-{run_name}.All.prt-clust-{min_seq_id}-mode{mode}.lst -o {output_directory}/corepers_out/  >> {log_file} 2>&1"
+        pc_align_command =  f"PanACoTA align -c {output_directory}/corepers_out/PersGenome_PanGenome-{run_name}.All.prt-clust-{min_seq_id}-mode{mode}.lst-all_1.lst -l {output_directory}/annotate_out/LSTINFO-{list_file.split('/')[-1]} -n {run_name} -d {output_directory}/annotate_out/ -o {output_directory}/align_out --threads {n_cores}  >> {log_file} 2>&1"
 
-    pc_tree_command = f"PanACoTA tree -a {output_directory}/align_out/Phylo-{run_name}/{run_name}.{type}.grp.aln -o {output_directory}/tree/ --threads {n_cores}"
+    pc_tree_command = f"PanACoTA tree -a {output_directory}/align_out/Phylo-{run_name}/{run_name}.{type}.grp.aln -o {output_directory}/tree/ --threads {n_cores}  >> {log_file} 2>&1"
 
+
+    print(f"Running PanACoTA annotate...")
     os.system(pc_annotate_command)
+    print(f"Running PanACoTA pangenome...")
     os.system(pc_pangenome_command)
+    print(f"Running PanACoTA corepers...")
     os.system(pc_corepers_command)
-    # I don't know why but it needs to be run twice, otherwise it gives an error PanACoTA side issue
+    print(f"Running PanACoTA align...")
+    # I don't know why but it needs to be run twice, otherwise it gives an error on some occasions, probably PanACoTA side issue
     for _ in range(2):
         os.system(pc_align_command)
+    print(f"Running PanACoTA tree...")
     os.system(pc_tree_command)

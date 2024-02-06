@@ -290,10 +290,18 @@ def panacota_pipeline(args):
         if not args.override:
             print("Error: Output folder is not empty.")
             sys.exit(1)
+
+    panacota_log_file = os.path.join(panacota_output, "panacota_log.txt")
+
+    print(f"Running PanACoTA pipeline pre-precessor...")
     
     panacota_pre_processor(args.input, panacota_temp, panacota_output, args.random_names_dict)
 
-    panacota_pipeline_runner(os.path.join(panacota_output, "panacota_input.lst"), panacota_temp, panacota_output, args.name, args.cpus, type=args.data_type, min_seq_id=args.min_seq_id, mode=args.clustering_mode)
+    print(f"Running PanACoTA pipeline with {args.cpus} cores...")
+
+    panacota_pipeline_runner(os.path.join(panacota_output, "panacota_input.lst"), panacota_temp, panacota_output, args.name, args.cpus, panacota_log_file, type=args.data_type, min_seq_id=args.min_seq_id, mode=args.clustering_mode)
+
+    print(f"Running PanACoTA pipeline post-precessor...")
 
     panacota_post_processor(panacota_output, args.name, args.data_type)
 

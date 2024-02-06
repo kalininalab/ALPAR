@@ -4,16 +4,25 @@ Pipeline for generating binary matrices suitable for machine learning from genom
 
 ## Installation
 
-```console
+Download Single-Reference AMR:
+```bash
 git clone https://github.com/kalininalab/SR-AMR.git
-
+```
+Enter downloaded folder:
+```bash
 cd SR-AMR
-
+```
+Create conda environment from provided environment file
+```bash
 conda env create -f SR-AMR_env.yml
-
-conda install snippy vt=0.57721
-
+```
+Activate conda environment
+```bash
 conda activate SR-AMR
+```
+Re-install snippy with given version
+```bash
+conda install snippy vt=0.57721
 ```
 
 ## Create Binary Tables
@@ -77,7 +86,7 @@ conda activate SR-AMR
 - --reference : Path of reference file, accepted file formats: '.gbk', '.gbff'
 
 Basic usage:
-```console
+```bash
 python scripts/sr_pipeline.py create_binary_tables -i example/example_files/ -o example_output/ --reference example/reference.gbff
 ```
 
@@ -86,7 +95,7 @@ python scripts/sr_pipeline.py create_binary_tables -i example/example_files/ -o 
 - -o : Output folder path
 
 Basic usage:
-```console
+```bash
 python scripts/sr_pipeline.py panacota -i example_output/strains.txt -o example_output/
 ```
 
@@ -97,6 +106,6 @@ python scripts/sr_pipeline.py panacota -i example_output/strains.txt -o example_
 - -o : path of the output folder
 
 Basic usage:
-```console
+```bash
 python scripts/sr_pipeline.py gwas -i example/example_output/binary_mutation_table_with_gene_presence_absence.tsv -p example/example_output/phenotype_table.tsv -t example/example_output/panacota/tree/WIBI.nucl.grp.aln.iqtree_tree.treefile -o example_output/
 ```
