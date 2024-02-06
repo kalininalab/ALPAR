@@ -301,7 +301,7 @@ dependencies:
   - statsmodels=0.14.0=py39h0f8d45d_1
   - suitesparse=5.10.1=h9e50725_1
   - t-coffee=12.00.7fb08c2=h26a2512_0
-  - tabixpp=1.1.2=hd68fcf3_1
+  - tabixpp=1.1.0=hce60e53_13
   - taxadb=0.12.1=pyh5e36f6f_0
   - tbb=2021.5.0=h924138e_1
   - tbl2asn=25.7=h9ee0642_1

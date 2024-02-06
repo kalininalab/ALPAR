@@ -12,6 +12,8 @@ cd SR-AMR
 conda env create -f SR-AMR_env.yml
 
 conda install snippy vt=0.57721
+
+conda activate SR-AMR
 ```
 
 ## Create Binary Tables
@@ -75,20 +77,26 @@ conda install snippy vt=0.57721
 - --reference : Path of reference file, accepted file formats: '.gbk', '.gbff'
 
 Basic usage:
-`python scripts/sr_pipeline.py create_binary_tables -i example/example_files/ -o example_output/ --reference example/reference.gbff`
+```console
+python scripts/sr_pipeline.py create_binary_tables -i example/example_files/ -o example_output/ --reference example/reference.gbff
+```
 
 ## Panacota
 - -i : txt file that contains path of each strain per line or input folder path, can be found in create_binary_tables output path as `strains.txt`
 - -o : Output folder path
 
 Basic usage:
-`python scripts/sr_pipeline.py panacota -i example_output/strains.txt -o example_output/`
+```console
+python scripts/sr_pipeline.py panacota -i example_output/strains.txt -o example_output/
+```
 
 ## GWAS
 - -i : binary mutation table path that is created via create_binary_tables command, can be found in create_binary_tables output path as `binary_mutation_table_with_gene_presence_absence.tsv` or `binary_mutation_table.tsv`
 - -p : phenotype table path,  can be found in create_binary_tables output path as `phenotype_table.tsv` if `--create_phenotype_from_folder` is used
-- -t : phylogenetic tree path, can be found in panacota output path as `tree/ .treefile`
+- -t : phylogenetic tree path, can be found in panacota output path as `tree/*.treefile`
 - -o : path of the output folder
 
 Basic usage:
-`python scripts/sr_pipeline.py gwas -i example/example_output/binary_mutation_table_with_gene_presence_absence.tsv -p example/example_output/phenotype_table.tsv -t example/example_output/panacota/tree/ .treefile -o example_output/`
+```console
+python scripts/sr_pipeline.py gwas -i example/example_output/binary_mutation_table_with_gene_presence_absence.tsv -p example/example_output/phenotype_table.tsv -t example/example_output/panacota/tree/WIBI.nucl.grp.aln.iqtree_tree.treefile -o example_output/
+```
