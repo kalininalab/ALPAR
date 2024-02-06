@@ -1,8 +1,0 @@
-[2024-02-06 01:01:55] :: INFO :: PanACoTA version 1.4.0
-[2024-02-06 01:01:55] :: INFO :: Command used
- 	 > PanACoTA corepers -p example_output/panacota/pangenome_out/PanGenome-WIBI.All.prt-clust-0.8-mode1-th12.lst -o example_output/panacota/corepers_out/
-[2024-02-06 01:01:55] :: INFO :: Will generate a CoreGenome.
-[2024-02-06 01:01:55] :: INFO :: Retrieving info from binary file
-[2024-02-06 01:01:55] :: INFO :: Generating Persistent genome of a dataset containing 5 genomes
-[2024-02-06 01:01:55] :: INFO :: The core genome contains 5024 families, each one having exactly 5 members, from the 5 different genomes.
-[2024-02-06 01:01:55] :: INFO :: Persistent genome step done.

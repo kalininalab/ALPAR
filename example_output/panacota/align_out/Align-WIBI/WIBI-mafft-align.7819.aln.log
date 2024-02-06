@@ -1,192 +1,0 @@
-nthread = 0
-nthreadpair = 0
-nthreadtb = 0
-ppenalty_ex = 0
-stacksize: 8192 kb
-rescale = 1
-Gap Penalty = -1.53, +0.00, +0.00
-
-
-
-Making a distance matrix ..
-    1 / 5
-done.
-
-Constructing a UPGMA tree (efffree=0) ... 
-    0 / 5
-done.
-
-Progressive alignment 1/2... 
-STEP     1 / 4  fSTEP     2 / 4  fSTEP     3 / 4  fSTEP     4 / 4  f
-done.
-
-Making a distance matrix from msa.. 
-    0 / 5
-done.
-
-Constructing a UPGMA tree (efffree=1) ... 
-    0 / 5
-done.
-
-Progressive alignment 2/2... 
-STEP     1 / 4  fSTEP     2 / 4  fSTEP     3 / 4  fSTEP     4 / 4  f
-done.
-
-disttbfast (aa) Version 7.520
-alg=A, model=BLOSUM62, 1.53, -0.00, -0.00, noshift, amax=0.0
-0 thread(s)
-
-rescale = 1
-   1/   5   2/   5   3/   5   4/   5dndpre (aa) Version 7.520
-alg=X, model=BLOSUM62, 1.53, +0.12, -0.00, noshift, amax=0.0
-0 thread(s)
-
-minimumweight = 0.000010
-autosubalignment = 0.000000
-nthread = 0
-randomseed = 0
-blosum 62 / kimura 200
-poffset = 0
-niter = 2
-sueff_global = 0.100000
-nadd = 2
-rescale = 1
-
-    0 / 5
-Segment   1/ 30    1-  87
-STEP 001-001-0  identical.   STEP 001-001-1  identical.   STEP 001-002-0  identical.   STEP 001-002-1  identical.   STEP 001-003-0  identical.   STEP 001-003-1  identical.   STEP 001-004-1  identical.   STEP 002-004-1  identical.   STEP 002-003-0  identical.   STEP 002-003-1  identical.   
-Converged.
-
-Segment   2/ 30   87- 238
-STEP 001-001-0  identical.   STEP 001-001-1  identical.   STEP 001-002-0  identical.   STEP 001-002-1  identical.   STEP 001-003-0  identical.   STEP 001-003-1  identical.   STEP 001-004-1  identical.   STEP 002-004-1  identical.   STEP 002-003-0  identical.   STEP 002-003-1  identical.   
-Converged.
-
-Segment   3/ 30  238- 389
-STEP 001-001-0  identical.   STEP 001-001-1  identical.   STEP 001-002-0  identical.   STEP 001-002-1  identical.   STEP 001-003-0  identical.   STEP 001-003-1  identical.   STEP 001-004-1  identical.   STEP 002-004-1  identical.   STEP 002-003-0  identical.   STEP 002-003-1  identical.   
-Converged.
-
-Segment   4/ 30  389- 540
-STEP 001-001-0  identical.   STEP 001-001-1  identical.   STEP 001-002-0  identical.   STEP 001-002-1  identical.   STEP 001-003-0  identical.   STEP 001-003-1  identical.   STEP 001-004-1  identical.   STEP 002-004-1  identical.   STEP 002-003-0  identical.   STEP 002-003-1  identical.   
-Converged.
-
-Segment   5/ 30  540- 691
-STEP 001-001-0  identical.   STEP 001-001-1  identical.   STEP 001-002-0  identical.   STEP 001-002-1  identical.   STEP 001-003-0  identical.   STEP 001-003-1  identical.   STEP 001-004-1  identical.   STEP 002-004-1  identical.   STEP 002-003-0  identical.   STEP 002-003-1  identical.   
-Converged.
-
-Segment   6/ 30  691- 842
-STEP 001-001-0  identical.   STEP 001-001-1  identical.   STEP 001-002-0  identical.   STEP 001-002-1  identical.   STEP 001-003-0  identical.   STEP 001-003-1  identical.   STEP 001-004-1  identical.   STEP 002-004-1  identical.   STEP 002-003-0  identical.   STEP 002-003-1  identical.   
-Converged.
-
-Segment   7/ 30  842- 993
-STEP 001-001-0  identical.   STEP 001-001-1  identical.   STEP 001-002-0  identical.   STEP 001-002-1  identical.   STEP 001-003-0  identical.   STEP 001-003-1  identical.   STEP 001-004-1  identical.   STEP 002-004-1  identical.   STEP 002-003-0  identical.   STEP 002-003-1  identical.   
-Converged.
-
-Segment   8/ 30  993-1144
-STEP 001-001-0  identical.   STEP 001-001-1  identical.   STEP 001-002-0  identical.   STEP 001-002-1  identical.   STEP 001-003-0  identical.   STEP 001-003-1  identical.   STEP 001-004-1  identical.   STEP 002-004-1  identical.   STEP 002-003-0  identical.   STEP 002-003-1  identical.   
-Converged.
-
-Segment   9/ 30 1144-1295
-STEP 001-001-0  identical.   STEP 001-001-1  identical.   STEP 001-002-0  identical.   STEP 001-002-1  identical.   STEP 001-003-0  identical.   STEP 001-003-1  identical.   STEP 001-004-1  identical.   STEP 002-004-1  identical.   STEP 002-003-0  identical.   STEP 002-003-1  identical.   
-Converged.
-
-Segment  10/ 30 1295-1446
-STEP 001-001-0  identical.   STEP 001-001-1  identical.   STEP 001-002-0  identical.   STEP 001-002-1  identical.   STEP 001-003-0  identical.   STEP 001-003-1  identical.   STEP 001-004-1  identical.   STEP 002-004-1  identical.   STEP 002-003-0  identical.   STEP 002-003-1  identical.   
-Converged.
-
-Segment  11/ 30 1446-1597
-STEP 001-001-0  identical.   STEP 001-001-1  identical.   STEP 001-002-0  identical.   STEP 001-002-1  identical.   STEP 001-003-0  identical.   STEP 001-003-1  identical.   STEP 001-004-1  identical.   STEP 002-004-1  identical.   STEP 002-003-0  identical.   STEP 002-003-1  identical.   
-Converged.
-
-Segment  12/ 30 1597-1748
-STEP 001-001-0  identical.   STEP 001-001-1  identical.   STEP 001-002-0  identical.   STEP 001-002-1  identical.   STEP 001-003-0  identical.   STEP 001-003-1  identical.   STEP 001-004-1  identical.   STEP 002-004-1  identical.   STEP 002-003-0  identical.   STEP 002-003-1  identical.   
-Converged.
-
-Segment  13/ 30 1748-1899
-STEP 001-001-0  identical.   STEP 001-001-1  identical.   STEP 001-002-0  identical.   STEP 001-002-1  identical.   STEP 001-003-0  identical.   STEP 001-003-1  identical.   STEP 001-004-1  identical.   STEP 002-004-1  identical.   STEP 002-003-0  identical.   STEP 002-003-1  identical.   
-Converged.
-
-Segment  14/ 30 1899-2050
-STEP 001-001-0  identical.   STEP 001-001-1  identical.   STEP 001-002-0  identical.   STEP 001-002-1  identical.   STEP 001-003-0  identical.   STEP 001-003-1  identical.   STEP 001-004-1  identical.   STEP 002-004-1  identical.   STEP 002-003-0  identical.   STEP 002-003-1  identical.   
-Converged.
-
-Segment  15/ 30 2050-2201
-STEP 001-001-0  identical.   STEP 001-001-1  identical.   STEP 001-002-0  identical.   STEP 001-002-1  identical.   STEP 001-003-0  identical.   STEP 001-003-1  identical.   STEP 001-004-1  identical.   STEP 002-004-1  identical.   STEP 002-003-0  identical.   STEP 002-003-1  identical.   
-Converged.
-
-Segment  16/ 30 2201-2352
-STEP 001-001-0  identical.   STEP 001-001-1  identical.   STEP 001-002-0  identical.   STEP 001-002-1  identical.   STEP 001-003-0  identical.   STEP 001-003-1  identical.   STEP 001-004-1  identical.   STEP 002-004-1  identical.   STEP 002-003-0  identical.   STEP 002-003-1  identical.   
-Converged.
-
-Segment  17/ 30 2352-2503
-STEP 001-001-0  identical.   STEP 001-001-1  identical.   STEP 001-002-0  identical.   STEP 001-002-1  identical.   STEP 001-003-0  identical.   STEP 001-003-1  identical.   STEP 001-004-1  identical.   STEP 002-004-1  identical.   STEP 002-003-0  identical.   STEP 002-003-1  identical.   
-Converged.
-
-Segment  18/ 30 2503-2654
-STEP 001-001-0  identical.   STEP 001-001-1  identical.   STEP 001-002-0  identical.   STEP 001-002-1  identical.   STEP 001-003-0  identical.   STEP 001-003-1  identical.   STEP 001-004-1  identical.   STEP 002-004-1  identical.   STEP 002-003-0  identical.   STEP 002-003-1  identical.   
-Converged.
-
-Segment  19/ 30 2654-2805
-STEP 001-001-0  identical.   STEP 001-001-1  identical.   STEP 001-002-0  identical.   STEP 001-002-1  identical.   STEP 001-003-0  identical.   STEP 001-003-1  identical.   STEP 001-004-1  identical.   STEP 002-004-1  identical.   STEP 002-003-0  identical.   STEP 002-003-1  identical.   
-Converged.
-
-Segment  20/ 30 2805-2956
-STEP 001-001-0  identical.   STEP 001-001-1  identical.   STEP 001-002-0  identical.   STEP 001-002-1  identical.   STEP 001-003-0  identical.   STEP 001-003-1  identical.   STEP 001-004-1  identical.   STEP 002-004-1  identical.   STEP 002-003-0  identical.   STEP 002-003-1  identical.   
-Converged.
-
-Segment  21/ 30 2956-3107
-STEP 001-001-0  identical.   STEP 001-001-1  identical.   STEP 001-002-0  identical.   STEP 001-002-1  identical.   STEP 001-003-0  identical.   STEP 001-003-1  identical.   STEP 001-004-1  identical.   STEP 002-004-1  identical.   STEP 002-003-0  identical.   STEP 002-003-1  identical.   
-Converged.
-
-Segment  22/ 30 3107-3258
-STEP 001-001-0  identical.   STEP 001-001-1  identical.   STEP 001-002-0  identical.   STEP 001-002-1  identical.   STEP 001-003-0  identical.   STEP 001-003-1  identical.   STEP 001-004-1  identical.   STEP 002-004-1  identical.   STEP 002-003-0  identical.   STEP 002-003-1  identical.   
-Converged.
-
-Segment  23/ 30 3258-3409
-STEP 001-001-0  identical.   STEP 001-001-1  identical.   STEP 001-002-0  identical.   STEP 001-002-1  identical.   STEP 001-003-0  identical.   STEP 001-003-1  identical.   STEP 001-004-1  identical.   STEP 002-004-1  identical.   STEP 002-003-0  identical.   STEP 002-003-1  identical.   
-Converged.
-
-Segment  24/ 30 3409-3560
-STEP 001-001-0  identical.   STEP 001-001-1  identical.   STEP 001-002-0  identical.   STEP 001-002-1  identical.   STEP 001-003-0  identical.   STEP 001-003-1  identical.   STEP 001-004-1  identical.   STEP 002-004-1  identical.   STEP 002-003-0  identical.   STEP 002-003-1  identical.   
-Converged.
-
-Segment  25/ 30 3560-3711
-STEP 001-001-0  identical.   STEP 001-001-1  identical.   STEP 001-002-0  identical.   STEP 001-002-1  identical.   STEP 001-003-0  identical.   STEP 001-003-1  identical.   STEP 001-004-1  identical.   STEP 002-004-1  identical.   STEP 002-003-0  identical.   STEP 002-003-1  identical.   
-Converged.
-
-Segment  26/ 30 3711-3862
-STEP 001-001-0  identical.   STEP 001-001-1  identical.   STEP 001-002-0  identical.   STEP 001-002-1  identical.   STEP 001-003-0  identical.   STEP 001-003-1  identical.   STEP 001-004-1  identical.   STEP 002-004-1  identical.   STEP 002-003-0  identical.   STEP 002-003-1  identical.   
-Converged.
-
-Segment  27/ 30 3862-4013
-STEP 001-001-0  identical.   STEP 001-001-1  identical.   STEP 001-002-0  identical.   STEP 001-002-1  identical.   STEP 001-003-0  identical.   STEP 001-003-1  identical.   STEP 001-004-1  identical.   STEP 002-004-1  identical.   STEP 002-003-0  identical.   STEP 002-003-1  identical.   
-Converged.
-
-Segment  28/ 30 4013-4164
-STEP 001-001-0  identical.   STEP 001-001-1  identical.   STEP 001-002-0  identical.   STEP 001-002-1  identical.   STEP 001-003-0  identical.   STEP 001-003-1  identical.   STEP 001-004-1  identical.   STEP 002-004-1  identical.   STEP 002-003-0  identical.   STEP 002-003-1  identical.   
-Converged.
-
-Segment  29/ 30 4164-4286
-STEP 001-001-0  identical.   STEP 001-001-1  identical.   STEP 001-002-0  identical.   STEP 001-002-1  identical.   STEP 001-003-0  identical.   STEP 001-003-1  identical.   STEP 001-004-1  identical.   STEP 002-004-1  identical.   STEP 002-003-0  identical.   STEP 002-003-1  identical.   
-Converged.
-
-Segment  30/ 30 4286-4343
-STEP 001-001-0  identical.   STEP 001-001-1  identical.   STEP 001-002-0  identical.   STEP 001-002-1  identical.   STEP 001-003-0  identical.   STEP 001-003-1  identical.   STEP 001-004-1  identical.   STEP 002-004-1  identical.   STEP 002-003-0  identical.   STEP 002-003-1  identical.   
-Converged.
-
-done
-dvtditr (aa) Version 7.520
-alg=A, model=BLOSUM62, 1.53, -0.00, -0.00, noshift, amax=0.0
-0 thread(s)
-
-
-Strategy:
- FFT-NS-i (Standard)
- Iterative refinement method (max. 2 iterations)
-
-If unsure which option to use, try 'mafft --auto input > output'.
-For more information, see 'mafft --help', 'mafft --man' and the mafft page.
-
-The default gap scoring scheme has been changed in version 7.110 (2013 Oct).
-It tends to insert more gaps into gap-rich regions than previous versions.
-To disable this change, add the --leavegappyregion option.
-
