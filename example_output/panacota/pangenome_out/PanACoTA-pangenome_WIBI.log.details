@@ -1,0 +1,19 @@
+[2024-02-06 01:01:51] :: INFO :: PanACoTA version 1.4.0
+[2024-02-06 01:01:51] :: INFO :: Command used
+ 	 > PanACoTA pangenome -l example_output/panacota/annotate_out/LSTINFO-panacota_input.lst -d example_output/panacota/annotate_out/Proteins/ -o example_output/panacota/pangenome_out/ -n WIBI --threads 12
+[2024-02-06 01:01:51] :: INFO :: Building bank with all proteins to example_output/panacota/annotate_out/Proteins/WIBI.All.prt
+[2024-02-06 01:01:51] :: INFO :: Will run MMseqs2 with:
+	- minimum sequence identity = 80.0%
+	- cluster mode 1
+	- 12 threads
+[2024-02-06 01:01:51] :: INFO :: Creating database
+[2024-02-06 01:01:51] :: DETAIL :: MMseqs command: mmseqs createdb example_output/panacota/annotate_out/Proteins/WIBI.All.prt example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/WIBI.All.prt-msDB
+[2024-02-06 01:01:51] :: INFO :: Clustering proteins...
+[2024-02-06 01:01:51] :: DETAIL :: MMseqs command: mmseqs cluster example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/WIBI.All.prt-msDB example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/WIBI.All.prt-clust-0.8-mode1-th12 example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12 --min-seq-id 0.8 --threads 12 --cluster-mode 1
+[2024-02-06 01:01:55] :: DETAIL :: MMseqs command: mmseqs createtsv example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/WIBI.All.prt-msDB example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/WIBI.All.prt-msDB example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/WIBI.All.prt-clust-0.8-mode1-th12 example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/WIBI.All.prt-clust-0.8-mode1-th12.tsv
+[2024-02-06 01:01:55] :: INFO :: Converting mmseqs results to pangenome file
+[2024-02-06 01:01:55] :: INFO :: Pangenome has 8281 families.
+[2024-02-06 01:01:55] :: INFO :: Retrieving information from pan families
+[2024-02-06 01:01:55] :: DETAIL :: Saving all information to a binary file for later use
+[2024-02-06 01:01:55] :: INFO :: Generating qualitative and quantitative matrix, and summary file
+[2024-02-06 01:01:55] :: INFO :: DONE

@@ -1,0 +1,145 @@
+/home/alper/miniconda3/envs/sr/lib/python3.9/site-packages/Bio/Application/__init__.py:40: BiopythonDeprecationWarning: The Bio.Application modules and modules relying on it have been deprecated.
+
+Due to the on going maintenance burden of keeping command line application
+wrappers up to date, we have decided to deprecate and eventually remove these
+modules.
+
+We instead now recommend building your command line and invoking it directly
+with the subprocess module.
+  warnings.warn(
+pre-processing gff3 files...
+  0%|          | 0/5 [00:00<?, ?it/s] 20%|██        | 1/5 [00:00<00:03,  1.09it/s] 40%|████      | 2/5 [00:01<00:02,  1.14it/s] 60%|██████    | 3/5 [00:02<00:01,  1.15it/s] 80%|████████  | 4/5 [00:03<00:00,  1.16it/s]100%|██████████| 5/5 [00:04<00:00,  1.16it/s]100%|██████████| 5/5 [00:04<00:00,  1.15it/s]
+================================================================
+Program: CD-HIT, V4.8.1 (+OpenMP), Apr 07 2021, 10:57:21
+Command: cd-hit -T 1 -i
+         example_output/panaroo/combined_protein_CDS.fasta -o
+         example_output/panaroo/combined_protein_cdhit_out.txt
+         -c 0.98 -s 0.98 -aL 0.0 -AL 99999999 -aS 0.0 -AS
+         99999999 -M 0 -d 999 -g 1 -n 2
+
+Started: Mon Feb  5 18:26:41 2024
+================================================================
+                            Output                              
+----------------------------------------------------------------
+Your word length is 2, using 5 may be faster!
+total seq: 31421
+longest and shortest : 5428 and 29
+Total letters: 10051651
+Sequences have been sorted
+
+Approximated minimal memory consumption:
+Sequence        : 13M
+Buffer          : 1 X 12M = 12M
+Table           : 1 X 0M = 0M
+Miscellaneous   : 0M
+Total           : 26M
+
+Table limit with the given memory limit:
+Max number of representatives: 4000000
+Max number of word counting entries: 250714000
+
+comparing sequences from          0  to      31421
+....................    10000  finished       2886  clusters
+....................    20000  finished       5752  clusters
+....................    30000  finished       9122  clusters
+.
+    31421  finished       9715  clusters
+
+Approximated maximum memory consumption: 38M
+writing new database
+writing clustering information
+program completed !
+
+Total CPU time 4.56
+running cmd: cd-hit -T 1 -i example_output/panaroo/combined_protein_CDS.fasta -o example_output/panaroo/combined_protein_cdhit_out.txt -c 0.98 -s 0.98 -aL 0.0 -AL 99999999 -aS 0.0 -AS 99999999 -M 0 -d 999 -g 1 -n 2
+generating initial network...
+Processing paralogs...
+  0%|          | 0/19 [00:00<?, ?it/s]100%|██████████| 19/19 [00:00<00:00, 1165.58it/s]
+collapse mistranslations...
+Processing depth:  1
+Iteration:  1
+  0%|          | 0/9738 [00:00<?, ?it/s] 21%|██        | 2001/9738 [00:00<00:00, 19945.77it/s] 45%|████▍     | 4353/9738 [00:00<00:00, 22023.25it/s] 70%|███████   | 6817/9738 [00:00<00:00, 23205.96it/s]100%|██████████| 9738/9738 [00:00<00:00, 25271.02it/s]
+Iteration:  2
+  0%|          | 0/508 [00:00<?, ?it/s]100%|██████████| 508/508 [00:00<00:00, 13169.66it/s]
+Iteration:  3
+  0%|          | 0/27 [00:00<?, ?it/s]100%|██████████| 27/27 [00:00<00:00, 5471.10it/s]
+Iteration:  4
+  0%|          | 0/6 [00:00<?, ?it/s]100%|██████████| 6/6 [00:00<00:00, 4298.91it/s]
+Iteration:  5
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 3698.68it/s]
+Processing depth:  2
+Iteration:  1
+  0%|          | 0/9089 [00:00<?, ?it/s] 40%|███▉      | 3599/9089 [00:00<00:00, 35966.62it/s] 79%|███████▉  | 7210/9089 [00:00<00:00, 36008.40it/s]100%|██████████| 9089/9089 [00:00<00:00, 33576.33it/s]
+Iteration:  2
+  0%|          | 0/21 [00:00<?, ?it/s]100%|██████████| 21/21 [00:00<00:00, 3583.56it/s]
+Iteration:  3
+  0%|          | 0/1 [00:00<?, ?it/s]100%|██████████| 1/1 [00:00<00:00, 2916.76it/s]
+Processing depth:  3
+Iteration:  1
+  0%|          | 0/9067 [00:00<?, ?it/s] 35%|███▍      | 3164/9067 [00:00<00:00, 31508.42it/s] 70%|██████▉   | 6315/9067 [00:00<00:00, 30756.83it/s]100%|██████████| 9067/9067 [00:00<00:00, 29513.42it/s]
+Iteration:  2
+  0%|          | 0/9 [00:00<?, ?it/s]100%|██████████| 9/9 [00:00<00:00, 4799.58it/s]
+Iteration:  3
+  0%|          | 0/1 [00:00<?, ?it/s]100%|██████████| 1/1 [00:00<00:00, 3123.09it/s]
+collapse gene families...
+Processing depth:  1
+Iteration:  1
+  0%|          | 0/9057 [00:00<?, ?it/s] 35%|███▌      | 3196/9057 [00:00<00:00, 31910.50it/s] 78%|███████▊  | 7058/9057 [00:00<00:00, 35853.26it/s]100%|██████████| 9057/9057 [00:00<00:00, 34499.59it/s]
+Iteration:  2
+  0%|          | 0/442 [00:00<?, ?it/s]100%|██████████| 442/442 [00:00<00:00, 8075.49it/s]
+Iteration:  3
+  0%|          | 0/72 [00:00<?, ?it/s]100%|██████████| 72/72 [00:00<00:00, 4765.50it/s]
+Iteration:  4
+  0%|          | 0/22 [00:00<?, ?it/s]100%|██████████| 22/22 [00:00<00:00, 3017.48it/s]
+Iteration:  5
+  0%|          | 0/16 [00:00<?, ?it/s]100%|██████████| 16/16 [00:00<00:00, 3269.30it/s]
+Iteration:  6
+  0%|          | 0/9 [00:00<?, ?it/s]100%|██████████| 9/9 [00:00<00:00, 4076.98it/s]
+Iteration:  7
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 5785.25it/s]
+Iteration:  8
+  0%|          | 0/1 [00:00<?, ?it/s]100%|██████████| 1/1 [00:00<00:00, 59918.63it/s]
+Processing depth:  2
+Iteration:  1
+  0%|          | 0/8430 [00:00<?, ?it/s] 77%|███████▋  | 6461/8430 [00:00<00:00, 64607.44it/s]100%|██████████| 8430/8430 [00:00<00:00, 44957.31it/s]
+Iteration:  2
+  0%|          | 0/25 [00:00<?, ?it/s]100%|██████████| 25/25 [00:00<00:00, 3161.31it/s]
+Iteration:  3
+  0%|          | 0/13 [00:00<?, ?it/s]100%|██████████| 13/13 [00:00<00:00, 3852.06it/s]
+Iteration:  4
+  0%|          | 0/5 [00:00<?, ?it/s]100%|██████████| 5/5 [00:00<00:00, 3519.89it/s]
+Iteration:  5
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 1993.49it/s]
+Processing depth:  3
+Iteration:  1
+  0%|          | 0/8384 [00:00<?, ?it/s] 73%|███████▎  | 6160/8384 [00:00<00:00, 61507.23it/s]100%|██████████| 8384/8384 [00:00<00:00, 40624.11it/s]
+Iteration:  2
+  0%|          | 0/10 [00:00<?, ?it/s]100%|██████████| 10/10 [00:00<00:00, 3389.61it/s]
+Iteration:  3
+  0%|          | 0/6 [00:00<?, ?it/s]100%|██████████| 6/6 [00:00<00:00, 5573.83it/s]
+Iteration:  4
+  0%|          | 0/3 [00:00<?, ?it/s]100%|██████████| 3/3 [00:00<00:00, 7231.56it/s]
+Iteration:  5
+  0%|          | 0/2 [00:00<?, ?it/s]100%|██████████| 2/2 [00:00<00:00, 4350.94it/s]
+Iteration:  6
+  0%|          | 0/1 [00:00<?, ?it/s]100%|██████████| 1/1 [00:00<00:00, 2573.19it/s]
+trimming contig ends...
+refinding genes...
+Number of searches to perform:  2093
+Searching...
+0it [00:00, ?it/s]1it [00:02,  2.96s/it]2it [00:06,  3.04s/it]3it [00:08,  2.98s/it]4it [00:14,  4.03s/it]5it [00:18,  3.95s/it]5it [00:18,  3.68s/it]
+translating hits...
+removing by consensus...
+Updating output...
+Number of refound genes:  69
+collapse gene families with refound genes...
+Processing depth:  1
+Iteration:  1
+  0%|          | 0/7385 [00:00<?, ?it/s] 50%|█████     | 3704/7385 [00:00<00:00, 37026.35it/s]100%|██████████| 7385/7385 [00:00<00:00, 25280.58it/s]
+Processing depth:  2
+Iteration:  1
+  0%|          | 0/7385 [00:00<?, ?it/s] 27%|██▋       | 2005/7385 [00:00<00:00, 20015.18it/s] 77%|███████▋  | 5670/7385 [00:00<00:00, 29772.85it/s]100%|██████████| 7385/7385 [00:00<00:00, 23069.59it/s]
+Processing depth:  3
+Iteration:  1
+  0%|          | 0/7385 [00:00<?, ?it/s] 55%|█████▌    | 4093/7385 [00:00<00:00, 40853.97it/s]100%|██████████| 7385/7385 [00:00<00:00, 28525.45it/s]
+writing output...

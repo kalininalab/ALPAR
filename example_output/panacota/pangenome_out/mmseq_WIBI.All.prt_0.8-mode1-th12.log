@@ -1,0 +1,311 @@
+createdb example_output/panacota/annotate_out/Proteins/WIBI.All.prt example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/WIBI.All.prt-msDB 
+
+MMseqs Version:       	15.6f452
+Database type         	0
+Shuffle input database	true
+Createdb mode         	0
+Write lookup file     	1
+Offset of numeric ids 	0
+Compressed            	0
+Verbosity             	3
+
+Converting sequences
+[===
+Time for merging to WIBI.All.prt-msDB_h: 0h 0m 0s 72ms
+Time for merging to WIBI.All.prt-msDB: 0h 0m 0s 151ms
+Database type: Aminoacid
+Time for processing: 0h 0m 0s 535ms
+cluster example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/WIBI.All.prt-msDB example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/WIBI.All.prt-clust-0.8-mode1-th12 example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12 --min-seq-id 0.8 --threads 12 --cluster-mode 1 
+
+MMseqs Version:                     	15.6f452
+Substitution matrix                 	aa:blosum62.out,nucl:nucleotide.out
+Seed substitution matrix            	aa:VTML80.out,nucl:nucleotide.out
+Sensitivity                         	4
+k-mer length                        	0
+Target search mode                  	0
+k-score                             	seq:2147483647,prof:2147483647
+Alphabet size                       	aa:21,nucl:5
+Max sequence length                 	65535
+Max results per query               	20
+Split database                      	0
+Split mode                          	2
+Split memory limit                  	0
+Coverage threshold                  	0.8
+Coverage mode                       	0
+Compositional bias                  	1
+Compositional bias                  	1
+Diagonal scoring                    	true
+Exact k-mer matching                	0
+Mask residues                       	1
+Mask residues probability           	0.9
+Mask lower case residues            	0
+Minimum diagonal score              	15
+Selected taxa                       	
+Include identical seq. id.          	false
+Spaced k-mers                       	1
+Preload mode                        	0
+Pseudo count a                      	substitution:1.100,context:1.400
+Pseudo count b                      	substitution:4.100,context:5.800
+Spaced k-mer pattern                	
+Local temporary path                	
+Threads                             	12
+Compressed                          	0
+Verbosity                           	3
+Add backtrace                       	false
+Alignment mode                      	3
+Alignment mode                      	0
+Allow wrapped scoring               	false
+E-value threshold                   	0.001
+Seq. id. threshold                  	0.8
+Min alignment length                	0
+Seq. id. mode                       	0
+Alternative alignments              	0
+Max reject                          	2147483647
+Max accept                          	2147483647
+Score bias                          	0
+Realign hits                        	false
+Realign score bias                  	-0.2
+Realign max seqs                    	2147483647
+Correlation score weight            	0
+Gap open cost                       	aa:11,nucl:5
+Gap extension cost                  	aa:1,nucl:2
+Zdrop                               	40
+Rescore mode                        	0
+Remove hits by seq. id. and coverage	false
+Sort results                        	0
+Cluster mode                        	1
+Max connected component depth       	1000
+Similarity type                     	2
+Weight file name                    	
+Cluster Weight threshold            	0.9
+Single step clustering              	false
+Cascaded clustering steps           	3
+Cluster reassign                    	false
+Remove temporary files              	false
+Force restart with latest tmp       	false
+MPI runner                          	
+k-mers per sequence                 	21
+Scale k-mers per sequence           	aa:0.000,nucl:0.200
+Adjust k-mer length                 	false
+Shift hash                          	67
+Include only extendable             	false
+Skip repeating k-mers               	false
+
+Set cluster sensitivity to -s 1.000000
+Connected component clustering produces less clusters in a single step clustering.
+Please use --single-step-clusteringSet cluster iterations to 1
+linclust example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/WIBI.All.prt-msDB example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/clu_redundancy example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/linclust --cluster-mode 1 --max-iterations 1000 --similarity-type 2 --threads 12 --compressed 0 -v 3 --cluster-weight-threshold 0.9 --sub-mat 'aa:blosum62.out,nucl:nucleotide.out' -a 0 --alignment-mode 3 --alignment-output-mode 0 --wrapped-scoring 0 -e 0.001 --min-seq-id 0.8 --min-aln-len 0 --seq-id-mode 0 --alt-ali 0 -c 0.8 --cov-mode 0 --max-seq-len 65535 --comp-bias-corr 0 --comp-bias-corr-scale 1 --max-rejected 2147483647 --max-accept 2147483647 --add-self-matches 0 --db-load-mode 0 --pca substitution:1.100,context:1.400 --pcb substitution:4.100,context:5.800 --score-bias 0 --realign 0 --realign-score-bias -0.2 --realign-max-seqs 2147483647 --corr-score-weight 0 --gap-open aa:11,nucl:5 --gap-extend aa:1,nucl:2 --zdrop 40 --alph-size aa:13,nucl:5 --kmer-per-seq 21 --spaced-kmer-mode 1 --kmer-per-seq-scale aa:0.000,nucl:0.200 --adjust-kmer-len 0 --mask 0 --mask-prob 0.9 --mask-lower-case 0 -k 0 --hash-shift 67 --split-memory-limit 0 --include-only-extendable 0 --ignore-multi-kmer 0 --rescore-mode 0 --filter-hits 0 --sort-results 0 --remove-tmp-files 0 --force-reuse 0 
+
+kmermatcher example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/WIBI.All.prt-msDB example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/linclust/5111413560387531337/pref --sub-mat 'aa:blosum62.out,nucl:nucleotide.out' --alph-size aa:13,nucl:5 --min-seq-id 0.8 --kmer-per-seq 21 --spaced-kmer-mode 1 --kmer-per-seq-scale aa:0.000,nucl:0.200 --adjust-kmer-len 0 --mask 0 --mask-prob 0.9 --mask-lower-case 0 --cov-mode 0 -k 0 -c 0.8 --max-seq-len 65535 --hash-shift 67 --split-memory-limit 0 --include-only-extendable 0 --ignore-multi-kmer 0 --threads 12 --compressed 0 -v 3 --cluster-weight-threshold 0.9 
+
+kmermatcher example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/WIBI.All.prt-msDB example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/linclust/5111413560387531337/pref --sub-mat 'aa:blosum62.out,nucl:nucleotide.out' --alph-size aa:13,nucl:5 --min-seq-id 0.8 --kmer-per-seq 21 --spaced-kmer-mode 1 --kmer-per-seq-scale aa:0.000,nucl:0.200 --adjust-kmer-len 0 --mask 0 --mask-prob 0.9 --mask-lower-case 0 --cov-mode 0 -k 0 -c 0.8 --max-seq-len 65535 --hash-shift 67 --split-memory-limit 0 --include-only-extendable 0 --ignore-multi-kmer 0 --threads 12 --compressed 0 -v 3 --cluster-weight-threshold 0.9 
+
+Database size: 31411 type: Aminoacid
+Reduced amino acid alphabet: (A S T) (C) (D B N) (E Q Z) (F Y) (G) (H) (I V) (K R) (L J M) (P) (W) (X) 
+
+Generate k-mers list for 1 split
+[=================================================================] 31.41K 0s 43ms
+Sort kmer 0h 0m 0s 19ms
+Sort by rep. sequence 0h 0m 0s 15ms
+Time for fill: 0h 0m 0s 6ms
+Time for merging to pref: 0h 0m 0s 9ms
+Time for processing: 0h 0m 0s 132ms
+rescorediagonal example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/WIBI.All.prt-msDB example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/WIBI.All.prt-msDB example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/linclust/5111413560387531337/pref example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/linclust/5111413560387531337/pref_rescore1 --sub-mat 'aa:blosum62.out,nucl:nucleotide.out' --rescore-mode 0 --wrapped-scoring 0 --filter-hits 0 -e 0.001 -c 0.8 -a 0 --cov-mode 0 --min-seq-id 0.8 --min-aln-len 0 --seq-id-mode 0 --add-self-matches 0 --sort-results 0 --db-load-mode 0 --threads 12 --compressed 0 -v 3 
+
+[=================================================================] 31.41K 0s 12ms
+Time for merging to pref_rescore1: 0h 0m 0s 81ms
+Time for processing: 0h 0m 0s 132ms
+clust example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/WIBI.All.prt-msDB example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/linclust/5111413560387531337/pref_rescore1 example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/linclust/5111413560387531337/pre_clust --cluster-mode 1 --max-iterations 1000 --similarity-type 2 --threads 12 --compressed 0 -v 3 --cluster-weight-threshold 0.9 
+
+Clustering mode: Connected Component
+[=================================================================] 31.41K 0s 3ms
+Sort entries
+Find missing connections
+Found 28597 new connections.
+Reconstruct initial order
+[=================================================================] 31.41K 0s 4ms
+Add missing connections
+[=================================================================] 31.41K 0s 2ms
+
+Time for read in: 0h 0m 0s 19ms
+connected component mode
+Total time: 0h 0m 0s 30ms
+
+Size of the sequence database: 31411
+Size of the alignment database: 31411
+Number of clusters: 8481
+
+Writing results 0h 0m 0s 2ms
+Time for merging to pre_clust: 0h 0m 0s 15ms
+Time for processing: 0h 0m 0s 62ms
+createsubdb example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/linclust/5111413560387531337/order_redundancy example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/WIBI.All.prt-msDB example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/linclust/5111413560387531337/input_step_redundancy -v 3 --subdb-mode 1 
+
+Time for merging to input_step_redundancy: 0h 0m 0s 10ms
+Time for processing: 0h 0m 0s 25ms
+createsubdb example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/linclust/5111413560387531337/order_redundancy example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/linclust/5111413560387531337/pref example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/linclust/5111413560387531337/pref_filter1 -v 3 --subdb-mode 1 
+
+Time for merging to pref_filter1: 0h 0m 0s 10ms
+Time for processing: 0h 0m 0s 19ms
+filterdb example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/linclust/5111413560387531337/pref_filter1 example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/linclust/5111413560387531337/pref_filter2 --filter-file example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/linclust/5111413560387531337/order_redundancy --threads 12 --compressed 0 -v 3 
+
+Filtering using file(s)
+[=================================================================] 8.48K 0s 2ms
+Time for merging to pref_filter2: 0h 0m 0s 52ms
+Time for processing: 0h 0m 0s 77ms
+rescorediagonal example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/linclust/5111413560387531337/input_step_redundancy example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/linclust/5111413560387531337/input_step_redundancy example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/linclust/5111413560387531337/pref_filter2 example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/linclust/5111413560387531337/pref_rescore2 --sub-mat 'aa:blosum62.out,nucl:nucleotide.out' --rescore-mode 1 --wrapped-scoring 0 --filter-hits 1 -e 0.001 -c 0.8 -a 0 --cov-mode 0 --min-seq-id 0.8 --min-aln-len 0 --seq-id-mode 0 --add-self-matches 0 --sort-results 0 --db-load-mode 0 --threads 12 --compressed 0 -v 3 
+
+[=================================================================] 8.48K 0s 5ms
+Time for merging to pref_rescore2: 0h 0m 0s 53ms
+Time for processing: 0h 0m 0s 98ms
+align example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/linclust/5111413560387531337/input_step_redundancy example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/linclust/5111413560387531337/input_step_redundancy example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/linclust/5111413560387531337/pref_rescore2 example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/linclust/5111413560387531337/aln --sub-mat 'aa:blosum62.out,nucl:nucleotide.out' -a 0 --alignment-mode 3 --alignment-output-mode 0 --wrapped-scoring 0 -e 0.001 --min-seq-id 0.8 --min-aln-len 0 --seq-id-mode 0 --alt-ali 0 -c 0.8 --cov-mode 0 --max-seq-len 65535 --comp-bias-corr 0 --comp-bias-corr-scale 1 --max-rejected 2147483647 --max-accept 2147483647 --add-self-matches 0 --db-load-mode 0 --pca substitution:1.100,context:1.400 --pcb substitution:4.100,context:5.800 --score-bias 0 --realign 0 --realign-score-bias -0.2 --realign-max-seqs 2147483647 --corr-score-weight 0 --gap-open aa:11,nucl:5 --gap-extend aa:1,nucl:2 --zdrop 40 --threads 12 --compressed 0 -v 3 
+
+Compute score, coverage and sequence identity
+Query database size: 8481 type: Aminoacid
+Target database size: 8481 type: Aminoacid
+Calculation of alignments
+[=================================================================] 8.48K 0s 94ms
+Time for merging to aln: 0h 0m 0s 74ms
+9049 alignments calculated
+8649 sequence pairs passed the thresholds (0.955796 of overall calculated)
+1.019809 hits per query sequence
+Time for processing: 0h 0m 0s 212ms
+clust example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/linclust/5111413560387531337/input_step_redundancy example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/linclust/5111413560387531337/aln example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/linclust/5111413560387531337/clust --cluster-mode 1 --max-iterations 1000 --similarity-type 2 --threads 12 --compressed 0 -v 3 --cluster-weight-threshold 0.9 
+
+Clustering mode: Connected Component
+[=================================================================] 8.48K 0s 1ms
+Sort entries
+Find missing connections
+Found 168 new connections.
+Reconstruct initial order
+[=================================================================] 8.48K 0s 1ms
+Add missing connections
+[=================================================================] 8.48K 0s 0ms
+
+Time for read in: 0h 0m 0s 11ms
+connected component mode
+Total time: 0h 0m 0s 16ms
+
+Size of the sequence database: 8481
+Size of the alignment database: 8481
+Number of clusters: 8324
+
+Writing results 0h 0m 0s 2ms
+Time for merging to clust: 0h 0m 0s 11ms
+Time for processing: 0h 0m 0s 35ms
+mergeclusters example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/WIBI.All.prt-msDB example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/clu_redundancy example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/linclust/5111413560387531337/pre_clust example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/linclust/5111413560387531337/clust --threads 12 --compressed 0 -v 3 
+
+Clustering step 1
+[=================================================================] 8.48K 0s 3ms
+Clustering step 2
+[=================================================================] 8.32K 0s 6ms
+Write merged clustering
+[=================================================================] 31.41K 0s 20ms
+Time for merging to clu_redundancy: 0h 0m 0s 53ms
+Time for processing: 0h 0m 0s 85ms
+createsubdb example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/clu_redundancy example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/WIBI.All.prt-msDB example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/input_step_redundancy -v 3 --subdb-mode 1 
+
+Time for merging to input_step_redundancy: 0h 0m 0s 10ms
+Time for processing: 0h 0m 0s 21ms
+prefilter example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/input_step_redundancy example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/input_step_redundancy example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/pref_step0 --sub-mat 'aa:blosum62.out,nucl:nucleotide.out' --seed-sub-mat 'aa:VTML80.out,nucl:nucleotide.out' -s 1 -k 0 --target-search-mode 0 --k-score seq:2147483647,prof:2147483647 --alph-size aa:21,nucl:5 --max-seq-len 65535 --max-seqs 20 --split 0 --split-mode 2 --split-memory-limit 0 -c 0.8 --cov-mode 0 --comp-bias-corr 0 --comp-bias-corr-scale 1 --diag-score 0 --exact-kmer-matching 0 --mask 1 --mask-prob 0.9 --mask-lower-case 0 --min-ungapped-score 0 --add-self-matches 0 --spaced-kmer-mode 1 --db-load-mode 0 --pca substitution:1.100,context:1.400 --pcb substitution:4.100,context:5.800 --threads 12 --compressed 0 -v 3 
+
+Query database size: 8324 type: Aminoacid
+Estimated memory consumption: 1000M
+Target database size: 8324 type: Aminoacid
+Index table k-mer threshold: 154 at k-mer size 6 
+Index table: counting k-mers
+[=================================================================] 8.32K 0s 61ms
+Index table: Masked residues: 14942
+Index table: fill
+[=================================================================] 8.32K 0s 31ms
+Index statistics
+Entries:          1095426
+DB size:          494 MB
+Avg k-mer size:   0.017116
+Top 10 k-mers
+    GPGGTL	37
+    EARGGR	25
+    GPGGSL	17
+    GGKSGR	16
+    GPGGTT	14
+    LDMPDG	11
+    GGGGTL	11
+    GQQIAR	11
+    AWDQRR	10
+    RGREEI	9
+Time for index table init: 0h 0m 0s 763ms
+Process prefiltering step 1 of 1
+
+k-mer similarity threshold: 154
+Starting prefiltering scores calculation (step 1 of 1)
+Query db start 1 to 8324
+Target db start 1 to 8324
+[=================================================================] 8.32K 0s 68ms
+
+1.764762 k-mers per position
+167 DB matches per sequence
+0 overflows
+2 sequences passed prefiltering per query sequence
+1 median result list length
+0 sequences with 0 size result lists
+Time for merging to pref_step0: 0h 0m 0s 51ms
+Time for processing: 0h 0m 1s 428ms
+align example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/input_step_redundancy example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/input_step_redundancy example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/pref_step0 example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/aln_step0 --sub-mat 'aa:blosum62.out,nucl:nucleotide.out' -a 0 --alignment-mode 3 --alignment-output-mode 0 --wrapped-scoring 0 -e 0.001 --min-seq-id 0.8 --min-aln-len 0 --seq-id-mode 0 --alt-ali 0 -c 0.8 --cov-mode 0 --max-seq-len 65535 --comp-bias-corr 0 --comp-bias-corr-scale 1 --max-rejected 2147483647 --max-accept 2147483647 --add-self-matches 0 --db-load-mode 0 --pca substitution:1.100,context:1.400 --pcb substitution:4.100,context:5.800 --score-bias 0 --realign 0 --realign-score-bias -0.2 --realign-max-seqs 2147483647 --corr-score-weight 0 --gap-open aa:11,nucl:5 --gap-extend aa:1,nucl:2 --zdrop 40 --threads 12 --compressed 0 -v 3 
+
+Compute score, coverage and sequence identity
+Query database size: 8324 type: Aminoacid
+Target database size: 8324 type: Aminoacid
+Calculation of alignments
+[=================================================================] 8.32K 0s 337ms
+Time for merging to aln_step0: 0h 0m 0s 63ms
+13627 alignments calculated
+8430 sequence pairs passed the thresholds (0.618625 of overall calculated)
+1.012734 hits per query sequence
+Time for processing: 0h 0m 0s 427ms
+clust example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/input_step_redundancy example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/aln_step0 example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/clu_step0 --cluster-mode 1 --max-iterations 1000 --similarity-type 2 --threads 12 --compressed 0 -v 3 --cluster-weight-threshold 0.9 
+
+Clustering mode: Connected Component
+======[===========================================================] 8.32K 0s 1ms
+Sort entries
+Find missing connections
+Found 0 new connections.
+Reconstruct initial order
+[=================================================================] 8.32K 0s 2ms
+Add missing connections
+[=================================================================] 8.32K 0s 0ms
+
+Time for read in: 0h 0m 0s 12ms
+connected component mode
+Total time: 0h 0m 0s 17ms
+
+Size of the sequence database: 8324
+Size of the alignment database: 8324
+Number of clusters: 8281
+
+Writing results 0h 0m 0s 1ms
+Time for merging to clu_step0: 0h 0m 0s 13ms
+Time for processing: 0h 0m 0s 39ms
+mergeclusters example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/WIBI.All.prt-msDB example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/WIBI.All.prt-clust-0.8-mode1-th12 example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/clu_redundancy example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/4482903548615093745/clu_step0 --threads 12 --compressed 0 -v 3 
+
+Clustering step 1
+[=================================================================] 8.32K 0s 1ms
+Clustering step 2
+[=================================================================] 8.28K 0s 5ms
+Write merged clustering
+[=================================================================] 31.41K 0s 19ms
+Time for merging to WIBI.All.prt-clust-0.8-mode1-th12: 0h 0m 0s 55ms
+Time for processing: 0h 0m 0s 88ms
+createtsv example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/WIBI.All.prt-msDB example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/WIBI.All.prt-msDB example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/WIBI.All.prt-clust-0.8-mode1-th12 example_output/panacota/pangenome_out/tmp_WIBI.All.prt_0.8-mode1-th12/WIBI.All.prt-clust-0.8-mode1-th12.tsv 
+
+MMseqs Version:                 	15.6f452
+First sequence as representative	false
+Target column                   	1
+Add full header                 	false
+Sequence source                 	0
+Database output                 	false
+Threads                         	16
+Compressed                      	0
+Verbosity                       	3
+
+Time for merging to WIBI.All.prt-clust-0.8-mode1-th12.tsv: 0h 0m 0s 50ms
+Time for processing: 0h 0m 0s 142ms
+End: 2024-02-06_01-01-55

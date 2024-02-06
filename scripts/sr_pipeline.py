@@ -313,23 +313,33 @@ def gwas_pipeline(args):
     # Check the output_folder
     if not os.path.exists(args.output):
         os.mkdir(args.output)
-        os.mkdir(os.path.join(args.output, "gwas_output"))
-        os.mkdir(os.path.join(args.output, "pyseer_phenotypes"))
+    
+    gwas_output = os.path.join(args.output, "gwas")
 
     # Check if output folder empty
-    if os.path.exists(args.output) and os.path.isdir(args.output) and os.listdir(args.output):
+    if os.path.exists(gwas_output) and os.path.isdir(gwas_output) and os.listdir(gwas_output):
         if not args.override:
             print("Error: Output folder is not empty.")
             sys.exit(1)
+    else:
+        os.mkdir(gwas_output)
+    
+    if not os.path.exists(os.path.join(gwas_output, "gwas_results")):
+        if not args.override:
+            os.mkdir(os.path.join(gwas_output, "gwas_results"))
+
+    if not os.path.exists(os.path.join(gwas_output, "pyseer_phenotypes")):
+        if not args.override:
+            os.mkdir(os.path.join(gwas_output, "pyseer_phenotypes"))
 
     # pyseer_genotype_matrix_creator(binary_mutation_table, output_file):
-    pyseer_genotype_matrix_creator(args.input, os.path.join(args.output, args.output, "genotype_matrix.tsv"))
+    pyseer_genotype_matrix_creator(args.input, os.path.join(gwas_output, "genotype_matrix.tsv"))
     # pyseer_phenotype_file_creator(phenotype_file, output_file_directory):
-    pyseer_phenotype_file_creator(args.phenotype, os.path.join(args.output, "pyseer_phenotypes"))
+    pyseer_phenotype_file_creator(args.phenotype, os.path.join(gwas_output, "pyseer_phenotypes"))
     # pyseer_similarity_matrix_creator(phylogenetic_tree, output_file):
-    pyseer_similarity_matrix_creator(args.tree, os.path.join(args.output, "similarity_matrix.tsv"))
+    pyseer_similarity_matrix_creator(args.tree, os.path.join(gwas_output, "similarity_matrix.tsv"))
     # pyseer_runner(genotype_file_path, phenotype_file_path, similarity_matrix, output_file_directory, cpus):
-    pyseer_runner(os.path.join(args.output, "genotype_matrix.tsv"), os.path.join(args.output, "pyseer_phenotypes"), os.path.join(args.output, "similarity_matrix.tsv"), os.path.join(args.output, "gwas_output"))
+    pyseer_runner(os.path.join(gwas_output, "genotype_matrix.tsv"), os.path.join(gwas_output, "pyseer_phenotypes"), os.path.join(gwas_output, "similarity_matrix.tsv"), os.path.join(gwas_output, "gwas_results"))
 
 
 if __name__ == "__main__":

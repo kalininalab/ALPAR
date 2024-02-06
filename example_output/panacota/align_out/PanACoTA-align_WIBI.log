@@ -1,0 +1,10 @@
+[2024-02-06 01:01:56] :: INFO :: PanACoTA version 1.4.0
+[2024-02-06 01:01:56] :: INFO :: Command used
+ 	 > PanACoTA align -c example_output/panacota/corepers_out/PersGenome_PanGenome-WIBI.All.prt-clust-0.8-mode1-th12.lst-all_1.lst -l example_output/panacota/annotate_out/LSTINFO-panacota_input.lst -n WIBI -d example_output/panacota/annotate_out/ -o example_output/panacota/align_out --threads 12
+[2024-02-06 01:01:56] :: INFO :: Found 5 genomes.
+[2024-02-06 01:01:56] :: INFO :: Reading PersGenome and constructing lists of missing genomes in each family.
+[2024-02-06 01:01:56] :: INFO :: Getting all persistent proteins and classify by strain.
+[2024-02-06 01:01:58] :: INFO :: Extracting proteins and genes from all genomes
+[2024-02-06 01:02:38] :: INFO :: Starting alignment of all families: protein alignment, back-translation to nucleotides, and add missing genomes in the family
+[2024-02-06 01:05:02] :: ERROR :: Problem while trying to align fam 1480
+[2024-02-06 01:17:25] :: ERROR :: At least one alignment did not run well. See detailed log file for more information. Program will stop here, alignments won't be grouped by genome.

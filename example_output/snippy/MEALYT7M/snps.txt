@@ -1,0 +1,11 @@
+DateTime	2024-02-05T18:23:39
+ReadFiles	fake_reads.fq
+Reference	/home/alper/git/SR-AMR/example/reference.gbff
+ReferenceSize	6264404
+Software	snippy 4.6.0
+Variant-COMPLEX	1604
+Variant-DEL	150
+Variant-INS	186
+Variant-MNP	1
+Variant-SNP	23799
+VariantTotal	25740

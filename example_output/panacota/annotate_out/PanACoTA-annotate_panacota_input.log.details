@@ -1,0 +1,28 @@
+[2024-02-06 00:46:41] :: INFO :: PanACoTA version 1.4.0
+[2024-02-06 00:46:41] :: INFO :: Command used
+ 	 > PanACoTA annotate -l example_output/panacota/panacota_input.lst -d example_output/temp/panacota -r example_output/panacota/annotate_out -n WIBI --threads 12
+[2024-02-06 00:46:41] :: INFO :: Reading genomes
+[2024-02-06 00:46:41] :: INFO :: Cutting genomes at each time there are at least 5 'N' in a row, and then, calculating genome size, number of contigs and L90.
+[2024-02-06 00:46:41] :: INFO :: Generating distribution of L90 and #contigs graphs.
+[2024-02-06 00:46:42] :: INFO :: -> Original sequences folder ('orig_name' column): example_output/temp/panacota 
+[2024-02-06 00:46:42] :: INFO :: 	-> If original sequence not found in example_output/temp/panacota, look for it in example_output/panacota/annotate_out/tmp_files, as it must be a concatenation of several input sequence files.
+[2024-02-06 00:46:42] :: INFO :: -> Folder with sequence files that will be used for annotation ('to_annotate' column): example_output/panacota/annotate_out/tmp_files
+[2024-02-06 00:46:42] :: INFO :: Renaming kept genomes according to their quality (5 genomes)
+[2024-02-06 00:46:42] :: INFO :: Annotating all genomes with prokka
+[2024-02-06 00:46:42] :: DETAIL :: Start annotating WIBI.0224.00004 from example_output/panacota/annotate_out/tmp_files/287.855.fna_prokka-split5N.fna with Prokka
+[2024-02-06 00:46:42] :: DETAIL :: Prokka command: prokka --outdir example_output/panacota/annotate_out/tmp_files/287.855.fna_prokka-split5N.fna-prokkaRes --cpus 2 --prefix WIBI.0224.00004 --centre prokka example_output/panacota/annotate_out/tmp_files/287.855.fna_prokka-split5N.fna
+[2024-02-06 00:46:42] :: DETAIL :: Start annotating WIBI.0224.00005 from example_output/panacota/annotate_out/tmp_files/287.871.fna_prokka-split5N.fna with Prokka
+[2024-02-06 00:46:42] :: DETAIL :: Start annotating WIBI.0224.00001 from example_output/panacota/annotate_out/tmp_files/287.887.fna_prokka-split5N.fna with Prokka
+[2024-02-06 00:46:42] :: DETAIL :: Start annotating WIBI.0224.00002 from example_output/panacota/annotate_out/tmp_files/287.916.fna_prokka-split5N.fna with Prokka
+[2024-02-06 00:46:42] :: DETAIL :: Prokka command: prokka --outdir example_output/panacota/annotate_out/tmp_files/287.887.fna_prokka-split5N.fna-prokkaRes --cpus 2 --prefix WIBI.0224.00001 --centre prokka example_output/panacota/annotate_out/tmp_files/287.887.fna_prokka-split5N.fna
+[2024-02-06 00:46:42] :: DETAIL :: Prokka command: prokka --outdir example_output/panacota/annotate_out/tmp_files/287.871.fna_prokka-split5N.fna-prokkaRes --cpus 2 --prefix WIBI.0224.00005 --centre prokka example_output/panacota/annotate_out/tmp_files/287.871.fna_prokka-split5N.fna
+[2024-02-06 00:46:42] :: DETAIL :: Prokka command: prokka --outdir example_output/panacota/annotate_out/tmp_files/287.916.fna_prokka-split5N.fna-prokkaRes --cpus 2 --prefix WIBI.0224.00002 --centre prokka example_output/panacota/annotate_out/tmp_files/287.916.fna_prokka-split5N.fna
+[2024-02-06 00:46:42] :: DETAIL :: Start annotating WIBI.0224.00003 from example_output/panacota/annotate_out/tmp_files/287.980.fna_prokka-split5N.fna with Prokka
+[2024-02-06 00:46:42] :: DETAIL :: Prokka command: prokka --outdir example_output/panacota/annotate_out/tmp_files/287.980.fna_prokka-split5N.fna-prokkaRes --cpus 2 --prefix WIBI.0224.00003 --centre prokka example_output/panacota/annotate_out/tmp_files/287.980.fna_prokka-split5N.fna
+[2024-02-06 01:01:36] :: DETAIL :: End annotating WIBI.0224.00003 from example_output/panacota/annotate_out/tmp_files/287.980.fna_prokka-split5N.fna.
+[2024-02-06 01:01:40] :: DETAIL :: End annotating WIBI.0224.00002 from example_output/panacota/annotate_out/tmp_files/287.916.fna_prokka-split5N.fna.
+[2024-02-06 01:01:40] :: DETAIL :: End annotating WIBI.0224.00004 from example_output/panacota/annotate_out/tmp_files/287.855.fna_prokka-split5N.fna.
+[2024-02-06 01:01:47] :: DETAIL :: End annotating WIBI.0224.00005 from example_output/panacota/annotate_out/tmp_files/287.871.fna_prokka-split5N.fna.
+[2024-02-06 01:01:50] :: DETAIL :: End annotating WIBI.0224.00001 from example_output/panacota/annotate_out/tmp_files/287.887.fna_prokka-split5N.fna.
+[2024-02-06 01:01:50] :: INFO :: Formatting all genomes
+[2024-02-06 01:01:50] :: INFO :: Annotation step done.

@@ -377,7 +377,7 @@ def pyseer_phenotype_file_creator(phenotype_file, output_file_directory):
 
 def pyseer_similarity_matrix_creator(phylogenetic_tree, output_file):
     
-    script_command = f"{PATH_OF_SCRIPT}/phylogeny_distance.py --lmm {phylogenetic_tree} > {output_file}"
+    script_command = f"python {PATH_OF_SCRIPT}/phylogeny_distance.py --lmm {phylogenetic_tree} > {output_file}"
 
     os.system(script_command)
 
@@ -457,11 +457,12 @@ def panacota_pipeline_runner(list_file, dbpath, output_directory, run_name, n_co
         pc_corepers_command = f"PanACoTA corepers -p {output_directory}/pangenome_out/PanGenome-{run_name}.All.prt-clust-{min_seq_id}-mode{mode}.lst -o {output_directory}/corepers_out/"
         pc_align_command =  f"PanACoTA align -c {output_directory}/corepers_out/PersGenome_PanGenome-{run_name}.All.prt-clust-{min_seq_id}-mode{mode}.lst-all_1.lst -l {output_directory}/annotate_out/LSTINFO-{list_file.split('/')[-1]} -n {run_name} -d {output_directory}/annotate_out/ -o {output_directory}/align_out --threads {n_cores}"
 
-
     pc_tree_command = f"PanACoTA tree -a {output_directory}/align_out/Phylo-{run_name}/{run_name}.{type}.grp.aln -o {output_directory}/tree/ --threads {n_cores}"
 
     os.system(pc_annotate_command)
     os.system(pc_pangenome_command)
     os.system(pc_corepers_command)
-    os.system(pc_align_command)
+    # I don't know why but it needs to be run twice, otherwise it gives an error PanACoTA side issue
+    for _ in range(2):
+        os.system(pc_align_command)
     os.system(pc_tree_command)

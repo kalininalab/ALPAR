@@ -1,0 +1,6 @@
+gembase_name	orig_name	to_annotate	gsize	nb_conts	L90
+WIBI.0224.00001	287.887.fna	example_output/panacota/annotate_out/tmp_files/287.887.fna_prokka-split5N.fna	6890952	138	33
+WIBI.0224.00002	287.916.fna	example_output/panacota/annotate_out/tmp_files/287.916.fna_prokka-split5N.fna	6799587	123	45
+WIBI.0224.00003	287.980.fna	example_output/panacota/annotate_out/tmp_files/287.980.fna_prokka-split5N.fna	6806244	149	45
+WIBI.0224.00004	287.855.fna	example_output/panacota/annotate_out/tmp_files/287.855.fna_prokka-split5N.fna	6765481	143	51
+WIBI.0224.00005	287.871.fna	example_output/panacota/annotate_out/tmp_files/287.871.fna_prokka-split5N.fna	6895512	150	55

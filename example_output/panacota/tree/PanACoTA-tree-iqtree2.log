@@ -1,0 +1,5 @@
+[2024-02-06 01:17:55] :: INFO :: PanACoTA version 1.4.0
+[2024-02-06 01:17:55] :: INFO :: Command used
+ 	 > PanACoTA tree -a example_output/panacota/align_out/Phylo-WIBI/WIBI.nucl.grp.aln -o example_output/panacota/tree/ --threads 12
+[2024-02-06 01:17:55] :: INFO :: Running IQtree...
+[2024-02-06 01:18:03] :: INFO :: END
