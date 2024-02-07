@@ -246,8 +246,8 @@ def binary_table_pipeline(args):
         added_strains = []
         lines = infile.readlines()
         for line in lines:
-            if os.path.splitext(strain.split("/")[-1].strip())[0] not in added_strains:
-                added_strains.append(os.path.splitext(strain.split("/")[-1].strip())[0])
+            if os.path.splitext(line.split("/")[-1].strip())[0] not in added_strains:
+                added_strains.append(os.path.splitext(line.split("/")[-1].strip())[0])
                 strain_list.append(line.strip())
  
     # Run snippy and prokka
