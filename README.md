@@ -20,16 +20,12 @@ Activate conda environment
 ```bash
 conda activate SR-AMR
 ```
-Re-install snippy with given version
-```bash
-conda install snippy vt=0.57721
-```
 
 ## Create Binary Tables
-- -i :
+- Input, `-i` :
     - For genotype information:
         - File that contains path of genomic fasta files per line
-        or
+         <br> or <br> 
         - Folder that have structure: input_folder -> antibiotic -> [Resistant, Susceptible]
         ```
         input_folder
