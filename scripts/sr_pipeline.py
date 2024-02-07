@@ -241,10 +241,14 @@ def binary_table_pipeline(args):
 
     strain_list = []
 
+    # TODO check if strain is added, if yes, don't add and process it again!!!
     with open(input_file, "r") as infile:
+        added_strains = []
         lines = infile.readlines()
         for line in lines:
-            strain_list.append(line.strip())
+            if os.path.splitext(strain.split("/")[-1].strip())[0] not in added_strains:
+                added_strains.append(os.path.splitext(strain.split("/")[-1].strip())[0])
+                strain_list.append(line.strip())
  
     # Run snippy and prokka
     
