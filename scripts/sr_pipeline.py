@@ -181,6 +181,14 @@ def binary_table_pipeline(args):
     if not os.path.exists(os.path.join(args.temp, "panaroo")):
         os.mkdir(os.path.join(args.temp, "panaroo"))
 
+    if os.path.exists(os.path.join(args.output, "strains.txt")):
+        if not args.override:
+            print("Error: strains.txt already exists.")
+            sys.exit(1)
+        else:
+            print("Warning: strains.txt already exists. Old one will be deleted..")
+            os.remove(os.path.join(args.output, "strains.txt"))
+
     accepted_fasta_file_extensions = [".fna", ".fasta", ".faa"]
 
     if input_folder is not None:
@@ -214,7 +222,8 @@ def binary_table_pipeline(args):
                 if pathlib.Path(file).suffix in accepted_fasta_file_extensions:
                     susceptible_strains.append(file)
 
-            with open(os.path.join(args.output, "strains.txt"), "w") as outfile:
+            
+            with open(os.path.join(args.output, "strains.txt"), "a") as outfile:
                 for strain in resistant_strains:
                     # Make sure path is same in both Windows and Linux 
                     strain_path = os.path.join(resistant_path, strain)
