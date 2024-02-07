@@ -181,7 +181,7 @@ def binary_table_pipeline(args):
     if not os.path.exists(os.path.join(args.temp, "panaroo")):
         os.mkdir(os.path.join(args.temp, "panaroo"))
 
-    accepted_fasta_file_extensions = ["fna", "fasta", "faa"]
+    accepted_fasta_file_extensions = [".fna", ".fasta", ".faa"]
 
     if input_folder is not None:
         antibiotics = os.listdir(input_folder)
@@ -199,7 +199,7 @@ def binary_table_pipeline(args):
             susceptible_path = os.path.join(antibiotic_path, 'Susceptible')
 
             # Checking if folders contain fasta files that are accepted
-            
+
             files_in_resistant_path = os.listdir(resistant_path)
             files_in_susceptible_path = os.listdir(susceptible_path)
 
