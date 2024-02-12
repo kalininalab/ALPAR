@@ -138,16 +138,17 @@ def random_name_giver(strains_text_file, random_name_file_output):
     return random_names
 
 
-def panaroo_input_creator(random_names_txt, prokka_output_folder, temp_folder):
+def panaroo_input_creator(random_names_txt, prokka_output_folder, temp_folder, strains_to_be_processed):
 
     with open(random_names_txt, "r") as infile:
         lines = infile.readlines()
         for line in lines:
             splitted = line.split("\t")
             given_random_name = splitted[1].strip()
-            for prokka_output_file in os.listdir(f"{prokka_output_folder}/{given_random_name}"):
-                if prokka_output_file.endswith(".gff"):
-                    shutil.copyfile(f"{prokka_output_folder}/{given_random_name}/{prokka_output_file}", f"{temp_folder}/{given_random_name}.gff")
+            if given_random_name in strains_to_be_processed:
+                for prokka_output_file in os.listdir(f"{prokka_output_folder}/{given_random_name}"):
+                    if prokka_output_file.endswith(".gff"):
+                        shutil.copyfile(f"{prokka_output_folder}/{given_random_name}/{prokka_output_file}", f"{temp_folder}/{given_random_name}.gff")
 
 
 def panaroo_runner(panaroo_input_folder, panaroo_output_folder, log_file):
@@ -191,10 +192,12 @@ def process_folder(snippy_out_path, folder):
     return folder, snp_list
 
 
-def read_vcf_files_and_store_data(snippy_out_path, n_jobs):
+def read_vcf_files_and_store_data(snippy_out_path, n_jobs, strains_to_be_processed):
     snp_combined_list = []
     mutation_dict = {}
     folders = [folder for folder in os.listdir(snippy_out_path) if os.path.isfile(f"{snippy_out_path}/{folder}/snps.vcf")]
+
+    folders = [strain for strain in folders if strain in strains_to_be_processed]
 
     results = Parallel(n_jobs)(
         delayed(process_folder)(snippy_out_path, folder) for folder in folders
@@ -241,27 +244,19 @@ def strain_presence_absence(list_of_mutations, temp_dict):
     return mut_presence_absence_dict
 
 
-def binary_table_creator (input_folder, output_file, number_of_cores):
+def binary_table_creator (input_folder, output_file, number_of_cores, strains_to_be_processed):
+
     number_of_cores = int(number_of_cores)
-    start_time = time.time()
-    #print(f"Pipeline starting with {number_of_cores} cores")
-    mut_dict, snp_combined_set = read_vcf_files_and_store_data(f"{input_folder}", number_of_cores)
-    #print(f"VCF Files reading step completed")
-    #print(f"Creating temp dictionary")
+
+    mut_dict, snp_combined_set = read_vcf_files_and_store_data(f"{input_folder}", number_of_cores, strains_to_be_processed)
+
     temp_dict = temp_dict_creator(snp_combined_set)
-    #print(f"Temp dictionary creation step completed")
-    #print(f"Creating mutation presence absence dictionary")
+
     mutation_presence_absence_dict = mutation_presence_absence_dict_creator(mut_dict, temp_dict, number_of_cores)
-    #print(f"Mutation presence absence dictionary creation step completed")
-    #print(f"Creating data frame")
+
     df = pd.DataFrame.from_dict(mutation_presence_absence_dict, orient='index')
-    #print(f"Data frame has been created")
-    #print(df)
-    #print(f"Writing data frame to file")
+
     df.to_csv(f"{output_file}", sep="\t")
-    #print(f"Pipeline completed")
-    end_time = time.time() - start_time
-    #print(f"Pipeline took : {end_time:.2f} seconds")
 
 
 def binary_mutation_table_gpa_information_adder(binary_mutation_table, panaroo_output_gpa, binary_mutation_table_with_gpa_information):
@@ -346,7 +341,6 @@ def phenotype_dataframe_creator(data_folder_path, output_file, random_names_dict
     df.to_csv(output_file, sep="\t")
 
 
-# TODO
 def pyseer_genotype_matrix_creator(binary_mutation_table, output_file):
 
     genotype_df = pd.read_csv(binary_mutation_table, sep="\t", index_col=0)
@@ -358,7 +352,6 @@ def pyseer_genotype_matrix_creator(binary_mutation_table, output_file):
     genotype_df_transposed.to_csv(output_file, sep="\t")
 
 
-# TODO
 def pyseer_phenotype_file_creator(phenotype_file, output_file_directory):
 
     phenotype_df = pd.read_csv(phenotype_file, sep="\t", index_col=0)

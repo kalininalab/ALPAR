@@ -18,6 +18,7 @@ from datetime import datetime
 from joblib import Parallel, delayed
 import time
 import copy
+import multiprocessing
 from utils import is_tool_installed, snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, panacota_pipeline_runner, pyseer_runner, pyseer_similarity_matrix_creator, pyseer_phenotype_file_creator, pyseer_genotype_matrix_creator, panacota_pre_processor, panacota_post_processor
 
 # SNIPPY VCF EMPTY ISSUE SOLUTION = conda install snippy vt=0.57721
@@ -73,6 +74,11 @@ def main():
     else:
         parser.print_help()
         sys.exit(1)
+
+
+def run_snippy_and_prokka(strain, random_names, snippy_output, prokka_output, args):
+    snippy_runner(strain, random_names[os.path.splitext(strain.split("/")[-1].strip())[0]], snippy_output, args.reference, f"{args.temp}/snippy_log.txt", 1, args.ram)
+    prokka_runner(strain, random_names[os.path.splitext(strain.split("/")[-1].strip())[0]], prokka_output, args.reference, f"{args.temp}/prokka_log.txt", 1)
 
 
 def binary_table_pipeline(args):
@@ -254,17 +260,40 @@ def binary_table_pipeline(args):
     
     print(f"Number of strains to be processed: {len(strain_list)}")
     print("Running snippy and prokka...")
+
+    num_parallel_tasks = args.cpus
+
+    params = [(strain, random_names, snippy_output, prokka_output, args) for strain in strain_list]
+
+    with multiprocessing.Pool(num_parallel_tasks) as pool:
+        pool.starmap(run_snippy_and_prokka, params)
+
+    # for strain in strain_list:
+    #     # input, output, reference, cpus = 1, memory = 4, parallel_run = False
+    #     snippy_runner(strain, random_names[os.path.splitext(strain.split("/")[-1].strip())[0]] ,snippy_output, args.reference, f"{args.temp}/snippy_log.txt" ,args.cpus, args.ram)
+    #     # input, output, reference, cpus = 1, parallel_run = False
+    #     prokka_runner(strain, random_names[os.path.splitext(strain.split("/")[-1].strip())[0]], prokka_output, args.reference, f"{args.temp}/prokka_log.txt", args.cpus)
+    #     #break
         
-    for strain in strain_list:
-        # input, output, reference, cpus = 1, memory = 4, parallel_run = False
-        snippy_runner(strain, random_names[os.path.splitext(strain.split("/")[-1].strip())[0]] ,snippy_output, args.reference, f"{args.temp}/snippy_log.txt" ,args.cpus, args.ram)
-        # input, output, reference, cpus = 1, parallel_run = False
-        prokka_runner(strain, random_names[os.path.splitext(strain.split("/")[-1].strip())[0]], prokka_output, args.reference, f"{args.temp}/prokka_log.txt", args.cpus)
-        #break
+    strains_to_be_processed = []
+
+    prokka_output_strains = os.listdir(prokka_output)
+    snippy_output_strains = os.listdir(snippy_output)
+
+    strains_to_be_skiped = []
+
+    for strain in random_names.keys():
+        if random_names[strain] in prokka_output_strains and random_names[strain] in snippy_output_strains:
+            strains_to_be_processed.append(random_names[strain])
+        else:
+            strains_to_be_skiped.append(random_names[strain])
+
+    print(f"Number of strains processed: {len(strains_to_be_processed)}")
+    print(f"Number of strains skipped: {len(strains_to_be_skiped)}")
 
     print("Creating panaroo input...")
     # Create the panaroo input
-    panaroo_input_creator(os.path.join(args.output, "random_names.txt"), prokka_output, os.path.join(args.temp, "panaroo"))
+    panaroo_input_creator(os.path.join(args.output, "random_names.txt"), prokka_output, os.path.join(args.temp, "panaroo"), strains_to_be_processed)
 
     print("Running panaroo...")
     # Run panaroo
@@ -272,7 +301,7 @@ def binary_table_pipeline(args):
 
     print("Creating binary mutation table...")
     # Create the binary table
-    binary_table_creator (snippy_output, os.path.join(args.output, "binary_mutation_table.tsv"), args.cpus)
+    binary_table_creator(snippy_output, os.path.join(args.output, "binary_mutation_table.tsv"), args.cpus, strains_to_be_processed)
 
     print("Adding gene presence absence information to the binary table...")
     # Add gene presence absence information to the binary table
