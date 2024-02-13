@@ -20,6 +20,7 @@ import time
 import copy
 import multiprocessing
 from utils import is_tool_installed, snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, panacota_pipeline_runner, pyseer_runner, pyseer_similarity_matrix_creator, pyseer_phenotype_file_creator, pyseer_genotype_matrix_creator, panacota_pre_processor, panacota_post_processor
+from prps import PRPS_runner
 
 # SNIPPY VCF EMPTY ISSUE SOLUTION = conda install snippy vt=0.57721
 
@@ -65,6 +66,17 @@ def main():
     parser_gwas.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
     parser_gwas.add_argument('--override', action='store_true', help='override the output folder if exists, default=False')
     parser_gwas.set_defaults(func=gwas_pipeline)
+
+    parser_prps = subparsers.add_parser('prps', help='run prps analysis')
+    parser_prps.add_argument('-t', '--tree', type=str, help='phylogenetic tree file path', required=True)
+    parser_prps.add_argument('-l', '--list', type=str, help='list file path', required=True)
+    parser_prps.add_argument('-b', '--binary_mutation_file', type=str, help='binary mutation file path', required=True)
+    parser_prps.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
+    parser_prps.add_argument('--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
+    parser_prps.add_argument('--override', action='store_true', help='override the output and temp folder if exists, default=False')
+    parser_prps.add_argument('--keep-temp-files', action='store_true', help='keep the temporary files, default=False')
+    parser_prps.add_argument('--cpus', type=int, help='number of cpus to use, default=1', default=1)
+    parser_prps.set_defaults(func=prps_pipeline)
 
     # Parse the arguments
     args = parser.parse_args()
@@ -405,6 +417,11 @@ def gwas_pipeline(args):
     # pyseer_runner(genotype_file_path, phenotype_file_path, similarity_matrix, output_file_directory, cpus):
     pyseer_runner(os.path.join(gwas_output, "genotype_matrix.tsv"), os.path.join(gwas_output, "pyseer_phenotypes"), os.path.join(gwas_output, "similarity_matrix.tsv"), os.path.join(gwas_output, "gwas_results"))
 
+
+def prps_pipeline(args):
+
+    
+    PRPS_runner(args.tree, args.list, args.binary_mutation_file, args.output, args.temp)
 
 if __name__ == "__main__":
     main()
