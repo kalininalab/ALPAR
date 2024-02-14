@@ -4,51 +4,6 @@ import ete3
 import os
 
 
-def load_renaming_and_features(list_file, binary_mutation_file, origformat=False):
-    """ Matches strain identifiers of Panacota output, 
-
-    Parameters
-    ----------
-    bact_dataloc : str, this is where the data is located
-    list_file : str, name of file panacota produce with the renames strain names
-    binary_mutation_file : merged feature full file name path, result of load_features_to_table func
-    origformat (bool): A flag that indicates whether the data file is in its original format. Default is False.
-    
-    Returns:
-
-    id_match (pd.DataFrame): A DataFrame that contains the matched strain identifiers.
-
-
-    """
-    bac_strains=pd.read_csv(binary_mutation_file, sep="\t")
-    
-    if "Strains" in bac_strains.columns:
-        bac_strains = bac_strains.rename(columns={"Strains":"strain"})
-    
-    bac_strains.loc[:,"strain"]=bac_strains.strain.astype("str")
-    
-    if origformat == False:
-        bac_strains_renamed=pd.read_csv(f"{list_file}",
-                                  sep="\t", header=None)
-        orig_strain=bac_strains_renamed[1].str.split("/", expand=True)[2].str.split(".fna_p", expand=True)[0]
-        bac_strains_renamed[1]=orig_strain
-        bac_strains_renamed=bac_strains_renamed[[0,1]]
-        bac_strains_renamed=bac_strains_renamed.rename(columns={0:"panacota_renamed",1:"strain"})
-        
-    else:
-        
-        bac_strains_renamed=pd.read_csv(f"{list_file}",
-                                  sep="\t")
-        orig_strain=bac_strains_renamed.iloc[:,1].str.split("/", expand=True)[7].str.split(".fna", expand=True)[0]
-        bac_strains_renamed.iloc[:,1]=orig_strain
-        
-        bac_strains_renamed=bac_strains_renamed.iloc[:,[0,1]]
-        bac_strains_renamed=bac_strains_renamed.rename(columns={"gembase_name":"panacota_renamed","orig_name":"strain"})
-
-    id_match=bac_strains_renamed.merge(bac_strains, on="strain")
-    return id_match
-
-
 def load_tree(newick):
     """
     Loads the tree and returns the list of nodes and the list of names of the nodes.
@@ -103,7 +58,7 @@ def get_distance_matrix(t, node_list, names_list, temp_folder):
         
     Returns
     -------
-    ist_matrix : pandas.DataFrame
+    dist_matrix : pandas.DataFrame
         Distance matrix between all pairs of nodes in the tree.
         
         """
@@ -162,10 +117,10 @@ def find_nodes_with_descendants_from_matrix(leaves, tree, dist_matrix):
     return sum_dist
 
 
-def PRPS_runner(tree_file, list_file, binary_mutation_file, output_folder, temp_folder):
+def PRPS_runner(tree_file, binary_mutation_file, output_folder, temp_folder):
 
     with open(tree_file, "r") as f:
-        newick=f.readlines()[0]
+        newick=f.readline()
 
     t, node_list, names_list = load_tree(newick)
     get_distance_matrix(t, node_list, names_list, temp_folder)
@@ -173,12 +128,16 @@ def PRPS_runner(tree_file, list_file, binary_mutation_file, output_folder, temp_
     dist_matrix = pd.read_csv(os.path.join(temp_folder, "dist_matrix_all_incl_internal.csv"), index_col="Unnamed: 0")
     dist_matrix = dist_matrix.fillna(0)
 
-    id_match=load_renaming_and_features(list_file, binary_mutation_file, origformat=True)
+    #id_match=load_renaming_and_features(list_file, binary_mutation_file, origformat=True)
+
+    id_match = pd.read_csv(binary_mutation_file, sep="\t", index_col=0)
+    id_match.index.name = 'panacota_renamed'
+    id_match.reset_index(inplace=True)
 
     id_match=id_match.replace("?",2)
     id_match = id_match.fillna(0)
     #convert to numbers, since "?" made it be imported as str
-    id_match.iloc[:,3:]=id_match.iloc[:,3:].apply(pd.to_numeric)
+    id_match.iloc[:,2:]=id_match.iloc[:,2:].apply(pd.to_numeric)
 
     feature_score_dict={}
     empty_f=[]
@@ -188,15 +147,11 @@ def PRPS_runner(tree_file, list_file, binary_mutation_file, output_folder, temp_
     for feature in tqdm(id_match.columns):
         samples=id_match.loc[id_match[feature]==1,"panacota_renamed"] #select those who have the feature   
 
-        #print(len(samples))        
-
         if len(samples)==0:
             empty_f.append(feature)
         else:
             feature_score_dict[feature]=find_nodes_with_descendants_from_matrix(samples, t, dist_matrix)
             
-    feature_score=pd.DataFrame.from_dict(feature_score_dict,orient="index")
-
-    feature_score=feature_score.sum(axis=1)
-    feature_score.columns = ["score"]
-    feature_score.to_csv(os.path.join(output_folder, "new_score_from_matrix_all_combined_bmt.csv"), sep=";")
+    with open(os.path.join(output_folder, "prps_score.tsv"), "w") as f:
+        for k, v in feature_score_dict.items():
+            f.write(f"{k}\t{v}\n")

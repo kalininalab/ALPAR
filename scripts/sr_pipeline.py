@@ -37,7 +37,7 @@ def main():
     parser_main_pipeline.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
     parser_main_pipeline.add_argument('--reference', type=str, help='path of the reference file', required=True)
     parser_main_pipeline.add_argument('--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
-    parser_main_pipeline.add_argument('--override', action='store_true', help='override the output and temp folder if exists, default=False')
+    parser_main_pipeline.add_argument('--overwrite', action='store_true', help='overwrite the output and temp folder if exists, default=False')
     parser_main_pipeline.add_argument('--keep-temp-files', action='store_true', help='keep the temporary files, default=False')
     parser_main_pipeline.add_argument('--cpus', type=int, help='number of cpus to use, default=1', default=1)
     parser_main_pipeline.add_argument('--ram', type=int, help='amount of ram to use in GB, default=4', default=4)
@@ -48,7 +48,7 @@ def main():
     parser_panacota = subparsers.add_parser('panacota', help='run panacota analysis')
     parser_panacota.add_argument('-i', '--input', type=str, help='txt file that contains path of each strain per line or input folder path, can be found create_binary_tables output path as strains.txt', required=True)
     parser_panacota.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
-    parser_panacota.add_argument('--override', action='store_true', help='override the output folder if exists, default=False')
+    parser_panacota.add_argument('--overwrite', action='store_true', help='overwrite the output folder if exists, default=False')
     parser_panacota.add_argument('--cpus', type=int, help='number of cpus to use, default=1', default=1)
     parser_panacota.add_argument('--name', type=str, help='name of the analysis, default=WIBI', default="WIBI")
     parser_panacota.add_argument('--min_seq_id', type=float, help='Minimum sequence identity to be considered in the same cluster (float between 0 and 1). Default is 0.8', default=0.8)
@@ -64,16 +64,15 @@ def main():
     parser_gwas.add_argument('-p', '--phenotype', type=str, help='phenotype table path', required=True)
     parser_gwas.add_argument('-t', '--tree', type=str, help='phylogenetic tree path', required=True)
     parser_gwas.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
-    parser_gwas.add_argument('--override', action='store_true', help='override the output folder if exists, default=False')
+    parser_gwas.add_argument('--overwrite', action='store_true', help='overwrite the output folder if exists, default=False')
     parser_gwas.set_defaults(func=gwas_pipeline)
 
     parser_prps = subparsers.add_parser('prps', help='run prps analysis')
     parser_prps.add_argument('-t', '--tree', type=str, help='phylogenetic tree file path', required=True)
-    parser_prps.add_argument('-l', '--list', type=str, help='list file path', required=True)
     parser_prps.add_argument('-b', '--binary_mutation_file', type=str, help='binary mutation file path', required=True)
     parser_prps.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
     parser_prps.add_argument('--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
-    parser_prps.add_argument('--override', action='store_true', help='override the output and temp folder if exists, default=False')
+    parser_prps.add_argument('--overwrite', action='store_true', help='overwrite the output and temp folder if exists, default=False')
     parser_prps.add_argument('--keep-temp-files', action='store_true', help='keep the temporary files, default=False')
     parser_prps.add_argument('--cpus', type=int, help='number of cpus to use, default=1', default=1)
     parser_prps.set_defaults(func=prps_pipeline)
@@ -140,7 +139,7 @@ def binary_table_pipeline(args):
 
     # Check if output folder empty
     if os.path.exists(args.output) and os.path.isdir(args.output) and os.listdir(args.output):
-        if not args.override:
+        if not args.overwrite:
             print("Error: Output folder is not empty.")
             sys.exit(1)
     
@@ -150,7 +149,7 @@ def binary_table_pipeline(args):
     
     # Check if temp folder empty
     if os.path.exists(args.temp) and os.path.isdir(args.temp) and os.listdir(args.temp):
-        if not args.override:
+        if not args.overwrite:
             print("Error: Temp folder is not empty.")
             sys.exit(1)
 
@@ -200,7 +199,7 @@ def binary_table_pipeline(args):
         os.mkdir(os.path.join(args.temp, "panaroo"))
 
     if os.path.exists(os.path.join(args.output, "strains.txt")):
-        if not args.override:
+        if not args.overwrite:
             print("Error: strains.txt already exists.")
             sys.exit(1)
         else:
@@ -350,13 +349,13 @@ def panacota_pipeline(args):
     
     # Check if temp folder empty
     if os.path.exists(panacota_temp) and os.path.isdir(panacota_temp) and os.listdir(panacota_temp):
-        if not args.override:
+        if not args.overwrite:
             print("Error: Temp folder is not empty.")
             sys.exit(1)
         
     # Check if output folder empty
     if os.path.exists(panacota_output) and os.path.isdir(panacota_output) and os.listdir(panacota_output):
-        if not args.override:
+        if not args.overwrite:
             print("Error: Output folder is not empty.")
             sys.exit(1)
 
@@ -394,18 +393,18 @@ def gwas_pipeline(args):
 
     # Check if output folder empty
     if os.path.exists(gwas_output) and os.path.isdir(gwas_output) and os.listdir(gwas_output):
-        if not args.override:
+        if not args.overwrite:
             print("Error: Output folder is not empty.")
             sys.exit(1)
     else:
         os.mkdir(gwas_output)
     
     if not os.path.exists(os.path.join(gwas_output, "gwas_results")):
-        if not args.override:
+        if not args.overwrite:
             os.mkdir(os.path.join(gwas_output, "gwas_results"))
 
     if not os.path.exists(os.path.join(gwas_output, "pyseer_phenotypes")):
-        if not args.override:
+        if not args.overwrite:
             os.mkdir(os.path.join(gwas_output, "pyseer_phenotypes"))
 
     # pyseer_genotype_matrix_creator(binary_mutation_table, output_file):
@@ -420,8 +419,29 @@ def gwas_pipeline(args):
 
 def prps_pipeline(args):
 
-    
-    PRPS_runner(args.tree, args.list, args.binary_mutation_file, args.output, args.temp)
+    # Sanity checks
+
+    if args.temp is None:
+        args.temp = os.path.join(args.output, "temp")
+        if not os.path.exists(args.temp):
+            os.mkdir(args.temp)
+
+    prps_output = os.path.join(args.output,"prps")
+    prps_temp = os.path.join(args.temp,"prps")
+
+    # Check if output folder empty
+    if os.path.exists(prps_output) and os.path.isdir(prps_output) and os.listdir(prps_output):
+        if not args.overwrite:
+            print("Error: Output folder is not empty.")
+            sys.exit(1)
+    else:
+        os.mkdir(prps_output)
+
+    if not os.path.exists(prps_temp):
+        os.mkdir(prps_temp)
+
+    PRPS_runner(args.tree, args.binary_mutation_file, prps_output, prps_temp)
+
 
 if __name__ == "__main__":
     main()
