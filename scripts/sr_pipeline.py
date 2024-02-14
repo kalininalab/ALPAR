@@ -77,6 +77,38 @@ def main():
     parser_prps.add_argument('--cpus', type=int, help='number of cpus to use, default=1', default=1)
     parser_prps.set_defaults(func=prps_pipeline)
 
+    parser_ml = subparsers.add_parser('ml', help='run machine learning analysis')
+    parser_ml.add_argument('-i', '--input', type=str, help='binary mutation table path', required=True)
+    parser_ml.add_argument('-p', '--phenotype', type=str, help='phenotype table path', required=True)
+    parser_ml.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
+    parser_ml.add_argument('--prps', type=str, help='prps output path')
+    parser_ml.add_argument('--prps_percentage', type=int, help='percentage of the prps output to be used, should be used with --prps option, default=30', default=30)
+    parser_ml.add_argument('--overwrite', action='store_true', help='overwrite the output folder if exists, default=False')
+    parser_ml.add_argument('--cpus', type=int, help='number of cpus to use, default=1', default=1)
+    parser_ml.add_argument('--ram', type=int, help='amount of ram to use in GB, default=4', default=4)
+    parser_ml.add_argument('--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
+    parser_ml.add_argument('--keep-temp-files', action='store_true', help='keep the temporary files, default=False')
+    parser_ml.add_argument('--ml_algorithm', type=str, help='machine learning algorithm to use, available selections: [rf, svm], default=rf', default="rf")
+    parser_ml.add_argument('--test_train_split', type=float, help='test train split ratio, default=0.20', default=0.20)
+    parser_ml.add_argument('--random_state', type=int, help='random state, default=42', default=42)
+    parser_ml.add_argument('--n_estimators', type=int, help='number of estimators for random forest, default=100', default=100)
+    parser_ml.add_argument('--max_depth', type=int, help='max depth for random forest, default=10', default=10)
+    parser_ml.add_argument('--min_samples_split', type=int, help='min samples split for random forest, default=2', default=2)
+    parser_ml.add_argument('--min_samples_leaf', type=int, help='min samples leaf for random forest, default=1', default=1)
+    parser_ml.add_argument('--max_features', type=str, help='max features for random forest, default=auto', default="auto")
+    #parser_ml.add_argument('--bootstrap', action='store_true', help='bootstrap for random forest, default=True')
+    parser_ml.add_argument('--parameter_optimization', action='store_true', help='parameter optimization for random forest, default=False')
+    parser_ml.add_argument('--n_jobs', type=int, help='number of jobs for random forest, default=1', default=1)
+    parser_ml.add_argument('--cv', type=int, help='applies Cross-Validation with given number of splits, default=4', default=4)
+    parser_ml.add_argument('--scoring', type=str, help='scoring method for cross-validation, default=MCC', default="MCC")
+    parser_ml.add_argument('--save_model', action='store_true', help='save the ml model, default=False')
+    parser_ml.add_argument('--feature_importance_analysis', action='store_true', help='analyze feature importance, default=False')
+    parser_ml.add_argument('--feature_importance_analysis_number_of_repeats', type=int, help='number of repeats for feature importance analysis should be given with --feature_importance_analysis option, default=5', default=5)
+    parser_ml.add_argument('--optimization_time_limit', type=int, help='time limit for parameter optimization, default=3600', default=3600)
+
+    parser_ml.set_defaults(func=ml_pipeline)
+
+
     # Parse the arguments
     args = parser.parse_args()
 
@@ -441,6 +473,32 @@ def prps_pipeline(args):
         os.mkdir(prps_temp)
 
     PRPS_runner(args.tree, args.binary_mutation_file, prps_output, prps_temp)
+
+
+def ml_pipeline(args):
+    
+    # Sanity checks
+
+    if args.temp is None:
+        args.temp = os.path.join(args.output, "temp")
+        if not os.path.exists(args.temp):
+            os.mkdir(args.temp)
+
+    ml_output = os.path.join(args.output,"ml")
+    ml_temp = os.path.join(args.temp,"ml")
+
+    # Check if output folder empty
+    if os.path.exists(ml_output) and os.path.isdir(ml_output) and os.listdir(ml_output):
+        if not args.overwrite:
+            print("Error: Output folder is not empty.")
+            sys.exit(1)
+    else:
+        os.mkdir(ml_output)
+
+    if not os.path.exists(ml_temp):
+        os.mkdir(ml_temp)
+
+
 
 
 if __name__ == "__main__":
