@@ -93,7 +93,7 @@ def rf_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, 
     X = genotype_array[:, :].astype(int)
     y = phenotype_array[:, index_of_antibiotic].astype(int)
 
-    X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, random_state=random_seed, test_size=f"{test_size}")
+    X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, random_state=random_seed, test_size=float(test_size))
 
     if custom_scorer == "MCC":
         scorer = mcc_scorer
@@ -155,10 +155,10 @@ def svm(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_si
 
     index_of_antibiotic = phenotype_df.columns.get_loc(antibiotic)
 
-    X = genotype_array[:, :].astype(int)
+    X = genotype_array[:, 1:].astype(int)
     y = phenotype_array[:, index_of_antibiotic].astype(int)
 
-    X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, random_state=random_seed, test_size=f"{test_size}")
+    X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, random_state=random_seed, test_size=float(test_size))
 
     best_model_mcc = -1.0
     bm_c = 0
@@ -218,7 +218,7 @@ def svm_cv(binary_mutation_table, phenotype_table, antibiotic, random_seed, test
     X = genotype_array[:, :].astype(int)
     y = phenotype_array[:, index_of_antibiotic].astype(int)
 
-    X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, random_state=random_seed, test_size=test_size)
+    X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, random_state=random_seed, test_size=float(test_size))
 
     # Define the hyperparameter grid to search for the best 'C' value
     param_grid = {'C': [1, 10, 100]}
@@ -263,3 +263,36 @@ def svm_cv(binary_mutation_table, phenotype_table, antibiotic, random_seed, test
     output_file_writer(outfile, y_test, y_hat, best_c=str(best_params['C']))
 
     
+def prps_ml_preprecessor(binary_mutation_table, prps_score_file, prps_percentage, temp_path):
+
+    prps_scores = {}
+
+    with open(prps_score_file, "r") as prps_file:
+        prps_score_lines = prps_file.readlines()
+
+    for line in prps_score_lines:
+        splitted = line.split("\t")
+        prps_scores[splitted[0].strip()] = float(splitted[1].strip())
+    
+    sorted_prps_scores = {k: v for k, v in sorted(prps_scores.items(), key=lambda item: item[1], reverse=True)}
+
+    length_of_prps = len(sorted_prps_scores.keys())
+
+    prps_percentage = float(prps_percentage)
+
+    amount_of_cols_to_be_kept = (prps_percentage / 100) * length_of_prps
+
+    cols_to_be_dropped = []
+
+    count = amount_of_cols_to_be_kept
+    for key in sorted_prps_scores.keys():
+        if count < 0:
+            cols_to_be_dropped.append(key)
+        count -= 1
+
+    genotype_df = pd.read_csv(binary_mutation_table, sep="\t")
+
+    genotype_df_dropped = genotype_df.drop(columns=cols_to_be_dropped, axis=1)
+
+    genotype_df_dropped.to_csv(os.path.join(temp_path, "prps_filtered_table.tsv"), sep="\t")
+

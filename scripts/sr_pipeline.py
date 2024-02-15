@@ -24,7 +24,6 @@ from prps import PRPS_runner
 from ml import rf_auto_ml, svm, rf, svm_cv
 
 # SNIPPY VCF EMPTY ISSUE SOLUTION = conda install snippy vt=0.57721
-
 def main():
     # Create the parser
     parser = argparse.ArgumentParser(description="Single reference AMR is a tool to get mutation and gene presence absence information from genome sequences.")
@@ -532,7 +531,6 @@ def ml_pipeline(args):
             print("Error: PRPS percentage should be between 0 and 100.")
             sys.exit(1)
     
-    #def rf_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, temp_folder, ram, optimization_time_limit, feature_importance_analysis = False, save_model = False, resampling_strategy="holdout", custom_scorer="MCC", fia_repeats=5):
 
     if args.ml_algorithm == "rf":
         if args.parameter_optimization:
@@ -540,8 +538,6 @@ def ml_pipeline(args):
 
         else:
             rf()
-    
-    #def svm(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_size, output_folder, n_jobs, feature_importance_analysis = False, save_model = False, resampling_strategy="holdout", fia_repeats=5, optimization=False):
 
     elif args.ml_algorithm == "svm":
         if args.resampling_strategy == "cv":
