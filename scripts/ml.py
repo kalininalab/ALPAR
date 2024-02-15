@@ -13,6 +13,7 @@ import pickle
 from random import randint
 import os
 from sklearn.svm import SVC
+from sklearn.model_selection import GridSearchCV
 
 mcc_scorer = autosklearn.metrics.make_scorer(
     "mcc",
@@ -135,7 +136,11 @@ def rf_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, 
     output_file_writer(outfile, y_test, y_hat, cls)
 
 
-def svm(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_size, output_folder, n_jobs, feature_importance_analysis = False, save_model = False, resampling_strategy="holdout", fia_repeats=5):
+def rf(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, feature_importance_analysis = False, save_model = False, resampling_strategy="holdout", fia_repeats=5):
+    return None
+
+
+def svm(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_size, output_folder, n_jobs, feature_importance_analysis = False, save_model = False, resampling_strategy="holdout", fia_repeats=5, optimization=False):
 
     output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_SVM"
 
@@ -158,7 +163,12 @@ def svm(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_si
     best_model_mcc = -1.0
     bm_c = 0
 
-    for c_val in np.arange(1, 10, 1):
+    max_c_range = 2
+
+    if optimization:
+        max_c_range = 11
+
+    for c_val in np.arange(1, max_c_range, 1):
         
         svm_cls = SVC(class_weight={0: sum(y_train), 1: len(y_train) - sum(y_train)}, kernel="linear", C=c_val)
         svm_cls.fit(X_train, y_train)
@@ -188,4 +198,68 @@ def svm(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_si
         pickle.dump(best_model, open(model_file, 'wb'))
 
     output_file_writer(outfile, y_test, y_hat, best_c=bm_c)
+    
+
+def svm_cv(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_size, output_folder, n_jobs, cv_split, feature_importance_analysis = False, save_model = False, resampling_strategy="cv", fia_repeats=5, optimization=False, custom_scorer="MCC"):
+    
+    output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_SVM"
+
+    genotype_df = pd.read_csv(binary_mutation_table, sep="\t")
+    phenotype_df = pd.read_csv(phenotype_table, sep="\t")
+
+    # Make sure rows are matching
+    phenotype_df = phenotype_df.reindex(genotype_df.index)
+
+    genotype_array = genotype_df.to_numpy()
+    phenotype_array = phenotype_df.to_numpy()
+
+    index_of_antibiotic = phenotype_df.columns.get_loc(antibiotic)
+
+    X = genotype_array[:, :].astype(int)
+    y = phenotype_array[:, index_of_antibiotic].astype(int)
+
+    X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, random_state=random_seed, test_size=test_size)
+
+    # Define the hyperparameter grid to search for the best 'C' value
+    param_grid = {'C': [1, 10, 100]}
+
+    if not optimization:
+        param_grid = {'C': [1]}
+
+    # Create an SVM model
+    svm_cls = SVC(class_weight={0: sum(y_train), 1: len(y_train) - sum(y_train)}, kernel="linear")
+
+    if custom_scorer == "MCC":
+        scorer = "matthews_corrcoef"
+    # Create a GridSearchCV instance to find the best hyperparameters
+    grid_search = GridSearchCV(svm_cls, param_grid, cv=cv_split, scoring=scorer)
+    grid_search.fit(X_train, y_train)
+
+    # Get the best hyperparameters
+    best_params = grid_search.best_params_
+
+    # Create the final model with the best hyperparameters
+    final_svm_model = SVC(class_weight={0: sum(y_train), 1: len(y_train) - sum(y_train)}, kernel="linear", C=best_params['C'])
+    final_svm_model.fit(X_train, y_train)
+            
+    y_hat = final_svm_model.predict(X_test)
+
+    outfile = os.path.join(output_folder, f"{output_file_template}_Result") 
+    
+    if feature_importance_analysis:
+
+        r = permutation_importance(final_svm_model, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
+
+        with open(os.path.join(output_folder, f"{output_file_template}_FIA", "w")) as ofile:
+            for i in r.importances_mean.argsort()[::-1]:
+                if r.importances_mean[i] - 2 * r.importances_std[i] > 0:
+                    ofile.write(f"{genotype_df.columns[i]:<8};{r.importances_mean[i]:.3f};+/-{r.importances_std[i]:.3f}\n")
+
+    if save_model:
+
+        model_file = os.path.join(output_folder, f"{output_file_template}_model.sav")
+        pickle.dump(final_svm_model, open(model_file, 'wb'))
+
+    output_file_writer(outfile, y_test, y_hat, best_c=str(best_params['C']))
+
     

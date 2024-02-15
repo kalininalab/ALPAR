@@ -21,6 +21,7 @@ import copy
 import multiprocessing
 from utils import is_tool_installed, snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, panacota_pipeline_runner, pyseer_runner, pyseer_similarity_matrix_creator, pyseer_phenotype_file_creator, pyseer_genotype_matrix_creator, panacota_pre_processor, panacota_post_processor
 from prps import PRPS_runner
+from ml import rf_auto_ml, svm, rf, svm_cv
 
 # SNIPPY VCF EMPTY ISSUE SOLUTION = conda install snippy vt=0.57721
 
@@ -81,6 +82,7 @@ def main():
     parser_ml.add_argument('-i', '--input', type=str, help='binary mutation table path', required=True)
     parser_ml.add_argument('-p', '--phenotype', type=str, help='phenotype table path', required=True)
     parser_ml.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
+    parser_ml.add_argument('-a', '--antibiotic', type=str, help='antibiotic name', required=True)
     parser_ml.add_argument('--prps', type=str, help='prps output path')
     parser_ml.add_argument('--prps_percentage', type=int, help='percentage of the prps output to be used, should be used with --prps option, default=30', default=30)
     parser_ml.add_argument('--overwrite', action='store_true', help='overwrite the output folder if exists, default=False')
@@ -96,11 +98,12 @@ def main():
     parser_ml.add_argument('--min_samples_split', type=int, help='min samples split for random forest, default=2', default=2)
     parser_ml.add_argument('--min_samples_leaf', type=int, help='min samples leaf for random forest, default=1', default=1)
     parser_ml.add_argument('--max_features', type=str, help='max features for random forest, default=auto', default="auto")
+    parser_ml.add_argument('--resampling_strategy', type=str, help='resampling strategy for ml, available selections: [holdout, cv], default=holdout', default="holdout")
     #parser_ml.add_argument('--bootstrap', action='store_true', help='bootstrap for random forest, default=True')
     parser_ml.add_argument('--parameter_optimization', action='store_true', help='parameter optimization for random forest, default=False')
     parser_ml.add_argument('--n_jobs', type=int, help='number of jobs for random forest, default=1', default=1)
     parser_ml.add_argument('--cv', type=int, help='applies Cross-Validation with given number of splits, default=4', default=4)
-    parser_ml.add_argument('--scoring', type=str, help='scoring method for cross-validation, default=MCC', default="MCC")
+    parser_ml.add_argument('--scoring', type=str, help='scoring method for cross-validation, available selections: [MCC,accuracy,f1,roc_auc], default=MCC', default="MCC")
     parser_ml.add_argument('--save_model', action='store_true', help='save the ml model, default=False')
     parser_ml.add_argument('--feature_importance_analysis', action='store_true', help='analyze feature importance, default=False')
     parser_ml.add_argument('--feature_importance_analysis_number_of_repeats', type=int, help='number of repeats for feature importance analysis should be given with --feature_importance_analysis option, default=5', default=5)
@@ -498,6 +501,83 @@ def ml_pipeline(args):
     if not os.path.exists(ml_temp):
         os.mkdir(ml_temp)
 
+    accepted_ml_algorithms = ["rf", "svm"]
+
+    if args.ml_algorithm not in accepted_ml_algorithms:
+        print("Error: ML algorithm is not accepted.")
+        sys.exit(1)
+
+    accepted_scoring_methods = ["MCC", "accuracy", "f1", "roc_auc"]
+
+    if args.scoring not in accepted_scoring_methods:
+        print("Error: Scoring method is not accepted.")
+        sys.exit(1)
+
+    PRPS_flag = False
+
+    if args.prps is not None:
+        if os.path.exists(args.prps):
+            PRPS_flag = True
+        else:
+            print("Error: PRPS output does not exist.")
+            sys.exit(1)
+    
+    PRPS_perentage = 30
+
+    if args.prps_percentage:
+
+        PRPS_perentage = args.prps_percentage
+
+        if args.prps_percentage < 0 or args.prps_percentage > 100:
+            print("Error: PRPS percentage should be between 0 and 100.")
+            sys.exit(1)
+    
+    #def rf_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, temp_folder, ram, optimization_time_limit, feature_importance_analysis = False, save_model = False, resampling_strategy="holdout", custom_scorer="MCC", fia_repeats=5):
+
+    if args.ml_algorithm == "rf":
+        if args.parameter_optimization:
+            rf_auto_ml(args.input, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, ml_temp, args.ram, args.optimization_time_limit, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5)
+
+        else:
+            rf()
+    
+    #def svm(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_size, output_folder, n_jobs, feature_importance_analysis = False, save_model = False, resampling_strategy="holdout", fia_repeats=5, optimization=False):
+
+    elif args.ml_algorithm == "svm":
+        if args.resampling_strategy == "cv":
+            svm_cv(args.input, args.phenotype, args.antibiotic, args.random_state, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy="cv", fia_repeats=5, optimization=False)
+        elif args.resampling_strategy == "holdout":
+            svm(args.input, args.phenotype, args.antibiotic, args.random_state, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy="holdout", fia_repeats=5, optimization=False)
+
+
+    # parser_ml = subparsers.add_parser('ml', help='run machine learning analysis')
+    # parser_ml.add_argument('-i', '--input', type=str, help='binary mutation table path', required=True)
+    # parser_ml.add_argument('-p', '--phenotype', type=str, help='phenotype table path', required=True)
+    # parser_ml.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
+    # parser_ml.add_argument('--prps', type=str, help='prps output path')
+    # parser_ml.add_argument('--prps_percentage', type=int, help='percentage of the prps output to be used, should be used with --prps option, default=30', default=30)
+    # parser_ml.add_argument('--overwrite', action='store_true', help='overwrite the output folder if exists, default=False')
+    # parser_ml.add_argument('--cpus', type=int, help='number of cpus to use, default=1', default=1)
+    # parser_ml.add_argument('--ram', type=int, help='amount of ram to use in GB, default=4', default=4)
+    # parser_ml.add_argument('--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
+    # parser_ml.add_argument('--keep-temp-files', action='store_true', help='keep the temporary files, default=False')
+    # parser_ml.add_argument('--ml_algorithm', type=str, help='machine learning algorithm to use, available selections: [rf, svm], default=rf', default="rf")
+    # parser_ml.add_argument('--test_train_split', type=float, help='test train split ratio, default=0.20', default=0.20)
+    # parser_ml.add_argument('--random_state', type=int, help='random state, default=42', default=42)
+    # parser_ml.add_argument('--n_estimators', type=int, help='number of estimators for random forest, default=100', default=100)
+    # parser_ml.add_argument('--max_depth', type=int, help='max depth for random forest, default=10', default=10)
+    # parser_ml.add_argument('--min_samples_split', type=int, help='min samples split for random forest, default=2', default=2)
+    # parser_ml.add_argument('--min_samples_leaf', type=int, help='min samples leaf for random forest, default=1', default=1)
+    # parser_ml.add_argument('--max_features', type=str, help='max features for random forest, default=auto', default="auto")
+    # #parser_ml.add_argument('--bootstrap', action='store_true', help='bootstrap for random forest, default=True')
+    # parser_ml.add_argument('--parameter_optimization', action='store_true', help='parameter optimization for random forest, default=False')
+    # parser_ml.add_argument('--n_jobs', type=int, help='number of jobs for random forest, default=1', default=1)
+    # parser_ml.add_argument('--cv', type=int, help='applies Cross-Validation with given number of splits, default=4', default=4)
+    # parser_ml.add_argument('--scoring', type=str, help='scoring method for cross-validation , default=MCC', default="MCC")
+    # parser_ml.add_argument('--save_model', action='store_true', help='save the ml model, default=False')
+    # parser_ml.add_argument('--feature_importance_analysis', action='store_true', help='analyze feature importance, default=False')
+    # parser_ml.add_argument('--feature_importance_analysis_number_of_repeats', type=int, help='number of repeats for feature importance analysis should be given with --feature_importance_analysis option, default=5', default=5)
+    # parser_ml.add_argument('--optimization_time_limit', type=int, help='time limit for parameter optimization, default=3600', default=3600)
 
 
 
