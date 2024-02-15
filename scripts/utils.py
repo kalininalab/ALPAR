@@ -465,3 +465,7 @@ def panacota_pipeline_runner(list_file, dbpath, output_directory, run_name, n_co
         os.system(pc_align_command)
     print(f"Running PanACoTA tree...")
     os.system(pc_tree_command)
+
+
+def temp_folder_remover(temp_folder):
+    shutil.rmtree(temp_folder)

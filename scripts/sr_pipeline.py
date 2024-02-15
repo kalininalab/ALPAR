@@ -19,9 +19,9 @@ from joblib import Parallel, delayed
 import time
 import copy
 import multiprocessing
-from utils import is_tool_installed, snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, panacota_pipeline_runner, pyseer_runner, pyseer_similarity_matrix_creator, pyseer_phenotype_file_creator, pyseer_genotype_matrix_creator, panacota_pre_processor, panacota_post_processor
+from utils import is_tool_installed, snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, panacota_pipeline_runner, pyseer_runner, pyseer_similarity_matrix_creator, pyseer_phenotype_file_creator, pyseer_genotype_matrix_creator, panacota_pre_processor, panacota_post_processor, temp_folder_remover
 from prps import PRPS_runner
-from ml import rf_auto_ml, svm, rf, svm_cv
+from ml import rf_auto_ml, svm, rf, svm_cv, prps_ml_preprecessor
 
 # SNIPPY VCF EMPTY ISSUE SOLUTION = conda install snippy vt=0.57721
 def main():
@@ -64,6 +64,7 @@ def main():
     parser_gwas.add_argument('-p', '--phenotype', type=str, help='phenotype table path', required=True)
     parser_gwas.add_argument('-t', '--tree', type=str, help='phylogenetic tree path', required=True)
     parser_gwas.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
+    parser_gwas.add_argument('--keep-temp-files', action='store_true', help='keep the temporary files, default=False')
     parser_gwas.add_argument('--overwrite', action='store_true', help='overwrite the output folder if exists, default=False')
     parser_gwas.set_defaults(func=gwas_pipeline)
 
@@ -82,7 +83,7 @@ def main():
     parser_ml.add_argument('-p', '--phenotype', type=str, help='phenotype table path', required=True)
     parser_ml.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
     parser_ml.add_argument('-a', '--antibiotic', type=str, help='antibiotic name', required=True)
-    parser_ml.add_argument('--prps', type=str, help='prps output path')
+    parser_ml.add_argument('--prps', type=str, help='prps score file path')
     parser_ml.add_argument('--prps_percentage', type=int, help='percentage of the prps output to be used, should be used with --prps option, default=30', default=30)
     parser_ml.add_argument('--overwrite', action='store_true', help='overwrite the output folder if exists, default=False')
     parser_ml.add_argument('--cpus', type=int, help='number of cpus to use, default=1', default=1)
@@ -357,6 +358,9 @@ def binary_table_pipeline(args):
         # Create the phenotype dataframe
         phenotype_dataframe_creator(input_folder, os.path.join(args.output, "phenotype_table.tsv"), random_names)
 
+    if not args.keep_temp_files:
+        temp_folder_remover(args.temp)
+
 
 def panacota_pipeline(args):
 
@@ -407,6 +411,9 @@ def panacota_pipeline(args):
 
     panacota_post_processor(panacota_output, args.name, args.data_type)
 
+    if not args.keep_temp_files:
+        temp_folder_remover(args.temp)
+
 
 def gwas_pipeline(args):
 
@@ -450,6 +457,9 @@ def gwas_pipeline(args):
     # pyseer_runner(genotype_file_path, phenotype_file_path, similarity_matrix, output_file_directory, cpus):
     pyseer_runner(os.path.join(gwas_output, "genotype_matrix.tsv"), os.path.join(gwas_output, "pyseer_phenotypes"), os.path.join(gwas_output, "similarity_matrix.tsv"), os.path.join(gwas_output, "gwas_results"))
 
+    if not args.keep_temp_files:
+        temp_folder_remover(args.temp)
+
 
 def prps_pipeline(args):
 
@@ -475,6 +485,9 @@ def prps_pipeline(args):
         os.mkdir(prps_temp)
 
     PRPS_runner(args.tree, args.binary_mutation_file, prps_output, prps_temp)
+
+    if not args.keep_temp_files:
+        temp_folder_remover(args.temp)
 
 
 def ml_pipeline(args):
@@ -521,30 +534,38 @@ def ml_pipeline(args):
             print("Error: PRPS output does not exist.")
             sys.exit(1)
     
-    PRPS_perentage = 30
+    PRPS_percentage = 30
 
     if args.prps_percentage:
 
-        PRPS_perentage = args.prps_percentage
+        PRPS_percentage = args.prps_percentage
 
         if args.prps_percentage < 0 or args.prps_percentage > 100:
             print("Error: PRPS percentage should be between 0 and 100.")
             sys.exit(1)
     
+    binary_mutation_table_path = args.input
+
+    if PRPS_flag:
+        prps_ml_preprecessor(binary_mutation_table_path, args.prps, PRPS_percentage, ml_temp)
+
+        binary_mutation_table_path = os.path.join(ml_temp, "prps_filtered_table.tsv")
 
     if args.ml_algorithm == "rf":
         if args.parameter_optimization:
-            rf_auto_ml(args.input, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, ml_temp, args.ram, args.optimization_time_limit, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5)
+            rf_auto_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, ml_temp, args.ram, args.optimization_time_limit, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5)
 
         else:
             rf()
 
     elif args.ml_algorithm == "svm":
         if args.resampling_strategy == "cv":
-            svm_cv(args.input, args.phenotype, args.antibiotic, args.random_state, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy="cv", fia_repeats=5, optimization=False)
+            svm_cv(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy="cv", fia_repeats=5, optimization=False)
         elif args.resampling_strategy == "holdout":
-            svm(args.input, args.phenotype, args.antibiotic, args.random_state, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy="holdout", fia_repeats=5, optimization=False)
+            svm(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy="holdout", fia_repeats=5, optimization=False)
 
+    if not args.keep_temp_files:
+        temp_folder_remover(args.temp)
 
     # parser_ml = subparsers.add_parser('ml', help='run machine learning analysis')
     # parser_ml.add_argument('-i', '--input', type=str, help='binary mutation table path', required=True)
