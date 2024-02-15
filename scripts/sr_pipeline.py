@@ -540,6 +540,26 @@ def ml_pipeline(args):
 
         binary_mutation_table_path = os.path.join(ml_temp, "prps_filtered_table.tsv")
 
+    if float(args.test_train_split) < 0 or float(args.test_train_split) > 1:
+        print("Error: Test train split should be between 0 and 1.")
+        sys.exit(1)
+
+    if int(args.random_state) < 0:
+        print("Error: Random state should be positive.")
+        sys.exit(1)
+
+    if int(args.cpus) < 1:
+        print("Error: Number of cpus should be positive.")
+        sys.exit(1)
+    
+    if int(args.ram) < 1:
+        print("Error: Amount of ram should be positive.")
+        sys.exit(1)
+
+    if int(args.feature_importance_analysis_number_of_repeats) < 1:
+        print("Error: Number of repeats for feature importance analysis should be positive and bigger than 0.")
+        sys.exit(1)
+
     if args.ml_algorithm == "rf":
         if args.parameter_optimization:
             rf_auto_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, ml_temp, args.ram, args.optimization_time_limit, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5)
