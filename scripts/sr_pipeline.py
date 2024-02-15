@@ -38,7 +38,7 @@ def main():
     parser_main_pipeline.add_argument('--reference', type=str, help='path of the reference file', required=True)
     parser_main_pipeline.add_argument('--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
     parser_main_pipeline.add_argument('--overwrite', action='store_true', help='overwrite the output and temp folder if exists, default=False')
-    parser_main_pipeline.add_argument('--keep-temp-files', action='store_true', help='keep the temporary files, default=False')
+    parser_main_pipeline.add_argument('--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
     parser_main_pipeline.add_argument('--cpus', type=int, help='number of cpus to use, default=1', default=1)
     parser_main_pipeline.add_argument('--ram', type=int, help='amount of ram to use in GB, default=4', default=4)
     parser_main_pipeline.add_argument('--create_phenotype_from_folder', action='store_true', help='create phenotype file from the folders that contains genomic files, folder path should be given with --phenotype_folder option, default=False')
@@ -54,7 +54,7 @@ def main():
     parser_panacota.add_argument('--min_seq_id', type=float, help='Minimum sequence identity to be considered in the same cluster (float between 0 and 1). Default is 0.8', default=0.8)
     parser_panacota.add_argument('--clustering_mode', type=int, help='Choose the clustering mode: 0 for set cover, 1 for single-linkage, 2 for CD-Hit. Default is single-linkage (1)', default=1)
     parser_panacota.add_argument('--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
-    parser_panacota.add_argument('--keep-temp-files', action='store_true', help='keep the temporary files, default=False')
+    parser_panacota.add_argument('--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
     parser_panacota.add_argument('--random_names_dict', type=str, help='random names dictionary path')
     parser_panacota.add_argument('--data_type', type=str, help='data type of the input, either "nucl" or "prot", default=nucl', default="nucl")
     parser_panacota.set_defaults(func=panacota_pipeline)
@@ -64,7 +64,6 @@ def main():
     parser_gwas.add_argument('-p', '--phenotype', type=str, help='phenotype table path', required=True)
     parser_gwas.add_argument('-t', '--tree', type=str, help='phylogenetic tree path', required=True)
     parser_gwas.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
-    parser_gwas.add_argument('--keep-temp-files', action='store_true', help='keep the temporary files, default=False')
     parser_gwas.add_argument('--overwrite', action='store_true', help='overwrite the output folder if exists, default=False')
     parser_gwas.set_defaults(func=gwas_pipeline)
 
@@ -74,7 +73,7 @@ def main():
     parser_prps.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
     parser_prps.add_argument('--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
     parser_prps.add_argument('--overwrite', action='store_true', help='overwrite the output and temp folder if exists, default=False')
-    parser_prps.add_argument('--keep-temp-files', action='store_true', help='keep the temporary files, default=False')
+    parser_prps.add_argument('--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
     parser_prps.add_argument('--cpus', type=int, help='number of cpus to use, default=1', default=1)
     parser_prps.set_defaults(func=prps_pipeline)
 
@@ -84,12 +83,12 @@ def main():
     parser_ml.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
     parser_ml.add_argument('-a', '--antibiotic', type=str, help='antibiotic name', required=True)
     parser_ml.add_argument('--prps', type=str, help='prps score file path')
-    parser_ml.add_argument('--prps_percentage', type=int, help='percentage of the prps output to be used, should be used with --prps option, default=30', default=30)
+    parser_ml.add_argument('--prps_percentage', type=int, help='percentage of the top scores of prps to be used, should be used with --prps option, default=30', default=30)
     parser_ml.add_argument('--overwrite', action='store_true', help='overwrite the output folder if exists, default=False')
     parser_ml.add_argument('--cpus', type=int, help='number of cpus to use, default=1', default=1)
     parser_ml.add_argument('--ram', type=int, help='amount of ram to use in GB, default=4', default=4)
     parser_ml.add_argument('--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
-    parser_ml.add_argument('--keep-temp-files', action='store_true', help='keep the temporary files, default=False')
+    parser_ml.add_argument('--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
     parser_ml.add_argument('--ml_algorithm', type=str, help='machine learning algorithm to use, available selections: [rf, svm], default=rf', default="rf")
     parser_ml.add_argument('--test_train_split', type=float, help='test train split ratio, default=0.20', default=0.20)
     parser_ml.add_argument('--random_state', type=int, help='random state, default=42', default=42)
@@ -173,7 +172,7 @@ def binary_table_pipeline(args):
         os.mkdir(args.output)
 
     # Check if output folder empty
-    if os.path.exists(args.output) and os.path.isdir(args.output) and os.listdir(args.output):
+    if os.path.exists(args.output) and os.path.isdir(args.output):
         if not args.overwrite:
             print("Error: Output folder is not empty.")
             sys.exit(1)
@@ -183,7 +182,7 @@ def binary_table_pipeline(args):
         os.mkdir(args.temp)
     
     # Check if temp folder empty
-    if os.path.exists(args.temp) and os.path.isdir(args.temp) and os.listdir(args.temp):
+    if os.path.exists(args.temp) and os.path.isdir(args.temp):
         if not args.overwrite:
             print("Error: Temp folder is not empty.")
             sys.exit(1)
@@ -314,13 +313,6 @@ def binary_table_pipeline(args):
     with multiprocessing.Pool(num_parallel_tasks) as pool:
         pool.starmap(run_snippy_and_prokka, params)
 
-    # for strain in strain_list:
-    #     # input, output, reference, cpus = 1, memory = 4, parallel_run = False
-    #     snippy_runner(strain, random_names[os.path.splitext(strain.split("/")[-1].strip())[0]] ,snippy_output, args.reference, f"{args.temp}/snippy_log.txt" ,args.cpus, args.ram)
-    #     # input, output, reference, cpus = 1, parallel_run = False
-    #     prokka_runner(strain, random_names[os.path.splitext(strain.split("/")[-1].strip())[0]], prokka_output, args.reference, f"{args.temp}/prokka_log.txt", args.cpus)
-    #     #break
-        
     strains_to_be_processed = []
 
     prokka_output_strains = os.listdir(prokka_output)
@@ -359,7 +351,7 @@ def binary_table_pipeline(args):
         phenotype_dataframe_creator(input_folder, os.path.join(args.output, "phenotype_table.tsv"), random_names)
 
     if not args.keep_temp_files:
-        temp_folder_remover(args.temp)
+        temp_folder_remover(os.path.join(args.temp, "panaroo"))
 
 
 def panacota_pipeline(args):
@@ -386,13 +378,13 @@ def panacota_pipeline(args):
             os.mkdir(panacota_output)
     
     # Check if temp folder empty
-    if os.path.exists(panacota_temp) and os.path.isdir(panacota_temp) and os.listdir(panacota_temp):
+    if os.path.exists(panacota_temp) and os.path.isdir(panacota_temp):
         if not args.overwrite:
             print("Error: Temp folder is not empty.")
             sys.exit(1)
         
     # Check if output folder empty
-    if os.path.exists(panacota_output) and os.path.isdir(panacota_output) and os.listdir(panacota_output):
+    if os.path.exists(panacota_output) and os.path.isdir(panacota_output):
         if not args.overwrite:
             print("Error: Output folder is not empty.")
             sys.exit(1)
@@ -412,7 +404,7 @@ def panacota_pipeline(args):
     panacota_post_processor(panacota_output, args.name, args.data_type)
 
     if not args.keep_temp_files:
-        temp_folder_remover(args.temp)
+        temp_folder_remover(panacota_temp)
 
 
 def gwas_pipeline(args):
@@ -433,7 +425,7 @@ def gwas_pipeline(args):
     gwas_output = os.path.join(args.output, "gwas")
 
     # Check if output folder empty
-    if os.path.exists(gwas_output) and os.path.isdir(gwas_output) and os.listdir(gwas_output):
+    if os.path.exists(gwas_output) and os.path.isdir(gwas_output):
         if not args.overwrite:
             print("Error: Output folder is not empty.")
             sys.exit(1)
@@ -457,9 +449,6 @@ def gwas_pipeline(args):
     # pyseer_runner(genotype_file_path, phenotype_file_path, similarity_matrix, output_file_directory, cpus):
     pyseer_runner(os.path.join(gwas_output, "genotype_matrix.tsv"), os.path.join(gwas_output, "pyseer_phenotypes"), os.path.join(gwas_output, "similarity_matrix.tsv"), os.path.join(gwas_output, "gwas_results"))
 
-    if not args.keep_temp_files:
-        temp_folder_remover(args.temp)
-
 
 def prps_pipeline(args):
 
@@ -474,7 +463,7 @@ def prps_pipeline(args):
     prps_temp = os.path.join(args.temp,"prps")
 
     # Check if output folder empty
-    if os.path.exists(prps_output) and os.path.isdir(prps_output) and os.listdir(prps_output):
+    if os.path.exists(prps_output) and os.path.isdir(prps_output):
         if not args.overwrite:
             print("Error: Output folder is not empty.")
             sys.exit(1)
@@ -487,7 +476,7 @@ def prps_pipeline(args):
     PRPS_runner(args.tree, args.binary_mutation_file, prps_output, prps_temp)
 
     if not args.keep_temp_files:
-        temp_folder_remover(args.temp)
+        temp_folder_remover(prps_temp)
 
 
 def ml_pipeline(args):
@@ -503,7 +492,7 @@ def ml_pipeline(args):
     ml_temp = os.path.join(args.temp,"ml")
 
     # Check if output folder empty
-    if os.path.exists(ml_output) and os.path.isdir(ml_output) and os.listdir(ml_output):
+    if os.path.exists(ml_output) and os.path.isdir(ml_output):
         if not args.overwrite:
             print("Error: Output folder is not empty.")
             sys.exit(1)
@@ -565,37 +554,7 @@ def ml_pipeline(args):
             svm(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy="holdout", fia_repeats=5, optimization=False)
 
     if not args.keep_temp_files:
-        temp_folder_remover(args.temp)
-
-    # parser_ml = subparsers.add_parser('ml', help='run machine learning analysis')
-    # parser_ml.add_argument('-i', '--input', type=str, help='binary mutation table path', required=True)
-    # parser_ml.add_argument('-p', '--phenotype', type=str, help='phenotype table path', required=True)
-    # parser_ml.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
-    # parser_ml.add_argument('--prps', type=str, help='prps output path')
-    # parser_ml.add_argument('--prps_percentage', type=int, help='percentage of the prps output to be used, should be used with --prps option, default=30', default=30)
-    # parser_ml.add_argument('--overwrite', action='store_true', help='overwrite the output folder if exists, default=False')
-    # parser_ml.add_argument('--cpus', type=int, help='number of cpus to use, default=1', default=1)
-    # parser_ml.add_argument('--ram', type=int, help='amount of ram to use in GB, default=4', default=4)
-    # parser_ml.add_argument('--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
-    # parser_ml.add_argument('--keep-temp-files', action='store_true', help='keep the temporary files, default=False')
-    # parser_ml.add_argument('--ml_algorithm', type=str, help='machine learning algorithm to use, available selections: [rf, svm], default=rf', default="rf")
-    # parser_ml.add_argument('--test_train_split', type=float, help='test train split ratio, default=0.20', default=0.20)
-    # parser_ml.add_argument('--random_state', type=int, help='random state, default=42', default=42)
-    # parser_ml.add_argument('--n_estimators', type=int, help='number of estimators for random forest, default=100', default=100)
-    # parser_ml.add_argument('--max_depth', type=int, help='max depth for random forest, default=10', default=10)
-    # parser_ml.add_argument('--min_samples_split', type=int, help='min samples split for random forest, default=2', default=2)
-    # parser_ml.add_argument('--min_samples_leaf', type=int, help='min samples leaf for random forest, default=1', default=1)
-    # parser_ml.add_argument('--max_features', type=str, help='max features for random forest, default=auto', default="auto")
-    # #parser_ml.add_argument('--bootstrap', action='store_true', help='bootstrap for random forest, default=True')
-    # parser_ml.add_argument('--parameter_optimization', action='store_true', help='parameter optimization for random forest, default=False')
-    # parser_ml.add_argument('--n_jobs', type=int, help='number of jobs for random forest, default=1', default=1)
-    # parser_ml.add_argument('--cv', type=int, help='applies Cross-Validation with given number of splits, default=4', default=4)
-    # parser_ml.add_argument('--scoring', type=str, help='scoring method for cross-validation , default=MCC', default="MCC")
-    # parser_ml.add_argument('--save_model', action='store_true', help='save the ml model, default=False')
-    # parser_ml.add_argument('--feature_importance_analysis', action='store_true', help='analyze feature importance, default=False')
-    # parser_ml.add_argument('--feature_importance_analysis_number_of_repeats', type=int, help='number of repeats for feature importance analysis should be given with --feature_importance_analysis option, default=5', default=5)
-    # parser_ml.add_argument('--optimization_time_limit', type=int, help='time limit for parameter optimization, default=3600', default=3600)
-
+        temp_folder_remover(ml_temp)
 
 
 if __name__ == "__main__":

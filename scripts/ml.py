@@ -265,6 +265,8 @@ def svm_cv(binary_mutation_table, phenotype_table, antibiotic, random_seed, test
     
 def prps_ml_preprecessor(binary_mutation_table, prps_score_file, prps_percentage, temp_path):
 
+    genotype_df = pd.read_csv(binary_mutation_table, sep="\t")
+
     prps_scores = {}
 
     with open(prps_score_file, "r") as prps_file:
@@ -284,15 +286,18 @@ def prps_ml_preprecessor(binary_mutation_table, prps_score_file, prps_percentage
 
     cols_to_be_dropped = []
 
+    genotype_df_columns = genotype_df.columns
+
     count = amount_of_cols_to_be_kept
     for key in sorted_prps_scores.keys():
-        if count < 0:
-            cols_to_be_dropped.append(key)
+        if count < 0:     
+            if key in genotype_df_columns:
+                cols_to_be_dropped.append(key)
+            else:
+                print(f"Warning: {key} is not found in the genotype table. It will be ignored.")
         count -= 1
-
-    genotype_df = pd.read_csv(binary_mutation_table, sep="\t")
 
     genotype_df_dropped = genotype_df.drop(columns=cols_to_be_dropped, axis=1)
 
-    genotype_df_dropped.to_csv(os.path.join(temp_path, "prps_filtered_table.tsv"), sep="\t")
+    genotype_df_dropped.to_csv(os.path.join(temp_path, "prps_filtered_table.tsv"), sep="\t", index=False)
 
