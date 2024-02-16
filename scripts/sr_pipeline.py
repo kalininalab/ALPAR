@@ -19,9 +19,9 @@ from joblib import Parallel, delayed
 import time
 import copy
 import multiprocessing
-from utils import is_tool_installed, snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, panacota_pipeline_runner, pyseer_runner, pyseer_similarity_matrix_creator, pyseer_phenotype_file_creator, pyseer_genotype_matrix_creator, panacota_pre_processor, panacota_post_processor, temp_folder_remover
+from utils import is_tool_installed, snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, panacota_pipeline_runner, pyseer_runner, pyseer_similarity_matrix_creator, pyseer_phenotype_file_creator, pyseer_genotype_matrix_creator, panacota_pre_processor, panacota_post_processor, temp_folder_remover, binary_table_threshold_with_percentage
 from prps import PRPS_runner
-from ml import rf_auto_ml, svm, rf, svm_cv, prps_ml_preprecessor
+from ml import rf_auto_ml, svm, rf, svm_cv, prps_ml_preprecessor, gb_auto_ml, gb
 
 # SNIPPY VCF EMPTY ISSUE SOLUTION = conda install snippy vt=0.57721
 def main():
@@ -30,7 +30,7 @@ def main():
 
     parser.add_argument('--version', action='version', version='%(prog)s 0.0.1')
 
-    subparsers = parser.add_subparsers(help='Suggested pipeline = create_binary_tables -> panacota -> gwas')
+    subparsers = parser.add_subparsers(help='For suggested pipeline, check out github page: https://github.com/kalininalab/SR-AMR')
 
     parser_main_pipeline = subparsers.add_parser('create_binary_tables', help='from genomic files, create binary mutation table and phenotype table')
     parser_main_pipeline.add_argument('-i', '--input', type=str, help='txt file that contains path of each strain per line or input folder path (check folder structure)', required=True)
@@ -44,6 +44,15 @@ def main():
     parser_main_pipeline.add_argument('--create_phenotype_from_folder', action='store_true', help='create phenotype file from the folders that contains genomic files, folder path should be given with --phenotype_folder option, default=False')
     parser_main_pipeline.add_argument('--phenotype_folder', type=str, help='folder path to create phenotype file, default=None')
     parser_main_pipeline.set_defaults(func=binary_table_pipeline)
+
+    parser_binary_tables_threshold = subparsers.add_parser('binary_tables_threshold', help='apply threshold to binary mutation table, drops columns that has less than threshold percentage, default=0.2')
+    parser_binary_tables_threshold.add_argument('-i', '--input', type=str, help='binary mutation table path', required=True)
+    parser_binary_tables_threshold.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
+    parser_binary_tables_threshold.add_argument('--threshold_percentage', type=float, help='threshold percentage value to apply, default=0.2', default=0.2)
+    parser_binary_tables_threshold.add_argument('--overwrite', action='store_true', help='overwrite the output folder if exists, default=False')
+    parser_binary_tables_threshold.add_argument('--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
+    parser_binary_tables_threshold.add_argument('--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
+    parser_binary_tables_threshold.set_defaults(func=binary_table_threshold)
 
     parser_panacota = subparsers.add_parser('panacota', help='run panacota analysis')
     parser_panacota.add_argument('-i', '--input', type=str, help='txt file that contains path of each strain per line or input folder path, can be found create_binary_tables output path as strains.txt', required=True)
@@ -89,7 +98,7 @@ def main():
     parser_ml.add_argument('--ram', type=int, help='amount of ram to use in GB, default=4', default=4)
     parser_ml.add_argument('--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
     parser_ml.add_argument('--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
-    parser_ml.add_argument('--ml_algorithm', type=str, help='machine learning algorithm to use, available selections: [rf, svm], default=rf', default="rf")
+    parser_ml.add_argument('--ml_algorithm', type=str, help='classification algorithm to be used, available selections: [rf, svm, gb], default=rf', default="rf")
     parser_ml.add_argument('--test_train_split', type=float, help='test train split ratio, default=0.20', default=0.20)
     parser_ml.add_argument('--random_state', type=int, help='random state, default=42', default=42)
     parser_ml.add_argument('--n_estimators', type=int, help='number of estimators for random forest, default=100', default=100)
@@ -99,14 +108,15 @@ def main():
     parser_ml.add_argument('--max_features', type=str, help='max features for random forest, default=auto', default="auto")
     parser_ml.add_argument('--resampling_strategy', type=str, help='resampling strategy for ml, available selections: [holdout, cv], default=holdout', default="holdout")
     #parser_ml.add_argument('--bootstrap', action='store_true', help='bootstrap for random forest, default=True')
-    parser_ml.add_argument('--parameter_optimization', action='store_true', help='parameter optimization for random forest, default=False')
+    parser_ml.add_argument('--parameter_optimization', action='store_true', help='runs parameter optimization, default=False')
     parser_ml.add_argument('--n_jobs', type=int, help='number of jobs for random forest, default=1', default=1)
     parser_ml.add_argument('--cv', type=int, help='applies Cross-Validation with given number of splits, default=4', default=4)
     parser_ml.add_argument('--scoring', type=str, help='scoring method for cross-validation, available selections: [MCC,accuracy,f1,roc_auc], default=MCC', default="MCC")
     parser_ml.add_argument('--save_model', action='store_true', help='save the ml model, default=False')
     parser_ml.add_argument('--feature_importance_analysis', action='store_true', help='analyze feature importance, default=False')
     parser_ml.add_argument('--feature_importance_analysis_number_of_repeats', type=int, help='number of repeats for feature importance analysis should be given with --feature_importance_analysis option, default=5', default=5)
-    parser_ml.add_argument('--optimization_time_limit', type=int, help='time limit for parameter optimization, default=3600', default=3600)
+    parser_ml.add_argument('--optimization_time_limit', type=int, help='time limit for parameter optimization with AutoML, default=3600', default=3600)
+    parser_ml.add_argument('--svm_kernel', type=str, help='kernel for svm, available selections: [linear, poly, rbf, sigmoid], default=linear', default="linear")
 
     parser_ml.set_defaults(func=ml_pipeline)
 
@@ -561,21 +571,77 @@ def ml_pipeline(args):
         sys.exit(1)
 
     if args.ml_algorithm == "rf":
+
         if args.parameter_optimization:
             rf_auto_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, ml_temp, args.ram, args.optimization_time_limit, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5)
-
         else:
-            rf()
+            rf(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split)
 
     elif args.ml_algorithm == "svm":
+
         if args.resampling_strategy == "cv":
             svm_cv(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy="cv", fia_repeats=5, optimization=False)
         elif args.resampling_strategy == "holdout":
             svm(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy="holdout", fia_repeats=5, optimization=False)
 
+    elif args.ml_algorithm == "gb":
+
+        if args.parameter_optimization:
+            gb_auto_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, ml_temp, args.ram, args.optimization_time_limit, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5)
+        else:
+            gb(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split)
+
     if not args.keep_temp_files:
         temp_folder_remover(ml_temp)
 
+
+def binary_table_threshold(args):
+    
+    # Check the arguments
+    if args.input is None:
+        print("Error: Input file is required.")
+        sys.exit(1)
+    
+    # Check if threshold is between 0 and 1
+    if float(args.threshold_percentage) < 0 or float(args.threshold_percentage) > 100:
+        print("Error: Threshold percentage should be between 0 and 100.")
+        sys.exit(1)
+
+    # Check if output folder exists and create if not
+    if not os.path.exists(args.output):
+        os.mkdir(args.output)
+
+    binary_table_threshold_temp = os.path.join(args.temp, "binary_table_threshold")
+    binary_table_threshold_output = os.path.join(args.output, "binary_table_threshold")
+
+    # Check if output folder empty
+    if os.path.exists(binary_table_threshold_output) and os.path.isdir(binary_table_threshold_output):
+        if not args.overwrite:
+            print("Error: Output folder is not empty.")
+            sys.exit(1)
+
+    if args.temp is None:
+        args.temp = os.path.join(args.output, "temp")
+        os.mkdir(args.temp)
+
+    # Check if temp folder empty
+    if os.path.exists(args.temp) and os.path.isdir(args.temp):
+        if not args.overwrite:
+            print("Error: Temp folder is not empty.")
+            sys.exit(1)
+
+    # Create the temp folder
+    if not os.path.exists(binary_table_threshold_temp):
+        os.mkdir(binary_table_threshold_temp)
+
+    # Create the output folder
+    if not os.path.exists(binary_table_threshold_output):
+        os.mkdir(binary_table_threshold_output)
+
+    threshold_percentage_float = float(args.threshold_percentage)
+    
+    binary_table_threshold_with_percentage(args.input, binary_table_threshold_output, threshold_percentage_float)
+    
 
 if __name__ == "__main__":
     main()

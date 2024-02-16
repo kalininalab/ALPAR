@@ -14,6 +14,7 @@ from random import randint
 import os
 from sklearn.svm import SVC
 from sklearn.model_selection import GridSearchCV
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 
 mcc_scorer = autosklearn.metrics.make_scorer(
     "mcc",
@@ -102,12 +103,18 @@ def rf_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, 
 
     classifier = "random_forest"
 
+    if resampling_strategy == "cv":
+        resampling_strategy_arguments = {"folds": f"{cv_split}", 'train_size': f"{1.00 - float(test_size)}"}
+
+    elif resampling_strategy == "holdout":
+        resampling_strategy_arguments = {"train_size": f"{1.00 - float(test_size)}"}
+
     cls = autosklearn.classification.AutoSklearnClassifier(
         memory_limit=float(ram) * 1024,
         time_left_for_this_task=optimization_time_limit,
         include={'classifier': [classifier]},
         resampling_strategy=f'{resampling_strategy}',
-        resampling_strategy_arguments={"folds": f"{cv_split}", 'train_size': f"{1.00 - float(test_size)}"},
+        resampling_strategy_arguments=resampling_strategy_arguments,
         delete_tmp_folder_after_terminate=False,
         ensemble_size=1,
         metric=scorer,
@@ -136,11 +143,71 @@ def rf_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, 
     output_file_writer(outfile, y_test, y_hat, cls)
 
 
-def rf(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, feature_importance_analysis = False, save_model = False, resampling_strategy="holdout", fia_repeats=5):
-    return None
+def rf(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, feature_importance_analysis = False, save_model = False, resampling_strategy="holdout", fia_repeats=5, custom_scorer="MCC", n_estimators=100, max_depth=2, min_samples_leaf=1, min_samples_split=2):
+    
+    output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_RF"
+
+    genotype_df = pd.read_csv(binary_mutation_table, sep="\t")
+    phenotype_df = pd.read_csv(phenotype_table, sep="\t")
+
+    # Make sure rows are matching
+    phenotype_df = phenotype_df.reindex(genotype_df.index)
+
+    genotype_array = genotype_df.to_numpy()
+    phenotype_array = phenotype_df.to_numpy()
+
+    index_of_antibiotic = phenotype_df.columns.get_loc(antibiotic)
+
+    X = genotype_array[:, 1:].astype(int)
+    y = phenotype_array[:, index_of_antibiotic].astype(int)
+
+    X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, random_state=random_seed, test_size=float(test_size))
+
+    rf_cls = RandomForestClassifier(class_weight={0: sum(y_train), 1: len(y_train) - sum(y_train)}, n_estimators=n_estimators, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split)
+
+    param_grid = {
+    'n_estimators': [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100],
+    'max_depth': [2, 5, 7, 9]
+    }
+
+    if resampling_strategy == "cv":
+
+        if custom_scorer == "MCC":
+            scorer = "matthews_corrcoef"
+
+        # Create a GridSearchCV instance to find the best hyperparameters
+            
+        grid_search = GridSearchCV(rf_cls, param_grid, cv=cv_split, scoring=scorer)
+        grid_search.fit(X_train, y_train)
+
+        y_hat = grid_search.predict(X_test)
+
+    else:
+
+        rf_cls.fit(X_train, y_train)
+        y_hat = rf_cls.predict(X_test)
+
+    outfile = os.path.join(output_folder, f"{output_file_template}_Result") 
+
+    if feature_importance_analysis:
+
+        r = permutation_importance(rf_cls, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
+
+        with open(os.path.join(output_folder, f"{output_file_template}_FIA", "w")) as ofile:
+            for i in r.importances_mean.argsort()[::-1]:
+                if r.importances_mean[i] - 2 * r.importances_std[i] > 0:
+                    ofile.write(f"{genotype_df.columns[i]:<8};{r.importances_mean[i]:.3f};+/-{r.importances_std[i]:.3f}\n")
+
+    if save_model:
+
+        model_file = os.path.join(output_folder, f"{output_file_template}_model.sav")
+        pickle.dump(rf_cls, open(model_file, 'wb'))
+
+    output_file_writer(outfile, y_test, y_hat)
 
 
-def svm(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_size, output_folder, n_jobs, feature_importance_analysis = False, save_model = False, resampling_strategy="holdout", fia_repeats=5, optimization=False):
+
+def svm(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_size, output_folder, n_jobs, feature_importance_analysis = False, save_model = False, resampling_strategy="holdout", fia_repeats=5, optimization=False, kernel="linear"):
 
     output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_SVM"
 
@@ -170,7 +237,7 @@ def svm(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_si
 
     for c_val in np.arange(1, max_c_range, 1):
         
-        svm_cls = SVC(class_weight={0: sum(y_train), 1: len(y_train) - sum(y_train)}, kernel="linear", C=c_val)
+        svm_cls = SVC(class_weight={0: sum(y_train), 1: len(y_train) - sum(y_train)}, kernel=kernel, C=c_val)
         svm_cls.fit(X_train, y_train)
 
         y_hat = svm_cls.predict(X_test)
@@ -200,7 +267,7 @@ def svm(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_si
     output_file_writer(outfile, y_test, y_hat, best_c=bm_c)
     
 
-def svm_cv(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_size, output_folder, n_jobs, cv_split, feature_importance_analysis = False, save_model = False, resampling_strategy="cv", fia_repeats=5, optimization=False, custom_scorer="MCC"):
+def svm_cv(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_size, output_folder, n_jobs, cv_split, feature_importance_analysis = False, save_model = False, resampling_strategy="cv", fia_repeats=5, optimization=False, custom_scorer="MCC", kernel="linear"):
     
     output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_SVM"
 
@@ -227,7 +294,7 @@ def svm_cv(binary_mutation_table, phenotype_table, antibiotic, random_seed, test
         param_grid = {'C': [1]}
 
     # Create an SVM model
-    svm_cls = SVC(class_weight={0: sum(y_train), 1: len(y_train) - sum(y_train)}, kernel="linear")
+    svm_cls = SVC(class_weight={0: sum(y_train), 1: len(y_train) - sum(y_train)}, kernel=kernel)
 
     if custom_scorer == "MCC":
         scorer = "matthews_corrcoef"
@@ -239,7 +306,7 @@ def svm_cv(binary_mutation_table, phenotype_table, antibiotic, random_seed, test
     best_params = grid_search.best_params_
 
     # Create the final model with the best hyperparameters
-    final_svm_model = SVC(class_weight={0: sum(y_train), 1: len(y_train) - sum(y_train)}, kernel="linear", C=best_params['C'])
+    final_svm_model = SVC(class_weight={0: sum(y_train), 1: len(y_train) - sum(y_train)}, kernel=kernel, C=best_params['C'])
     final_svm_model.fit(X_train, y_train)
             
     y_hat = final_svm_model.predict(X_test)
@@ -301,3 +368,132 @@ def prps_ml_preprecessor(binary_mutation_table, prps_score_file, prps_percentage
 
     genotype_df_dropped.to_csv(os.path.join(temp_path, "prps_filtered_table.tsv"), sep="\t", index=False)
 
+
+def gb_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, temp_folder, ram, optimization_time_limit, feature_importance_analysis = False, save_model = False, resampling_strategy="holdout", custom_scorer="MCC", fia_repeats=5):
+
+    output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_GB_AutoML"
+
+    genotype_df = pd.read_csv(binary_mutation_table, sep="\t")
+    phenotype_df = pd.read_csv(phenotype_table, sep="\t")
+
+    # Make sure rows are matching
+    phenotype_df = phenotype_df.reindex(genotype_df.index)
+
+    genotype_array = genotype_df.to_numpy()
+    phenotype_array = phenotype_df.to_numpy()
+
+    index_of_antibiotic = phenotype_df.columns.get_loc(antibiotic)
+
+    X = genotype_array[:, :].astype(int)
+    y = phenotype_array[:, index_of_antibiotic].astype(int)
+
+    X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, random_state=random_seed, test_size=float(test_size))
+
+    if custom_scorer == "MCC":
+        scorer = mcc_scorer
+    else:
+        scorer = custom_scorer
+
+    classifier = "gradient_boosting"
+
+    if resampling_strategy == "cv":
+        resampling_strategy_arguments = {"folds": f"{cv_split}", 'train_size': f"{1.00 - float(test_size)}"}
+
+    elif resampling_strategy == "holdout":
+        resampling_strategy_arguments = {"train_size": f"{1.00 - float(test_size)}"}
+
+    cls = autosklearn.classification.AutoSklearnClassifier(
+        memory_limit=float(ram) * 1024,
+        time_left_for_this_task=optimization_time_limit,
+        include={'classifier': [classifier]},
+        resampling_strategy=f'{resampling_strategy}',
+        resampling_strategy_arguments=resampling_strategy_arguments,
+        delete_tmp_folder_after_terminate=False,
+        ensemble_size=1,
+        metric=scorer,
+        tmp_folder=os.path.join(temp_folder, f"{output_file_template}_temp"),
+        n_jobs=n_jobs
+    )
+    cls.fit(X_train, y_train)
+    y_hat = cls.predict(X_test)
+
+    outfile = os.path.join(output_folder, f"{output_file_template}_Result") 
+
+    if feature_importance_analysis:
+
+        r = permutation_importance(cls, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
+
+        with open(os.path.join(output_folder, f"{output_file_template}_FIA", "w")) as ofile:
+            for i in r.importances_mean.argsort()[::-1]:
+                if r.importances_mean[i] - 2 * r.importances_std[i] > 0:
+                    ofile.write(f"{genotype_df.columns[i]:<8};{r.importances_mean[i]:.3f};+/-{r.importances_std[i]:.3f}\n")
+
+    if save_model:
+        
+        model_file = os.path.join(output_folder, f"{output_file_template}_model.sav")
+        pickle.dump(cls, open(model_file, 'wb'))
+
+    output_file_writer(outfile, y_test, y_hat, cls)
+
+
+def gb(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, feature_importance_analysis = False, save_model = False, resampling_strategy="holdout", fia_repeats=5, custom_scorer="MCC", n_estimators=100, max_depth=2, min_samples_leaf=1, min_samples_split=2):
+    
+    output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_GB"
+
+    genotype_df = pd.read_csv(binary_mutation_table, sep="\t")
+    phenotype_df = pd.read_csv(phenotype_table, sep="\t")
+
+    # Make sure rows are matching
+    phenotype_df = phenotype_df.reindex(genotype_df.index)
+
+    genotype_array = genotype_df.to_numpy()
+    phenotype_array = phenotype_df.to_numpy()
+
+    index_of_antibiotic = phenotype_df.columns.get_loc(antibiotic)
+
+    X = genotype_array[:, 1:].astype(int)
+    y = phenotype_array[:, index_of_antibiotic].astype(int)
+
+    X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, random_state=random_seed, test_size=float(test_size))
+
+    gb_cls = GradientBoostingClassifier(class_weight={0: sum(y_train), 1: len(y_train) - sum(y_train)}, n_estimators=n_estimators, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split)
+
+    param_grid = {
+    'n_estimators': [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100],
+    'max_depth': [2, 5, 7, 9]
+    }
+
+    if resampling_strategy == "cv":
+
+        if custom_scorer == "MCC":
+            scorer = "matthews_corrcoef"
+
+        # Create a GridSearchCV instance to find the best hyperparameters
+            
+        grid_search = GridSearchCV(gb_cls, param_grid, cv=cv_split, scoring=scorer)
+        grid_search.fit(X_train, y_train)
+
+        y_hat = grid_search.predict(X_test)
+
+    else:
+
+        gb_cls.fit(X_train, y_train)
+        y_hat = gb_cls.predict(X_test)
+
+    outfile = os.path.join(output_folder, f"{output_file_template}_Result") 
+
+    if feature_importance_analysis:
+
+        r = permutation_importance(gb_cls, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
+
+        with open(os.path.join(output_folder, f"{output_file_template}_FIA", "w")) as ofile:
+            for i in r.importances_mean.argsort()[::-1]:
+                if r.importances_mean[i] - 2 * r.importances_std[i] > 0:
+                    ofile.write(f"{genotype_df.columns[i]:<8};{r.importances_mean[i]:.3f};+/-{r.importances_std[i]:.3f}\n")
+
+    if save_model:
+
+        model_file = os.path.join(output_folder, f"{output_file_template}_model.sav")
+        pickle.dump(gb_cls, open(model_file, 'wb'))
+
+    output_file_writer(outfile, y_test, y_hat)
