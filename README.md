@@ -28,30 +28,31 @@ conda activate SR-AMR
 From genomic files, creates binary mutation and phenotype tables
 
 - Input, `-i`: Path of file that contains path of genomic fasta files per line or path of folder that have structure: input_folder -> antibiotic -> [Resistant, Susceptible]
-        ```
-        input_folder
-        └───antibiotic1
-        │   └───Resistant
-        │   │   │   fasta1.fna
-        │   │   │   fasta2.fna
-        │   │   │   ...
-        │   │
-        │   └───Susceptible
-        │       │   fasta3.fna
-        │       │   fasta4.fna
-        │       │   ...
-        │   
-        └───antibiotic2
-        │   └───Resistant
-        │   │   │   fasta5.fna
-        │   │   │   fasta6.fna
-        │   │   │   ...
-        │   │
-        │   └───Susceptible
-        │       │   fasta2.fna
-        │       │   fasta1.fna
-        │       │   ...
-        ```
+
+    ```
+    input_folder
+    └───antibiotic1
+    │   └───Resistant
+    │   │   │   fasta1.fna
+    │   │   │   fasta2.fna
+    │   │   │   ...
+    │   │
+    │   └───Susceptible
+    │       │   fasta3.fna
+    │       │   fasta4.fna
+    │       │   ...
+    │   
+    └───antibiotic2
+    │   └───Resistant
+    │   │   │   fasta5.fna
+    │   │   │   fasta6.fna
+    │   │   │   ...
+    │   │
+    │   └───Susceptible
+    │       │   fasta2.fna
+    │       │   fasta1.fna
+    │       │   ...
+    ```
 
 - Output, `-o`: Output folder path, where the output will be stored. If path exist, `--overwrite` option can be used to overwrite existing output.
 
@@ -173,10 +174,10 @@ Available Classification algorithms: Random Forest, Support Vector Machine and G
     - Save model, `--save_model`: Save model
     - Feature importance analysis, `--feature_importance_analysis`: Analyze important features in the model with permutation importance
 
-More optional arguments can be found in help page: 
-```bash
-python scripts/sr_pipeline.py ml -h
-```
+    More optional arguments can be found in help page: 
+    ```bash
+    python scripts/sr_pipeline.py ml -h
+    ```
 
 Basic usage:
 ```bash
