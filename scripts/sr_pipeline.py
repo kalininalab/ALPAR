@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
+
 import os
 import sys
 import argparse
@@ -19,7 +22,7 @@ from joblib import Parallel, delayed
 import time
 import copy
 import multiprocessing
-from utils import is_tool_installed, snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, panacota_pipeline_runner, pyseer_runner, pyseer_similarity_matrix_creator, pyseer_phenotype_file_creator, pyseer_genotype_matrix_creator, panacota_pre_processor, panacota_post_processor, temp_folder_remover, binary_table_threshold_with_percentage
+from utils import is_tool_installed, snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, panacota_pipeline_runner, pyseer_runner, pyseer_similarity_matrix_creator, pyseer_phenotype_file_creator, pyseer_genotype_matrix_creator, panacota_pre_processor, panacota_post_processor, temp_folder_remover, binary_table_threshold_with_percentage, time_function
 from prps import PRPS_runner
 from ml import rf_auto_ml, svm, rf, svm_cv, prps_ml_preprecessor, gb_auto_ml, gb
 
@@ -141,6 +144,8 @@ def run_snippy_and_prokka(strain, random_names, snippy_output, prokka_output, ar
 
 
 def binary_table_pipeline(args):
+
+    start_time = time.time()
     
     # Sanity checks
 
@@ -277,6 +282,8 @@ def binary_table_pipeline(args):
     if input_folder is not None:
         antibiotics = os.listdir(input_folder)
         for antibiotic in antibiotics:
+            if antibiotic.startswith("."):
+                continue
             antibiotic_path = os.path.join(input_folder, antibiotic)
             status = os.listdir(antibiotic_path)
             if not 'Resistant' in status:
@@ -369,7 +376,7 @@ def binary_table_pipeline(args):
 
         print("Running panaroo...")
         # Run panaroo
-        panaroo_runner(os.path.join(args.temp, "panaroo"), panaroo_output, os.path.join(args.temp, "panaroo_log.txt"))
+        panaroo_runner(os.path.join(args.temp, "panaroo"), panaroo_output, os.path.join(args.temp, "panaroo_log.txt"), args.cpus)
 
         print("Creating binary mutation table...")
         # Create the binary table
@@ -388,6 +395,10 @@ def binary_table_pipeline(args):
         temp_folder_remover(os.path.join(args.temp))
 
     print("Done")
+
+    end_time = time.time()
+
+    print(time_function(start_time, end_time))
 
 
 def panacota_pipeline(args):

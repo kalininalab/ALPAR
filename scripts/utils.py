@@ -151,9 +151,9 @@ def panaroo_input_creator(random_names_txt, prokka_output_folder, temp_folder, s
                         shutil.copyfile(f"{prokka_output_folder}/{given_random_name}/{prokka_output_file}", f"{temp_folder}/{given_random_name}.gff")
 
 
-def panaroo_runner(panaroo_input_folder, panaroo_output_folder, log_file):
+def panaroo_runner(panaroo_input_folder, panaroo_output_folder, log_file, cpus):
 
-    run_command = f"panaroo -i {panaroo_input_folder}/*.gff -o {panaroo_output_folder}  --clean-mode strict >> {log_file} 2>&1"
+    run_command = f"panaroo -i {panaroo_input_folder}/*.gff -o {panaroo_output_folder}  --clean-mode strict -t {cpus} >> {log_file} 2>&1"
     
     os.system(run_command)
 
@@ -318,23 +318,24 @@ def phenotype_dataframe_creator(data_folder_path, output_file, random_names_dict
         phenotype_dict[antibiotic] = 2
 
     for antibiotic in list_of_antibiotics:
-        res_strains = os.listdir(f"{data_folder_path}/{antibiotic}/Resistant")
+        if not antibiotic.startswith("."):
+            res_strains = os.listdir(f"{data_folder_path}/{antibiotic}/Resistant")
 
-        sus_strains = os.listdir(f"{data_folder_path}/{antibiotic}/Susceptible")
+            sus_strains = os.listdir(f"{data_folder_path}/{antibiotic}/Susceptible")
 
-        for strain in res_strains:
-            if strain.endswith(".fna"):
-                if not random_names_dict[strain[:-4]] in strain_phenotype_dict.keys():
-                    strain_phenotype_dict[random_names_dict[strain[:-4]]] = copy.deepcopy(phenotype_dict)
-                
-                strain_phenotype_dict[random_names_dict[strain[:-4]]][antibiotic] = 1
-        
-        for strain in sus_strains:
-            if strain.endswith(".fna"):
-                if not random_names_dict[strain[:-4]] in strain_phenotype_dict.keys():
-                    strain_phenotype_dict[random_names_dict[strain[:-4]]] = copy.deepcopy(phenotype_dict)
-                
-                strain_phenotype_dict[random_names_dict[strain[:-4]]][antibiotic] = 0
+            for strain in res_strains:
+                if strain.endswith(".fna"):
+                    if not random_names_dict[strain[:-4]] in strain_phenotype_dict.keys():
+                        strain_phenotype_dict[random_names_dict[strain[:-4]]] = copy.deepcopy(phenotype_dict)
+                    
+                    strain_phenotype_dict[random_names_dict[strain[:-4]]][antibiotic] = 1
+            
+            for strain in sus_strains:
+                if strain.endswith(".fna"):
+                    if not random_names_dict[strain[:-4]] in strain_phenotype_dict.keys():
+                        strain_phenotype_dict[random_names_dict[strain[:-4]]] = copy.deepcopy(phenotype_dict)
+                    
+                    strain_phenotype_dict[random_names_dict[strain[:-4]]][antibiotic] = 0
 
     df = pd.DataFrame.from_dict(strain_phenotype_dict, orient="index")
 
@@ -488,3 +489,11 @@ def binary_table_threshold_with_percentage(binary_table, output_folder, threshol
     dropped_df = df.drop(cols_to_be_dropped, axis=1)
             
     dropped_df.to_csv(os.path.join(output_folder, f"binary_mutation_table_threshold_{threshold_percentage}_percent.tsv"), sep="\t", index=False)
+
+
+def time_function(start_time, end_time):
+
+    elapsed_time = end_time - start_time
+    hours, rem = divmod(elapsed_time, 3600)
+    minutes, seconds = divmod(rem, 60)
+    return f"Elapsed time: {int(hours)} hours, {int(minutes)} minutes, {seconds:.2f} seconds"
