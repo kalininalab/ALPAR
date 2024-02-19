@@ -28,9 +28,9 @@ def main():
     # Create the parser
     parser = argparse.ArgumentParser(description="Single reference AMR is a tool to get mutation and gene presence absence information from genome sequences.")
 
-    parser.add_argument('--version', action='version', version='%(prog)s 0.0.1')
+    parser.add_argument('--version', action='version', version='%(prog)s 0.0.2')
 
-    subparsers = parser.add_subparsers(help='For suggested pipeline, check out github page: https://github.com/kalininalab/SR-AMR')
+    subparsers = parser.add_subparsers(help='For suggested pipeline, check out our github page: https://github.com/kalininalab/SR-AMR')
 
     parser_main_pipeline = subparsers.add_parser('create_binary_tables', help='from genomic files, create binary mutation table and phenotype table')
     parser_main_pipeline.add_argument('-i', '--input', type=str, help='txt file that contains path of each strain per line or input folder path (check folder structure)', required=True)
@@ -43,6 +43,8 @@ def main():
     parser_main_pipeline.add_argument('--ram', type=int, help='amount of ram to use in GB, default=4', default=4)
     parser_main_pipeline.add_argument('--create_phenotype_from_folder', action='store_true', help='create phenotype file from the folders that contains genomic files, folder path should be given with --phenotype_folder option, default=False')
     parser_main_pipeline.add_argument('--phenotype_folder', type=str, help='folder path to create phenotype file, default=None')
+    parser_main_pipeline.add_argument('--no_gene_presence_absence', action='store_true', help='do not run gene presence absence functions, default=False')
+    parser_main_pipeline.add_argument('--no_gene_annotation', action='store_true', help='do not run gene annotation, default=False')
     parser_main_pipeline.set_defaults(func=binary_table_pipeline)
 
     parser_binary_tables_threshold = subparsers.add_parser('binary_tables_threshold', help='apply threshold to binary mutation table, drops columns that has less than threshold percentage, default=0.2')
@@ -131,9 +133,11 @@ def main():
         sys.exit(1)
 
 
-def run_snippy_and_prokka(strain, random_names, snippy_output, prokka_output, args):
-    snippy_runner(strain, random_names[os.path.splitext(strain.split("/")[-1].strip())[0]], snippy_output, args.reference, f"{args.temp}/snippy_log.txt", 1, args.ram)
-    prokka_runner(strain, random_names[os.path.splitext(strain.split("/")[-1].strip())[0]], prokka_output, args.reference, f"{args.temp}/prokka_log.txt", 1)
+def run_snippy_and_prokka(strain, random_names, snippy_output, prokka_output, args, snippy_flag, prokka_flag):
+    if snippy_flag:
+        snippy_runner(strain, random_names[os.path.splitext(strain.split("/")[-1].strip())[0]], snippy_output, args.reference, f"{args.temp}/snippy_log.txt", 1, args.ram)
+    if prokka_flag:
+        prokka_runner(strain, random_names[os.path.splitext(strain.split("/")[-1].strip())[0]], prokka_output, args.reference, f"{args.temp}/prokka_log.txt", 1)
 
 
 def binary_table_pipeline(args):
@@ -218,6 +222,20 @@ def binary_table_pipeline(args):
         if not os.path.exists(args.phenotype_folder):
             print("Error: Phenotype folder does not exist.")
             sys.exit(1)
+
+    if args.no_gene_annotation:
+        if not args.no_gene_presence_absence:
+            print("Error: If gene annotation is not run, gene presence absence can not be run.")
+            sys.exit(1)
+
+    snippy_flag = True
+    prokka_flag = True
+    panaroo_flag = True
+
+    if args.no_gene_presence_absence:
+        panaroo_flag = False
+    if args.no_gene_annotation:
+        prokka_flag = False
 
     # Create the output folder
     if not os.path.exists(args.output):
@@ -339,29 +357,33 @@ def binary_table_pipeline(args):
     print(f"Number of strains processed: {len(strains_to_be_processed)}")
     print(f"Number of strains skipped: {len(strains_to_be_skiped)}")
 
-    print("Creating panaroo input...")
-    # Create the panaroo input
-    panaroo_input_creator(os.path.join(args.output, "random_names.txt"), prokka_output, os.path.join(args.temp, "panaroo"), strains_to_be_processed)
+    if panaroo_flag:
 
-    print("Running panaroo...")
-    # Run panaroo
-    panaroo_runner(os.path.join(args.temp, "panaroo"), panaroo_output, os.path.join(args.temp, "panaroo_log.txt"))
+        print("Creating panaroo input...")
+        # Create the panaroo input
+        panaroo_input_creator(os.path.join(args.output, "random_names.txt"), prokka_output, os.path.join(args.temp, "panaroo"), strains_to_be_processed)
 
-    print("Creating binary mutation table...")
-    # Create the binary table
-    binary_table_creator(snippy_output, os.path.join(args.output, "binary_mutation_table.tsv"), args.cpus, strains_to_be_processed)
+        print("Running panaroo...")
+        # Run panaroo
+        panaroo_runner(os.path.join(args.temp, "panaroo"), panaroo_output, os.path.join(args.temp, "panaroo_log.txt"))
 
-    print("Adding gene presence absence information to the binary table...")
-    # Add gene presence absence information to the binary table
-    binary_mutation_table_gpa_information_adder(os.path.join(args.output, "binary_mutation_table.tsv"), os.path.join(panaroo_output, "gene_presence_absence.csv"), os.path.join(args.output, "binary_mutation_table_with_gene_presence_absence.tsv"))
+        print("Creating binary mutation table...")
+        # Create the binary table
+        binary_table_creator(snippy_output, os.path.join(args.output, "binary_mutation_table.tsv"), args.cpus, strains_to_be_processed)
 
-    if args.create_phenotype_from_folder:
-        print("Creating phenotype dataframe...")
-        # Create the phenotype dataframe
-        phenotype_dataframe_creator(input_folder, os.path.join(args.output, "phenotype_table.tsv"), random_names)
+        print("Adding gene presence absence information to the binary table...")
+        # Add gene presence absence information to the binary table
+        binary_mutation_table_gpa_information_adder(os.path.join(args.output, "binary_mutation_table.tsv"), os.path.join(panaroo_output, "gene_presence_absence.csv"), os.path.join(args.output, "binary_mutation_table_with_gene_presence_absence.tsv"))
 
-    if not args.keep_temp_files:
-        temp_folder_remover(os.path.join(args.temp, "panaroo"))
+        if args.create_phenotype_from_folder:
+            print("Creating phenotype dataframe...")
+            # Create the phenotype dataframe
+            phenotype_dataframe_creator(input_folder, os.path.join(args.output, "phenotype_table.tsv"), random_names)
+
+        if not args.keep_temp_files:
+            temp_folder_remover(os.path.join(args.temp, "panaroo"))
+    
+    print("Done")
 
 
 def panacota_pipeline(args):
