@@ -80,7 +80,7 @@ def main():
 
     parser_prps = subparsers.add_parser('prps', help='run prps analysis')
     parser_prps.add_argument('-t', '--tree', type=str, help='phylogenetic tree file path', required=True)
-    parser_prps.add_argument('-b', '--binary_mutation_file', type=str, help='binary mutation file path', required=True)
+    parser_prps.add_argument('-i', '--input', type=str, help='binary mutation file path', required=True)
     parser_prps.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
     parser_prps.add_argument('--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
     parser_prps.add_argument('--overwrite', action='store_true', help='overwrite the output and temp folder if exists, default=False')
@@ -180,10 +180,6 @@ def binary_table_pipeline(args):
         if pathlib.Path(args.reference).suffix not in accepted_reference_extensions:
             print("Error: Reference file extension is not accepted.")
             sys.exit(1)
-    
-    # Check if output folder exists and create if not
-    if not os.path.exists(args.output):
-        os.mkdir(args.output)
 
     # Check if output folder empty
     if os.path.exists(args.output) and os.path.isdir(args.output):
@@ -191,15 +187,23 @@ def binary_table_pipeline(args):
             print("Error: Output folder is not empty.")
             sys.exit(1)
     
+    # Check if output folder exists and create if not
+    if not os.path.exists(args.output):
+        os.mkdir(args.output)
+
+    temp_folder_created = False
+
     if args.temp is None:
         args.temp = os.path.join(args.output, "temp")
         os.mkdir(args.temp)
+        temp_folder_created = True
     
-    # Check if temp folder empty
-    if os.path.exists(args.temp) and os.path.isdir(args.temp):
-        if not args.overwrite:
-            print("Error: Temp folder is not empty.")
-            sys.exit(1)
+    if not temp_folder_created:
+        # Check if temp folder empty
+        if os.path.exists(args.temp) and os.path.isdir(args.temp):
+            if not args.overwrite:
+                print("Error: Temp folder is not empty.")
+                sys.exit(1)
 
     # Check if cpus is positive
     if args.cpus is not None:
@@ -336,7 +340,7 @@ def binary_table_pipeline(args):
 
     num_parallel_tasks = args.cpus
 
-    params = [(strain, random_names, snippy_output, prokka_output, args) for strain in strain_list]
+    params = [(strain, random_names, snippy_output, prokka_output, args, snippy_flag, prokka_flag) for strain in strain_list]
 
     with multiprocessing.Pool(num_parallel_tasks) as pool:
         pool.starmap(run_snippy_and_prokka, params)
@@ -380,9 +384,9 @@ def binary_table_pipeline(args):
             # Create the phenotype dataframe
             phenotype_dataframe_creator(input_folder, os.path.join(args.output, "phenotype_table.tsv"), random_names)
 
-        if not args.keep_temp_files:
-            temp_folder_remover(os.path.join(args.temp, "panaroo"))
-    
+    if not args.keep_temp_files:
+        temp_folder_remover(os.path.join(args.temp))
+
     print("Done")
 
 
@@ -395,31 +399,40 @@ def panacota_pipeline(args):
             print(f"Error: {tool} is not installed.")
             sys.exit(1)
 
+    temp_folder_created = False
+
     if args.temp is None:
         args.temp = os.path.join(args.output, "temp")
         if not os.path.exists(args.temp):
             os.mkdir(args.temp)
+            temp_folder_created = True
 
     panacota_output = os.path.join(args.output,"panacota")
     panacota_temp = os.path.join(args.temp,"panacota")
 
     if not os.path.exists(panacota_temp):
             os.mkdir(panacota_temp)
+            temp_folder_created = True
     
+    output_folder_created = False
+
     if not os.path.exists(panacota_output):
             os.mkdir(panacota_output)
+            output_folder_created = True
+
+    if not temp_folder_created:
+        # Check if temp folder empty
+        if os.path.exists(panacota_temp) and os.path.isdir(panacota_temp):
+            if not args.overwrite:
+                print("Error: Temp folder is not empty.")
+                sys.exit(1)
     
-    # Check if temp folder empty
-    if os.path.exists(panacota_temp) and os.path.isdir(panacota_temp):
-        if not args.overwrite:
-            print("Error: Temp folder is not empty.")
-            sys.exit(1)
-        
-    # Check if output folder empty
-    if os.path.exists(panacota_output) and os.path.isdir(panacota_output):
-        if not args.overwrite:
-            print("Error: Output folder is not empty.")
-            sys.exit(1)
+    if not output_folder_created:
+        # Check if output folder empty
+        if os.path.exists(panacota_output) and os.path.isdir(panacota_output):
+            if not args.overwrite:
+                print("Error: Output folder is not empty.")
+                sys.exit(1)
 
     panacota_log_file = os.path.join(panacota_output, "panacota_log.txt")
 
@@ -592,6 +605,8 @@ def ml_pipeline(args):
         print("Error: Number of repeats for feature importance analysis should be positive and bigger than 0.")
         sys.exit(1)
 
+    print (args.test_train_split)
+
     if args.ml_algorithm == "rf":
 
         if args.parameter_optimization:
@@ -633,6 +648,16 @@ def binary_table_threshold(args):
     if not os.path.exists(args.output):
         os.mkdir(args.output)
 
+    if args.temp is None:
+
+        args.temp = os.path.join(args.output, "temp")
+        if os.path.exists(args.temp) and os.path.isdir(args.temp):
+            if not args.overwrite:
+                print("Error: Temp folder is not empty.")
+                sys.exit(1)
+        else:
+            os.mkdir(args.temp)
+
     binary_table_threshold_temp = os.path.join(args.temp, "binary_table_threshold")
     binary_table_threshold_output = os.path.join(args.output, "binary_table_threshold")
 
@@ -640,16 +665,6 @@ def binary_table_threshold(args):
     if os.path.exists(binary_table_threshold_output) and os.path.isdir(binary_table_threshold_output):
         if not args.overwrite:
             print("Error: Output folder is not empty.")
-            sys.exit(1)
-
-    if args.temp is None:
-        args.temp = os.path.join(args.output, "temp")
-        os.mkdir(args.temp)
-
-    # Check if temp folder empty
-    if os.path.exists(args.temp) and os.path.isdir(args.temp):
-        if not args.overwrite:
-            print("Error: Temp folder is not empty.")
             sys.exit(1)
 
     # Create the temp folder

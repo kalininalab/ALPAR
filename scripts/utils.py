@@ -481,8 +481,8 @@ def binary_table_threshold_with_percentage(binary_table, output_folder, threshol
 
     threshold_value = (threshold_percentage / 100) * amount_of_strains
 
-    for col in df.columns:
-        if df[col].sum() <= threshold_value:
+    for col in df.columns[1:]:
+        if int(df[col].sum()) <= int(threshold_value):
             cols_to_be_dropped.append(col)
 
     dropped_df = df.drop(cols_to_be_dropped, axis=1)

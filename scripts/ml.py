@@ -91,7 +91,7 @@ def rf_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, 
 
     index_of_antibiotic = phenotype_df.columns.get_loc(antibiotic)
 
-    X = genotype_array[:, :].astype(int)
+    X = genotype_array[:, 1:].astype(int)
     y = phenotype_array[:, index_of_antibiotic].astype(int)
 
     X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, random_state=random_seed, test_size=float(test_size))
@@ -104,10 +104,10 @@ def rf_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, 
     classifier = "random_forest"
 
     if resampling_strategy == "cv":
-        resampling_strategy_arguments = {"folds": f"{cv_split}", 'train_size': f"{1.00 - float(test_size)}"}
+        resampling_strategy_arguments = {"folds": cv_split, 'train_size': float(1.00) - float(test_size)}
 
     elif resampling_strategy == "holdout":
-        resampling_strategy_arguments = {"train_size": f"{1.00 - float(test_size)}"}
+        resampling_strategy_arguments = {"train_size": float(1.00) - float(test_size)}
 
     cls = autosklearn.classification.AutoSklearnClassifier(
         memory_limit=float(ram) * 1024,
@@ -282,7 +282,7 @@ def svm_cv(binary_mutation_table, phenotype_table, antibiotic, random_seed, test
 
     index_of_antibiotic = phenotype_df.columns.get_loc(antibiotic)
 
-    X = genotype_array[:, :].astype(int)
+    X = genotype_array[:, 1:].astype(int)
     y = phenotype_array[:, index_of_antibiotic].astype(int)
 
     X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, random_state=random_seed, test_size=float(test_size))
@@ -384,7 +384,7 @@ def gb_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, 
 
     index_of_antibiotic = phenotype_df.columns.get_loc(antibiotic)
 
-    X = genotype_array[:, :].astype(int)
+    X = genotype_array[:, 1:].astype(int)
     y = phenotype_array[:, index_of_antibiotic].astype(int)
 
     X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, random_state=random_seed, test_size=float(test_size))
@@ -397,10 +397,10 @@ def gb_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, 
     classifier = "gradient_boosting"
 
     if resampling_strategy == "cv":
-        resampling_strategy_arguments = {"folds": f"{cv_split}", 'train_size': f"{1.00 - float(test_size)}"}
+        resampling_strategy_arguments = {"folds": cv_split, 'train_size': float(1.00) - float(test_size)}
 
     elif resampling_strategy == "holdout":
-        resampling_strategy_arguments = {"train_size": f"{1.00 - float(test_size)}"}
+        resampling_strategy_arguments = {"train_size": float(1.00) - float(test_size)}
 
     cls = autosklearn.classification.AutoSklearnClassifier(
         memory_limit=float(ram) * 1024,

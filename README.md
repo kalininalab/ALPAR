@@ -142,7 +142,7 @@ python scripts/sr_pipeline.py gwas -i example/example_output/binary_mutation_tab
 
 Runs PRPS (Phylogeny-Related Parallelism Score) to detect the mutations are more likely associated with phylogeny rather than antimicrobial resistance.
 
-- Binary mutation file, `-b`:  Binary mutation table path that is created via create_binary_tables command, can be found in create_binary_tables output path as `binary_mutation_table.tsv`
+- Input, `-i`:  Binary mutation table path that is created via create_binary_tables command, can be found in create_binary_tables output path as `binary_mutation_table.tsv`
 
 - Tree, `-t` : Phylogenetic tree path, can be found in panacota output path as `phylogenetic_tree.newick`
 
