@@ -1,0 +1,40 @@
+package:
+  name: "sr-amr"
+  version: '0.1.0'
+
+source:
+  path: ..
+
+build:
+  entry_points:
+    - sr-amr = scripts.sr_pipeline:main
+  script: python setup.py install
+
+requirements:
+  build:
+    - python=3.9.18
+    - setuptools
+    - setuptools_scm
+    - pip
+  run:
+    - python=3.9.18
+    - numpy
+    - pandas
+    - panacota
+    - scikit-learn
+    - scipy
+    - mafft
+    - cd-hit
+    - biopython
+    - joblib
+    - panaroo
+    - prokka
+    - snippy
+    - auto-sklearn
+    - samtools
+
+about:
+  home: https://github.com/kalininalab/SR-AMR
+  license: MIT
+  license_file: LICENSE
+  summary: SR-AMR is a tool for generating binary matrices suitable for machine learning from genomic fasta data

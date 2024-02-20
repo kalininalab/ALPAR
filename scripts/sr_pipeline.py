@@ -30,7 +30,7 @@ from ml import rf_auto_ml, svm, rf, svm_cv, prps_ml_preprecessor, gb_auto_ml, gb
 def main():
     # Create the parser
     parser = argparse.ArgumentParser(description="Single reference AMR is a tool to get mutation and gene presence absence information from genome sequences.")
-
+    
     parser.add_argument('--version', action='version', version='%(prog)s 0.0.2')
 
     subparsers = parser.add_subparsers(help='For suggested pipeline, check out our github page: https://github.com/kalininalab/SR-AMR')
@@ -114,7 +114,6 @@ def main():
     parser_ml.add_argument('--resampling_strategy', type=str, help='resampling strategy for ml, available selections: [holdout, cv], default=holdout', default="holdout")
     #parser_ml.add_argument('--bootstrap', action='store_true', help='bootstrap for random forest, default=True')
     parser_ml.add_argument('--parameter_optimization', action='store_true', help='runs parameter optimization, default=False')
-    parser_ml.add_argument('--n_jobs', type=int, help='number of jobs for random forest, default=1', default=1)
     parser_ml.add_argument('--cv', type=int, help='applies Cross-Validation with given number of splits, default=4', default=4)
     parser_ml.add_argument('--scoring', type=str, help='scoring method for cross-validation, available selections: [MCC,accuracy,f1,roc_auc], default=MCC', default="MCC")
     parser_ml.add_argument('--save_model', action='store_true', help='save the ml model, default=False')
@@ -529,7 +528,7 @@ def prps_pipeline(args):
     if not os.path.exists(prps_temp):
         os.mkdir(prps_temp)
 
-    PRPS_runner(args.tree, args.binary_mutation_file, prps_output, prps_temp)
+    PRPS_runner(args.tree, args.input, prps_output, prps_temp)
 
     if not args.keep_temp_files:
         temp_folder_remover(prps_temp)
@@ -538,6 +537,10 @@ def prps_pipeline(args):
 def ml_pipeline(args):
     
     # Sanity checks
+
+    # Check if output folder exists and create if not
+    if not os.path.exists(args.output):
+        os.mkdir(args.output)
 
     if args.temp is None:
         args.temp = os.path.join(args.output, "temp")
@@ -615,8 +618,6 @@ def ml_pipeline(args):
     if int(args.feature_importance_analysis_number_of_repeats) < 1:
         print("Error: Number of repeats for feature importance analysis should be positive and bigger than 0.")
         sys.exit(1)
-
-    print (args.test_train_split)
 
     if args.ml_algorithm == "rf":
 
