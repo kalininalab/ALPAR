@@ -622,7 +622,25 @@ def ml_pipeline(args):
     if args.ml_algorithm == "rf":
 
         if args.parameter_optimization:
+
+            same_setup_run_count = 1
+            
+            while True:
+
+                if same_setup_run_count == 99:
+                    print("Error: Same setup run count reached 99.")
+                    print("Please change the output folder name.")
+                    sys.exit(1)
+
+                if not os.path.exists(os.path.join(ml_output, f"seed_{args.random_state}_testsize_{args.test_train_split}_resampling_{args.resampling_strategy}_RF_AutoML_{same_setup_run_count}")):       
+                    os.mkdir(os.path.join(ml_output, f"seed_{args.random_state}_testsize_{args.test_train_split}_resampling_{args.resampling_strategy}_RF_AutoML_{same_setup_run_count}"))
+                    ml_output = os.path.join(ml_output, f"seed_{args.random_state}_testsize_{args.test_train_split}_resampling_{args.resampling_strategy}_RF_AutoML_{same_setup_run_count}")
+                    break
+                else:
+                    same_setup_run_count += 1
+                
             rf_auto_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, ml_temp, args.ram, args.optimization_time_limit, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5)
+        
         else:
             rf(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split)
 
@@ -636,6 +654,23 @@ def ml_pipeline(args):
     elif args.ml_algorithm == "gb":
 
         if args.parameter_optimization:
+
+            same_setup_run_count = 1
+            
+            while True:
+                
+                if same_setup_run_count == 99:
+                    print("Error: Same setup run count reached 99.")
+                    print("Please change the output folder name.")
+                    sys.exit(1)
+
+                if not os.path.exists(os.path.join(ml_output, f"seed_{args.random_state}_testsize_{args.test_train_split}_resampling_{args.resampling_strategy}_GB_AutoML_{same_setup_run_count}")):       
+                    os.mkdir(os.path.join(ml_output, f"seed_{args.random_state}_testsize_{args.test_train_split}_resampling_{args.resampling_strategy}_GB_AutoML_{same_setup_run_count}"))
+                    ml_output = os.path.join(ml_output, f"seed_{args.random_state}_testsize_{args.test_train_split}_resampling_{args.resampling_strategy}_GB_AutoML_{same_setup_run_count}")
+                    break
+                else:
+                    same_setup_run_count += 1
+
             gb_auto_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, ml_temp, args.ram, args.optimization_time_limit, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5)
         else:
             gb(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split)
