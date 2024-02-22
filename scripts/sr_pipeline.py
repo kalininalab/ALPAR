@@ -547,6 +547,8 @@ def prps_pipeline(args):
     print(time_function(start_time, end_time))
 
 def ml_pipeline(args):
+
+    start_time = time.time()
     
     # Sanity checks
 
@@ -653,13 +655,13 @@ def ml_pipeline(args):
                 else:
                     same_setup_run_count += 1
 
-            with open(os.path.join(ml_output, "_log_file.txt"), "w") as log_file:   
-                with contextlib.redirect_stdout(log_file):
+            with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:   
+                with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
                     rf_auto_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, ml_temp, args.ram, args.optimization_time_limit, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5)
         
         else:
-            with open(os.path.join(ml_output, "_log_file.txt"), "w") as log_file:   
-                with contextlib.redirect_stdout(log_file):
+            with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:   
+                with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
                     rf(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split)
 
     elif args.ml_algorithm == "svm":
@@ -667,12 +669,12 @@ def ml_pipeline(args):
         ml_log_name = f"seed_{args.random_state}_testsize_{args.test_train_split}_resampling_{args.resampling_strategy}_SVM"
 
         if args.resampling_strategy == "cv":
-            with open(os.path.join(ml_output, ml_log_name,"_log_file.txt"), "w") as log_file:   
-                with contextlib.redirect_stdout(log_file):
+            with open(os.path.join(ml_output, f"{ml_log_name}_log_file.txt"), "w") as log_file:    
+                with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
                     svm_cv(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy="cv", fia_repeats=5, optimization=False)
         elif args.resampling_strategy == "holdout":
-             with open(os.path.join(ml_output, ml_log_name,"_log_file.txt"), "w") as log_file:   
-                with contextlib.redirect_stdout(log_file):
+             with open(os.path.join(ml_output, f"{ml_log_name}_log_file.txt"), "w") as log_file:   
+                with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
                     svm(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy="holdout", fia_repeats=5, optimization=False)
 
     elif args.ml_algorithm == "gb":
@@ -694,20 +696,26 @@ def ml_pipeline(args):
                     break
                 else:
                     same_setup_run_count += 1
-            with open(os.path.join(ml_output, "_log_file.txt"), "w") as log_file:   
-                with contextlib.redirect_stdout(log_file):
+            with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:   
+                with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
                     gb_auto_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, ml_temp, args.ram, args.optimization_time_limit, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5)
         else:
-            with open(os.path.join(ml_output, "_log_file.txt"), "w") as log_file:   
-                with contextlib.redirect_stdout(log_file):
+            with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:   
+                with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
                     gb(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split)
 
     if not args.keep_temp_files:
-        print("Removing temp folder...")
+        print(f"Removing temp folder {ml_temp}...")
         temp_folder_remover(ml_temp)
+
+    end_time = time.time()
+
+    print(time_function(start_time, end_time))
 
 
 def binary_table_threshold(args):
+
+    start_time = time.time()
     
     # Check the arguments
     if args.input is None:
@@ -753,6 +761,10 @@ def binary_table_threshold(args):
     threshold_percentage_float = float(args.threshold_percentage)
     
     binary_table_threshold_with_percentage(args.input, binary_table_threshold_output, threshold_percentage_float)
+
+    end_time = time.time()
+
+    print(time_function(start_time, end_time))
     
 
 if __name__ == "__main__":
