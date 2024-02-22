@@ -312,7 +312,6 @@ dependencies:
   - requests=2.31.0=pyhd8ed1ab_0
   - samclip=0.4.0=hdfd78af_1
   - samtools=1.18=hd87286a_0
-  - scikit-learn=1.1.1=py39h4037b75_0
   - scipy=1.8.1=py39he49c0e8_0
   - seqtk=1.4=he4a0461_1
   - setuptools=68.2.2=py39h06a4308_0
@@ -368,14 +367,39 @@ dependencies:
   - zstd=1.5.5=hfc55251_0
   - pip:
       - appdirs==1.4.4
+      - auto-sklearn==0.15.0
+      - click==8.1.7
+      - cloudpickle==3.0.0
       - colorlog==6.8.2
+      - configspace==0.4.21
+      - cython==3.0.8
+      - dask==2024.2.0
+      - distributed==2024.2.0
+      - distro==1.9.0
+      - emcee==3.1.4
+      - fsspec==2024.2.0
       - igraph==0.11.3
+      - liac-arff==2.5.0
+      - locket==1.0.0
+      - msgpack==1.0.7
       - ncbi-genome-download==0.3.3
       - numpy==1.21.0
       - panacota==1.4.0
       - pandas==2.0.0
+      - partd==1.4.1
       - progressbar2==4.3.2
+      - psutil==5.9.8
+      - pynisher==0.6.4
+      - pyrfr==0.8.3
       - python-igraph==0.11.3
       - python-utils==3.8.2
+      - pyyaml==6.0.1
+      - scikit-learn==0.24.2
+      - smac==1.2
+      - sortedcontainers==2.4.0
+      - tblib==3.0.0
       - termcolor==2.4.0
+      - toolz==0.12.1
+      - tornado==6.4
       - typing-extensions==4.9.0
+      - zict==3.0.0

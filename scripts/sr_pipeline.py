@@ -561,7 +561,7 @@ def ml_pipeline(args):
     if not os.path.exists(ml_temp):
         os.mkdir(ml_temp)
 
-    accepted_ml_algorithms = ["rf", "svm"]
+    accepted_ml_algorithms = ["rf", "svm", "gb"]
 
     if args.ml_algorithm not in accepted_ml_algorithms:
         print("Error: ML algorithm is not accepted.")
@@ -676,6 +676,7 @@ def ml_pipeline(args):
             gb(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split)
 
     if not args.keep_temp_files:
+        print("Removing temp folder...")
         temp_folder_remover(ml_temp)
 
 
