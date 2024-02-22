@@ -468,8 +468,15 @@ def panacota_pipeline_runner(list_file, dbpath, output_directory, run_name, n_co
     os.system(pc_tree_command)
 
 
-def temp_folder_remover(temp_folder):
-    shutil.rmtree(temp_folder)
+def temp_folder_remover(path):
+    for i in range(5):
+        try:
+            shutil.rmtree(path, ignore_errors=True)
+            break 
+        except OSError:
+            time.sleep(1)
+    else:
+        print(f"Failed to delete {path}")
 
 
 def binary_table_threshold_with_percentage(binary_table, output_folder, threshold_percentage):

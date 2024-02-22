@@ -6,6 +6,7 @@ import sys
 import argparse
 import pathlib
 import subprocess
+import contextlib
 import random
 import string
 import shutil
@@ -39,13 +40,12 @@ def main():
     parser_main_pipeline.add_argument('-i', '--input', type=str, help='txt file that contains path of each strain per line or input folder path (check folder structure)', required=True)
     parser_main_pipeline.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
     parser_main_pipeline.add_argument('--reference', type=str, help='path of the reference file', required=True)
+    parser_main_pipeline.add_argument('--create_phenotype_from_folder', type=str, help='create phenotype file from the folders that contains genomic files, folder path should be given with the option, default=None')
     parser_main_pipeline.add_argument('--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
     parser_main_pipeline.add_argument('--overwrite', action='store_true', help='overwrite the output and temp folder if exists, default=False')
     parser_main_pipeline.add_argument('--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
     parser_main_pipeline.add_argument('--cpus', type=int, help='number of cpus to use, default=1', default=1)
     parser_main_pipeline.add_argument('--ram', type=int, help='amount of ram to use in GB, default=4', default=4)
-    parser_main_pipeline.add_argument('--create_phenotype_from_folder', action='store_true', help='create phenotype file from the folders that contains genomic files, folder path should be given with --phenotype_folder option, default=False')
-    parser_main_pipeline.add_argument('--phenotype_folder', type=str, help='folder path to create phenotype file, default=None')
     parser_main_pipeline.add_argument('--no_gene_presence_absence', action='store_true', help='do not run gene presence absence functions, default=False')
     parser_main_pipeline.add_argument('--no_gene_annotation', action='store_true', help='do not run gene annotation, default=False')
     parser_main_pipeline.set_defaults(func=binary_table_pipeline)
@@ -54,14 +54,16 @@ def main():
     parser_binary_tables_threshold.add_argument('-i', '--input', type=str, help='binary mutation table path', required=True)
     parser_binary_tables_threshold.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
     parser_binary_tables_threshold.add_argument('--threshold_percentage', type=float, help='threshold percentage value to apply, default=0.2', default=0.2)
-    parser_binary_tables_threshold.add_argument('--overwrite', action='store_true', help='overwrite the output folder if exists, default=False')
     parser_binary_tables_threshold.add_argument('--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
+    parser_binary_tables_threshold.add_argument('--overwrite', action='store_true', help='overwrite the output folder if exists, default=False')
     parser_binary_tables_threshold.add_argument('--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
     parser_binary_tables_threshold.set_defaults(func=binary_table_threshold)
 
     parser_panacota = subparsers.add_parser('panacota', help='run panacota analysis')
     parser_panacota.add_argument('-i', '--input', type=str, help='txt file that contains path of each strain per line or input folder path, can be found create_binary_tables output path as strains.txt', required=True)
     parser_panacota.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
+    parser_panacota.add_argument('--random_names_dict', type=str, help='random names dictionary path')
+    parser_panacota.add_argument('--data_type', type=str, help='data type of the input, either "nucl" or "prot", default=nucl', default="nucl")
     parser_panacota.add_argument('--overwrite', action='store_true', help='overwrite the output folder if exists, default=False')
     parser_panacota.add_argument('--cpus', type=int, help='number of cpus to use, default=1', default=1)
     parser_panacota.add_argument('--name', type=str, help='name of the analysis, default=WIBI', default="WIBI")
@@ -69,32 +71,30 @@ def main():
     parser_panacota.add_argument('--clustering_mode', type=int, help='Choose the clustering mode: 0 for set cover, 1 for single-linkage, 2 for CD-Hit. Default is single-linkage (1)', default=1)
     parser_panacota.add_argument('--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
     parser_panacota.add_argument('--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
-    parser_panacota.add_argument('--random_names_dict', type=str, help='random names dictionary path')
-    parser_panacota.add_argument('--data_type', type=str, help='data type of the input, either "nucl" or "prot", default=nucl', default="nucl")
     parser_panacota.set_defaults(func=panacota_pipeline)
     
     parser_gwas = subparsers.add_parser('gwas', help='run gwas analysis')
     parser_gwas.add_argument('-i', '--input', type=str, help='binary mutation table path', required=True)
+    parser_gwas.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
     parser_gwas.add_argument('-p', '--phenotype', type=str, help='phenotype table path', required=True)
     parser_gwas.add_argument('-t', '--tree', type=str, help='phylogenetic tree path', required=True)
-    parser_gwas.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
     parser_gwas.add_argument('--overwrite', action='store_true', help='overwrite the output folder if exists, default=False')
     parser_gwas.set_defaults(func=gwas_pipeline)
 
     parser_prps = subparsers.add_parser('prps', help='run prps analysis')
-    parser_prps.add_argument('-t', '--tree', type=str, help='phylogenetic tree file path', required=True)
     parser_prps.add_argument('-i', '--input', type=str, help='binary mutation file path', required=True)
     parser_prps.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
+    parser_prps.add_argument('-t', '--tree', type=str, help='phylogenetic tree file path', required=True)
     parser_prps.add_argument('--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
     parser_prps.add_argument('--overwrite', action='store_true', help='overwrite the output and temp folder if exists, default=False')
-    parser_prps.add_argument('--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
     parser_prps.add_argument('--cpus', type=int, help='number of cpus to use, default=1', default=1)
+    parser_prps.add_argument('--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
     parser_prps.set_defaults(func=prps_pipeline)
 
     parser_ml = subparsers.add_parser('ml', help='run machine learning analysis')
     parser_ml.add_argument('-i', '--input', type=str, help='binary mutation table path', required=True)
-    parser_ml.add_argument('-p', '--phenotype', type=str, help='phenotype table path', required=True)
     parser_ml.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
+    parser_ml.add_argument('-p', '--phenotype', type=str, help='phenotype table path', required=True)
     parser_ml.add_argument('-a', '--antibiotic', type=str, help='antibiotic name', required=True)
     parser_ml.add_argument('--prps', type=str, help='prps score file path')
     parser_ml.add_argument('--prps_percentage', type=int, help='percentage of the top scores of prps to be used, should be used with --prps option, default=30', default=30)
@@ -112,7 +112,6 @@ def main():
     parser_ml.add_argument('--min_samples_leaf', type=int, help='min samples leaf for random forest, default=1', default=1)
     parser_ml.add_argument('--max_features', type=str, help='max features for random forest, default=auto', default="auto")
     parser_ml.add_argument('--resampling_strategy', type=str, help='resampling strategy for ml, available selections: [holdout, cv], default=holdout', default="holdout")
-    #parser_ml.add_argument('--bootstrap', action='store_true', help='bootstrap for random forest, default=True')
     parser_ml.add_argument('--parameter_optimization', action='store_true', help='runs parameter optimization, default=False')
     parser_ml.add_argument('--cv', type=int, help='applies Cross-Validation with given number of splits, default=4', default=4)
     parser_ml.add_argument('--scoring', type=str, help='scoring method for cross-validation, available selections: [MCC,accuracy,f1,roc_auc], default=MCC', default="MCC")
@@ -160,12 +159,6 @@ def binary_table_pipeline(args):
     if args.input is None:
         print("Error: Input file is required.")
         sys.exit(1)
-    
-    # Check if the phenotype file will be created from the folder and folder is given
-    if args.create_phenotype_from_folder:
-        if args.phenotype_folder is None:
-            print("Error: phenotype_folder is required.")
-            sys.exit(1)
 
     # Check if the input is a folder or a file
     if os.path.isdir(args.input):
@@ -227,7 +220,7 @@ def binary_table_pipeline(args):
 
     # Check if phenotype folder exists
     if args.create_phenotype_from_folder:
-        if not os.path.exists(args.phenotype_folder):
+        if not os.path.exists(args.create_phenotype_from_folder):
             print("Error: Phenotype folder does not exist.")
             sys.exit(1)
 
@@ -388,7 +381,7 @@ def binary_table_pipeline(args):
         if args.create_phenotype_from_folder:
             print("Creating phenotype dataframe...")
             # Create the phenotype dataframe
-            phenotype_dataframe_creator(input_folder, os.path.join(args.output, "phenotype_table.tsv"), random_names)
+            phenotype_dataframe_creator(args.create_phenotype_from_folder, os.path.join(args.output, "phenotype_table.tsv"), random_names)
 
     if not args.keep_temp_files:
         temp_folder_remover(os.path.join(args.temp))
@@ -401,6 +394,8 @@ def binary_table_pipeline(args):
 
 
 def panacota_pipeline(args):
+
+    start_time = time.time()
 
     tool_list = ["PanACoTA"]
 
@@ -459,10 +454,16 @@ def panacota_pipeline(args):
     panacota_post_processor(panacota_output, args.name, args.data_type)
 
     if not args.keep_temp_files:
+        print("Removing temp folder...")
         temp_folder_remover(panacota_temp)
 
+    end_time = time.time()
+
+    print(time_function(start_time, end_time))
 
 def gwas_pipeline(args):
+
+    start_time = time.time()
 
     # Sanity checks
 
@@ -504,8 +505,13 @@ def gwas_pipeline(args):
     # pyseer_runner(genotype_file_path, phenotype_file_path, similarity_matrix, output_file_directory, cpus):
     pyseer_runner(os.path.join(gwas_output, "genotype_matrix.tsv"), os.path.join(gwas_output, "pyseer_phenotypes"), os.path.join(gwas_output, "similarity_matrix.tsv"), os.path.join(gwas_output, "gwas_results"))
 
+    end_time = time.time()
+
+    print(time_function(start_time, end_time))
 
 def prps_pipeline(args):
+
+    start_time = time.time()
 
     # Sanity checks
 
@@ -528,11 +534,17 @@ def prps_pipeline(args):
     if not os.path.exists(prps_temp):
         os.mkdir(prps_temp)
 
+    print("Running PRPS...")
+
     PRPS_runner(args.tree, args.input, prps_output, prps_temp)
 
     if not args.keep_temp_files:
+        print("Removing temp folder...")
         temp_folder_remover(prps_temp)
 
+    end_time = time.time()
+
+    print(time_function(start_time, end_time))
 
 def ml_pipeline(args):
     
@@ -595,6 +607,8 @@ def ml_pipeline(args):
     binary_mutation_table_path = args.input
 
     if PRPS_flag:
+
+        print("Running PRPS ML pre-precessor...")
         prps_ml_preprecessor(binary_mutation_table_path, args.prps, PRPS_percentage, ml_temp)
 
         binary_mutation_table_path = os.path.join(ml_temp, "prps_filtered_table.tsv")
@@ -638,18 +652,28 @@ def ml_pipeline(args):
                     break
                 else:
                     same_setup_run_count += 1
-                
-            rf_auto_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, ml_temp, args.ram, args.optimization_time_limit, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5)
+
+            with open(os.path.join(ml_output, "_log_file.txt"), "w") as log_file:   
+                with contextlib.redirect_stdout(log_file):
+                    rf_auto_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, ml_temp, args.ram, args.optimization_time_limit, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5)
         
         else:
-            rf(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split)
+            with open(os.path.join(ml_output, "_log_file.txt"), "w") as log_file:   
+                with contextlib.redirect_stdout(log_file):
+                    rf(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split)
 
     elif args.ml_algorithm == "svm":
 
+        ml_log_name = f"seed_{args.random_state}_testsize_{args.test_train_split}_resampling_{args.resampling_strategy}_SVM"
+
         if args.resampling_strategy == "cv":
-            svm_cv(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy="cv", fia_repeats=5, optimization=False)
+            with open(os.path.join(ml_output, ml_log_name,"_log_file.txt"), "w") as log_file:   
+                with contextlib.redirect_stdout(log_file):
+                    svm_cv(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy="cv", fia_repeats=5, optimization=False)
         elif args.resampling_strategy == "holdout":
-            svm(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy="holdout", fia_repeats=5, optimization=False)
+             with open(os.path.join(ml_output, ml_log_name,"_log_file.txt"), "w") as log_file:   
+                with contextlib.redirect_stdout(log_file):
+                    svm(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy="holdout", fia_repeats=5, optimization=False)
 
     elif args.ml_algorithm == "gb":
 
@@ -670,10 +694,13 @@ def ml_pipeline(args):
                     break
                 else:
                     same_setup_run_count += 1
-
-            gb_auto_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, ml_temp, args.ram, args.optimization_time_limit, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5)
+            with open(os.path.join(ml_output, "_log_file.txt"), "w") as log_file:   
+                with contextlib.redirect_stdout(log_file):
+                    gb_auto_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, ml_temp, args.ram, args.optimization_time_limit, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5)
         else:
-            gb(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split)
+            with open(os.path.join(ml_output, "_log_file.txt"), "w") as log_file:   
+                with contextlib.redirect_stdout(log_file):
+                    gb(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split)
 
     if not args.keep_temp_files:
         print("Removing temp folder...")
