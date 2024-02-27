@@ -91,7 +91,7 @@ Basic usage:
 python scripts/sr_pipeline.py create_binary_tables -i example/example_files/ -o example/example_output/ --reference example/reference.gbff
 ```
 
-## Binary Tables Threshold
+## Binary Table Threshold
 
 Applies threshold to binary mutation table, and drops columns that has less than threshold percentage, useful to reduce sequencing errors in the data.
 
@@ -103,7 +103,7 @@ Applies threshold to binary mutation table, and drops columns that has less than
 
 Basic usage:
 ```bash
-python scripts/sr_pipeline.py binary_tables_threshold -i example/example_output/binary_mutation_table.tsv -o example/example_output/ 
+./scripts/sr_pipeline.py binary_tables_threshold -i example/example_output/binary_mutation_table.tsv -o example/example_output/ 
 ```
 
 ## Panacota
@@ -118,14 +118,14 @@ Runs PanACoTA pipeline to create phylogenetic tree.
 
 Basic usage:
 ```bash
-python scripts/sr_pipeline.py panacota -i example/example_output/strains.txt -o example/example_output/
+./scripts/sr_pipeline.py panacota -i example/example_output/strains.txt -o example/example_output/
 ```
 
 ## GWAS
 
 Runs GWAS analysis to detect important mutations in the data.
 
-- Input, `-i`:  Binary mutation table path that is created via create_binary_tables command, can be found in create_binary_tables output path as `binary_mutation_table_with_gene_presence_absence.tsv` or `binary_mutation_table.tsv`
+- Input, `-i`:  Binary mutation table path that is created via create_binary_tables command, can be found in create_binary_tables output path as `binary_mutation_table_with_gene_presence_absence.tsv` or `binary_mutation_table.tsv` or if threshold applied, can be found in binary_table_threshold output path as `binary_mutation_table_threshold_*_percent.tsv`
 
 - Phenotype, `-p`:  Binary phenotype table path,  can be found in create_binary_tables output path as `phenotype_table.tsv` if `--create_phenotype_from_folder` is used. Can also created manually and used.
 
@@ -135,14 +135,14 @@ Runs GWAS analysis to detect important mutations in the data.
 
 Basic usage:
 ```bash
-python scripts/sr_pipeline.py gwas -i example/example_output/binary_mutation_table_with_gene_presence_absence.tsv -p example/example_output/phenotype_table.tsv -t example/example_output/phylogenetic_tree.newick -o example_output/
+./scripts/sr_pipeline.py gwas -i example/example_output/binary_mutation_table_with_gene_presence_absence.tsv -p example/example_output/phenotype_table.tsv -t example/example_output/phylogenetic_tree.newick -o example_output/
 ```
 
 ## PRPS
 
 Runs PRPS (Phylogeny-Related Parallelism Score) to detect the mutations are more likely associated with phylogeny rather than antimicrobial resistance.
 
-- Input, `-i`:  Binary mutation table path that is created via create_binary_tables command, can be found in create_binary_tables output path as `binary_mutation_table.tsv`
+- Input, `-i`:  Binary mutation table path that is created via create_binary_tables command, can be found in create_binary_tables output path as `binary_mutation_table.tsv` or if threshold applied, can be found in binary_table_threshold output path as `binary_mutation_table_threshold_*_percent.tsv`
 
 - Tree, `-t` : Phylogenetic tree path, can be found in panacota output path as `phylogenetic_tree.newick`
 
@@ -150,7 +150,22 @@ Runs PRPS (Phylogeny-Related Parallelism Score) to detect the mutations are more
 
 Basic usage:
 ```bash
-python scripts/sr_pipeline.py prps -b example/example_output/binary_mutation_table.tsv -t example/example_output/phylogenetic_tree.newick -o example_output/
+./scripts/sr_pipeline.py prps -b example/example_output/binary_mutation_table.tsv -t example/example_output/phylogenetic_tree.newick -o example_output/
+```
+
+## DataSAIL
+
+Splits data into training, validation and test sets against information leakage to train better models.
+
+- Input, `-i`:  Binary mutation table path that is created via create_binary_tables command, can be found in create_binary_tables output path as `binary_mutation_table.tsv` or if threshold applied, can be found in binary_table_threshold output path as `binary_mutation_table_threshold_*_percent.tsv`
+
+- Tree, `-t` : Phylogenetic tree path, can be found in panacota output path as `phylogenetic_tree.newick`
+
+- Output, `-o`: Output folder path, where the output will be stored. If path exist, `--overwrite` option can be used to overwrite existing output.
+
+Basic usage:
+```bash
+./scripts/sr_pipeline.py prps -b example/example_output/binary_mutation_table.tsv -t example/example_output/phylogenetic_tree.newick -o example_output/
 ```
 
 ## ML
@@ -181,5 +196,5 @@ Available Classification algorithms: Random Forest, Support Vector Machine and G
 
 Basic usage:
 ```bash
-python scripts/sr_pipeline.py ml -i example/example_output/binary_mutation_table.tsv -p example/example_output/phenotype_table.tsv -o example_output/ -a amikacin
+./scripts/sr_pipeline.py ml -i example/example_output/binary_mutation_table.tsv -p example/example_output/phenotype_table.tsv -o example_output/ -a amikacin
 ```

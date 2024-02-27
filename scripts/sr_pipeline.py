@@ -26,6 +26,7 @@ import multiprocessing
 from utils import is_tool_installed, snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, panacota_pipeline_runner, pyseer_runner, pyseer_similarity_matrix_creator, pyseer_phenotype_file_creator, pyseer_genotype_matrix_creator, panacota_pre_processor, panacota_post_processor, temp_folder_remover, binary_table_threshold_with_percentage, time_function
 from prps import PRPS_runner
 from ml import rf_auto_ml, svm, rf, svm_cv, prps_ml_preprecessor, gb_auto_ml, gb
+from ds import datasail_runner
 
 # SNIPPY VCF EMPTY ISSUE SOLUTION = conda install snippy vt=0.57721
 def main():
@@ -50,7 +51,7 @@ def main():
     parser_main_pipeline.add_argument('--no_gene_annotation', action='store_true', help='do not run gene annotation, default=False')
     parser_main_pipeline.set_defaults(func=binary_table_pipeline)
 
-    parser_binary_tables_threshold = subparsers.add_parser('binary_tables_threshold', help='apply threshold to binary mutation table, drops columns that has less than threshold percentage, default=0.2')
+    parser_binary_tables_threshold = subparsers.add_parser('binary_table_threshold', help='apply threshold to binary mutation table, drops columns that has less than threshold percentage, default=0.2')
     parser_binary_tables_threshold.add_argument('-i', '--input', type=str, help='binary mutation table path', required=True)
     parser_binary_tables_threshold.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
     parser_binary_tables_threshold.add_argument('--threshold_percentage', type=float, help='threshold percentage value to apply, default=0.2', default=0.2)
@@ -91,6 +92,16 @@ def main():
     parser_prps.add_argument('--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
     parser_prps.set_defaults(func=prps_pipeline)
 
+    parser_datasail = subparsers.add_parser('datasail', help='splits data against information leakage')
+    parser_datasail.add_argument('-i', '--input', type=str, help='binary mutation file path', required=True)
+    parser_datasail.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
+    parser_datasail.add_argument('-t', '--tree', type=str, help='phylogenetic tree file path', required=True)
+    parser_datasail.add_argument('--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
+    parser_datasail.add_argument('--overwrite', action='store_true', help='overwrite the output and temp folder if exists, default=False')
+    parser_datasail.add_argument('--cpus', type=int, help='number of cpus to use, default=1', default=1)
+    parser_datasail.add_argument('--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
+    parser_datasail.set_defaults(func=datasail_pipeline)
+
     parser_ml = subparsers.add_parser('ml', help='run machine learning analysis')
     parser_ml.add_argument('-i', '--input', type=str, help='binary mutation table path', required=True)
     parser_ml.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
@@ -98,6 +109,7 @@ def main():
     parser_ml.add_argument('-a', '--antibiotic', type=str, help='antibiotic name', required=True)
     parser_ml.add_argument('--prps', type=str, help='prps score file path')
     parser_ml.add_argument('--prps_percentage', type=int, help='percentage of the top scores of prps to be used, should be used with --prps option, default=30', default=30)
+    parser_ml.add_argument('--sail', action='store_true', help='split against information leakage, default=False')
     parser_ml.add_argument('--overwrite', action='store_true', help='overwrite the output folder if exists, default=False')
     parser_ml.add_argument('--cpus', type=int, help='number of cpus to use, default=1', default=1)
     parser_ml.add_argument('--ram', type=int, help='amount of ram to use in GB, default=4', default=4)
@@ -451,7 +463,7 @@ def panacota_pipeline(args):
 
     print(f"Running PanACoTA pipeline post-precessor...")
 
-    panacota_post_processor(panacota_output, args.name, args.data_type)
+    panacota_post_processor(panacota_output, args.name, args.output, args.data_type)
 
     if not args.keep_temp_files:
         print("Removing temp folder...")
@@ -489,12 +501,10 @@ def gwas_pipeline(args):
         os.mkdir(gwas_output)
     
     if not os.path.exists(os.path.join(gwas_output, "gwas_results")):
-        if not args.overwrite:
-            os.mkdir(os.path.join(gwas_output, "gwas_results"))
+        os.mkdir(os.path.join(gwas_output, "gwas_results"))
 
     if not os.path.exists(os.path.join(gwas_output, "pyseer_phenotypes")):
-        if not args.overwrite:
-            os.mkdir(os.path.join(gwas_output, "pyseer_phenotypes"))
+        os.mkdir(os.path.join(gwas_output, "pyseer_phenotypes"))
 
     # pyseer_genotype_matrix_creator(binary_mutation_table, output_file):
     pyseer_genotype_matrix_creator(args.input, os.path.join(gwas_output, "genotype_matrix.tsv"))
@@ -761,6 +771,63 @@ def binary_table_threshold(args):
     threshold_percentage_float = float(args.threshold_percentage)
     
     binary_table_threshold_with_percentage(args.input, binary_table_threshold_output, threshold_percentage_float)
+
+    end_time = time.time()
+
+    print(time_function(start_time, end_time))
+
+
+def datasail_pipeline(args):
+
+    start_time = time.time()
+    
+    # Check the arguments
+    if args.input is None:
+        print("Error: Input file is required.")
+        sys.exit(1)
+    
+    # Check if output folder exists and create if not
+    if not os.path.exists(args.output):
+        os.mkdir(args.output)
+
+    if args.temp is None:
+
+        args.temp = os.path.join(args.output, "temp")
+        if os.path.exists(args.temp) and os.path.isdir(args.temp):
+            if not args.overwrite:
+                print("Error: Temp folder is not empty.")
+                sys.exit(1)
+        else:
+            os.mkdir(args.temp)
+
+    datasail_temp = os.path.join(args.temp, "datasail")
+    datasail_output = os.path.join(args.output, "datasail")
+
+    # Check if output folder empty
+    if os.path.exists(datasail_output) and os.path.isdir(datasail_output):
+        if not args.overwrite:
+            print("Error: Output folder is not empty.")
+            sys.exit(1)
+
+    # Create the temp folder
+    if not os.path.exists(datasail_temp):
+        os.mkdir(datasail_temp)
+
+    # Create the output folder
+    if not os.path.exists(datasail_output):
+        os.mkdir(datasail_output)
+    
+    print("Creating distance matrix...")
+
+    pyseer_similarity_matrix_creator(args.tree, os.path.join(datasail_output, "similarity_matrix.tsv"))
+
+    # print("Running datasail...")
+
+    # datasail_runner(args.input, datasail_output, datasail_temp)
+
+    # if not args.keep_temp_files:
+    #     print(f"Removing temp folder {datasail_temp}...")
+    #     temp_folder_remover(datasail_temp)
 
     end_time = time.time()
 
