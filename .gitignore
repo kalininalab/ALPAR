@@ -1,3 +1,4 @@
 .vscode
 /example/example_output
 /example_output
+/scripts/__pycache__
