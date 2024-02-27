@@ -51,6 +51,13 @@ def main():
     parser_main_pipeline.add_argument('--no_gene_annotation', action='store_true', help='do not run gene annotation, default=False')
     parser_main_pipeline.set_defaults(func=binary_table_pipeline)
 
+    parser_phenotype_table = subparsers.add_parser('create_phenotype_table', help='from specific folder structure, create phenotype table, does not needed to be run if create_phenotype_from_folder used in create_binary_tables')
+    parser_phenotype_table.add_argument('-i', '--input', type=str, help='input folder path (check folder structure)', required=True)
+    parser_phenotype_table.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
+    parser_phenotype_table.add_argument('--random_names_dict', type=str, help='random names dictionary path')
+    parser_phenotype_table.add_argument('--overwrite', action='store_true', help='overwrite the output and temp folder if exists, default=False')
+    parser_phenotype_table.set_defaults(func=phenotype_table_pipeline)
+
     parser_binary_tables_threshold = subparsers.add_parser('binary_table_threshold', help='apply threshold to binary mutation table, drops columns that has less than threshold percentage, default=0.2')
     parser_binary_tables_threshold.add_argument('-i', '--input', type=str, help='binary mutation table path', required=True)
     parser_binary_tables_threshold.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
@@ -832,7 +839,115 @@ def datasail_pipeline(args):
     end_time = time.time()
 
     print(time_function(start_time, end_time))
+
+
+def phenotype_table_pipeline(args):
+
+    start_time = time.time()
     
+    # Sanity checks
+
+    # Check the arguments
+    if args.input is None:
+        print("Error: Input folder path is required.")
+        sys.exit(1)
+
+    # Check if the input is a folder or a file
+    if os.path.isdir(args.input):
+        input_folder = args.input
+    else:
+        print("Error: Input should be a folder.")
+        sys.exit(1)
+
+    phenotype_output = os.path.join(args.output, "phenotype_table")
+
+    # Check if output folder empty
+    if os.path.exists(phenotype_output) and os.path.isdir(phenotype_output):
+        if len(os.listdir(phenotype_output)) == 0 and not args.overwrite:
+            print("Error: Output folder is not empty.")
+            sys.exit(1)
+    
+    # Check if output folder exists and create if not
+    if not os.path.exists(phenotype_output):
+        os.mkdir(phenotype_output)
+
+    accepted_fasta_file_extensions = [".fna", ".fasta", ".faa"]
+
+    random_names_will_be_used = False
+
+    if args.random_names_dict is not None:
+
+        random_names_will_be_used = True
+        print("Random names will be used...")
+
+        random_names = {}
+        with open(args.random_names_dict, "r") as infile:
+            lines = infile.readlines()
+            for line in lines:
+                splitted = line.split("\t")
+                random_names[splitted[0].strip()] = splitted[1].strip()
+
+    if input_folder is not None:
+        antibiotics = os.listdir(input_folder)
+        for antibiotic in antibiotics:
+            if antibiotic.startswith("."):
+                continue
+            antibiotic_path = os.path.join(input_folder, antibiotic)
+            status = os.listdir(antibiotic_path)
+            if not 'Resistant' in status:
+                print(f"Error: {antibiotic} folder does not contain resistant folder.")
+                sys.exit(1)
+            if not 'Susceptible' in status:
+                print(f"Error: {antibiotic} folder does not contain susceptible folder.")
+                sys.exit(1)
+            
+            resistant_path = os.path.join(antibiotic_path, 'Resistant')
+            susceptible_path = os.path.join(antibiotic_path, 'Susceptible')
+
+            # Checking if folders contain fasta files that are accepted
+
+            files_in_resistant_path = os.listdir(resistant_path)
+            files_in_susceptible_path = os.listdir(susceptible_path)
+
+            resistant_strains = []
+            susceptible_strains = []
+            
+            for file in files_in_resistant_path:
+                if pathlib.Path(file).suffix in accepted_fasta_file_extensions:
+                    resistant_strains.append(file)
+
+            for file in files_in_susceptible_path:
+                if pathlib.Path(file).suffix in accepted_fasta_file_extensions:
+                    susceptible_strains.append(file)
+
+            with open(os.path.join(phenotype_output, "strains.txt"), "a") as outfile:
+                for strain in resistant_strains:
+                    # Make sure path is same in both Windows and Linux 
+                    strain_path = os.path.join(resistant_path, strain)
+                    strain_path = strain_path.replace("\\", "/")
+                    outfile.write(f"{strain_path}\n")
+                for strain in susceptible_strains:
+                    # Make sure path is same in both Windows and Linux 
+                    strain_path = os.path.join(susceptible_path, strain)
+                    strain_path = strain_path.replace("\\", "/")
+                    outfile.write(f"{strain_path}\n")
+
+        input_file = os.path.join(phenotype_output, "strains.txt")
+    
+    if input_file is not None:
+        if not random_names_will_be_used:
+            random_names = random_name_giver(input_file, os.path.join(phenotype_output, "random_names.txt"))
+
+    print("Creating phenotype dataframe...")
+    # Create the phenotype dataframe
+    phenotype_dataframe_creator(args.input, os.path.join(phenotype_output, "phenotype_table.tsv"), random_names)
+
+    print("Done")
+
+    end_time = time.time()
+
+    print(time_function(start_time, end_time))
+
 
 if __name__ == "__main__":
     main()
