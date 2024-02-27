@@ -2,7 +2,7 @@
 
 Pipeline for generating binary matrices suitable for machine learning from genomic fasta data.
 
-![Pipeline](./SR-AMR_Flowchart.jpg?raw=true "Pipeline")
+![Pipeline](./SR-AMR_Flowchart_Git.jpg?raw=true "Pipeline")
 
 ## Installation
 
@@ -88,7 +88,7 @@ From genomic files, creates binary mutation and phenotype tables
 
 Basic usage:
 ```bash
-python scripts/sr_pipeline.py create_binary_tables -i example/example_files/ -o example/example_output/ --reference example/reference.gbff
+./scripts/sr_pipeline.py create_binary_tables -i example/example_files/ -o example/example_output/ --reference example/reference.gbff
 ```
 
 ## Binary Table Threshold
