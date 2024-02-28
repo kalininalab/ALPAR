@@ -150,7 +150,7 @@ Runs PRPS (Phylogeny-Related Parallelism Score) to detect the mutations are more
 
 Basic usage:
 ```bash
-./scripts/sr_pipeline.py prps -b example/example_output/binary_mutation_table.tsv -t example/example_output/phylogenetic_tree.newick -o example_output/
+./scripts/sr_pipeline.py prps -i example/example_output/binary_mutation_table.tsv -t example/example_output/phylogenetic_tree.newick -o example_output/
 ```
 
 ## DataSAIL
@@ -165,7 +165,7 @@ Splits data into training, validation and test sets against information leakage 
 
 Basic usage:
 ```bash
-./scripts/sr_pipeline.py prps -b example/example_output/binary_mutation_table.tsv -t example/example_output/phylogenetic_tree.newick -o example_output/
+./scripts/sr_pipeline.py datasail -i example/example_output/binary_mutation_table.tsv -t example/example_output/phylogenetic_tree.newick -o example_output/
 ```
 
 ## ML

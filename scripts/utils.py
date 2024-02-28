@@ -397,6 +397,24 @@ def pyseer_runner(genotype_file_path, phenotype_file_path, similarity_matrix, ou
         os.system(script_command)
 
 
+def pyseer_post_processor(pyseer_output_folder, output_folder):
+
+    gwas_results_files = os.listdir(pyseer_output_folder)
+
+    for gwas_result_file in gwas_results_files:
+        script_command = f"sort -g -k4,4 {pyseer_output_folder}/{gwas_result_file} > {output_folder}/sorted/{gwas_result_file[:-4]}_sorted.tsv"
+    
+        os.system(script_command)
+
+        with open (f"{output_folder}/sorted_cleaned/{gwas_result_file[:-4]}_sorted.tsv", "w") as ofile:
+            with open(f"{output_folder}/sorted/{gwas_result_file[:-4]}_sorted.tsv", "r") as infile:
+                lines = infile.readlines()
+                for line in lines:
+                    splitted = line.split("\t")
+                    if not splitted[-1].strip() == "bad-chisq":
+                        ofile.write(f"{line.strip()}\n")
+
+
 def panacota_pre_processor(list_file, temp_folder, output_folder, random_names_dict):
 
     random_names_will_be_used = False
