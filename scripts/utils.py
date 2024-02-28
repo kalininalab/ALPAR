@@ -155,11 +155,11 @@ def panaroo_runner(panaroo_input_folder, panaroo_output_folder, log_file, cpus):
 
     # Panaroo run fails if given threads are more than 16, issue has been raised their github
     
-    if cpus <= 16:
-        cpus = cpus
+    # if cpus <= 16:
+    #     cpus = cpus
 
-    else:
-        cpus = 16 
+    # else:
+    #     cpus = 16 
 
     run_command = f"panaroo -i {panaroo_input_folder}/*.gff -o {panaroo_output_folder} --clean-mode strict -t {cpus} >> {log_file} 2>&1"
     

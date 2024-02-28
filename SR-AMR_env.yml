@@ -19,6 +19,7 @@ dependencies:
   - arpack=3.8.0=nompi_h0baa96a_101
   - attr=2.5.1=h166bdaf_1
   - barrnap=0.9=hdfd78af_4
+  - bc=1.07.1=h7f98852_0
   - bcftools=1.19=h8b25389_0
   - bedops=2.4.41=h4ac6f70_1
   - bedtools=2.31.1=hf5e1c6e_0
@@ -374,7 +375,7 @@ dependencies:
   - statsmodels=0.14.1=py39h44dd56e_0
   - suitesparse=5.10.1=hd8046ac_0
   - t-coffee=12.00.7fb08c2=h26a2512_0
-  - tabixpp=1.1.2=hd68fcf3_1
+  - tabixpp=1.1.0=hce60e53_13
   - taxadb=0.12.1=pyh5e36f6f_0
   - tbb=2020.3=hfd86e86_0
   - tbl2asn-forever=25.7.2f=h031d066_4
