@@ -315,7 +315,6 @@ def binary_mutation_table_gpa_information_adder(binary_mutation_table, panaroo_o
                     except:
                         cnt += 1
 
-
     binary_mutation_table_gpa_df = pd.DataFrame.from_dict(binary_mutation_table_gpa_dict, orient='index')
 
     binary_mutation_table_gpa_df.to_csv(binary_mutation_table_with_gpa_information, sep="\t")
