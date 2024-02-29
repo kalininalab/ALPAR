@@ -1,0 +1,1 @@
+#CHR	SNP	BP	minLOG10(P)	log10(p)	r^2

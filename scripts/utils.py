@@ -20,6 +20,9 @@ from datetime import datetime
 from joblib import Parallel, delayed
 import time
 import copy
+import seaborn as sns
+import matplotlib.pyplot as plt
+import math
 
 # Get the path of the script
 PATH_OF_SCRIPT = pathlib.Path(__file__).parent.resolve()
@@ -418,6 +421,55 @@ def pyseer_post_processor(pyseer_output_folder, output_folder):
                     splitted = line.split("\t")
                     if not splitted[-1].strip() == "bad-chisq":
                         ofile.write(f"{line.strip()}\n")
+
+
+def pyseer_plot_file_creator(input_file, output_file):
+
+    with open(input_file) as infile:
+        lines = infile.readlines()
+    
+    with open(output_file, "w") as ofile:
+        ofile.write("#CHR\tSNP\tBP\tminLOG10(P)\tlog10(p)\tr^2\n")
+        for line in lines[1:]:
+            splitted = line.split("\t")
+
+            mut_position = int(splitted[0].strip().split(",")[0].strip("'"))
+
+            lrt_p_val = float(splitted[3].strip())
+
+            log_val = -math.log(lrt_p_val)
+
+            ofile.write(f"26\t{splitted[0].strip()}\t{mut_position}\t{log_val}\t{log_val}\t0\n")
+
+
+def pyseer_gwas_graph_creator(pyseer_output_folder, output_folder):
+
+    gwas_sorted_files = os.listdir(os.path.join(pyseer_output_folder,"sorted"))
+
+    sorted_files_path = os.path.join(pyseer_output_folder,"sorted")
+
+    raw_gwas_output_path = os.path.join(pyseer_output_folder, "gwas_results")
+
+    for gwas_sorted_file in gwas_sorted_files:
+
+        pyseer_plot_file_creator(os.path.join(sorted_files_path, gwas_sorted_file), os.path.join(output_folder, f"{gwas_sorted_file[:-4]}.plot"))
+
+        with open(os.path.join(raw_gwas_output_path, f"{gwas_sorted_file.split('_')[0]}.tsv")) as raw_gwas_file:
+            lines = raw_gwas_file.readlines()
+            threshold_denominator= len(lines)-1
+
+        df = pd.read_csv(f"{os.path.join(output_folder, gwas_sorted_file[:-4])}.plot", sep='\t')
+
+        bonferini_adjusted_threshold = 0.05 / threshold_denominator
+
+        threshold = -(math.log(bonferini_adjusted_threshold))
+
+        grid = sns.relplot(data=df, x = 'BP', y = 'log10(p)', hue='log10(p)', palette = 'RdYlGn_r', aspect=1)
+
+        grid.ax.set_xlabel("Position")
+        grid.ax.set_ylabel("-log10(p-value)")
+        grid.ax.axhline(threshold, linestyle='--', linewidth='1')
+        plt.savefig(f"{os.path.join(output_folder, gwas_sorted_file[:-4])}.jpg", dpi = 1200)
 
 
 def panacota_pre_processor(list_file, temp_folder, output_folder, random_names_dict):
