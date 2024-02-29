@@ -302,12 +302,18 @@ def binary_mutation_table_gpa_information_adder(binary_mutation_table, panaroo_o
             for ocome in splitted[3:]:
                 
                 if ocome.strip() != "":
-                    binary_mutation_table_gpa_dict[strain_index_dict[cnt]][gene] = 1
-                    cnt += 1
-                
+                    try:
+                        binary_mutation_table_gpa_dict[strain_index_dict[cnt]][gene] = 1
+                        cnt += 1
+                    except:
+                        cnt += 1
+                    
                 else:
-                    binary_mutation_table_gpa_dict[strain_index_dict[cnt]][gene] = 0
-                    cnt += 1
+                    try:
+                        binary_mutation_table_gpa_dict[strain_index_dict[cnt]][gene] = 0
+                        cnt += 1
+                    except:
+                        cnt += 1
 
 
     binary_mutation_table_gpa_df = pd.DataFrame.from_dict(binary_mutation_table_gpa_dict, orient='index')
