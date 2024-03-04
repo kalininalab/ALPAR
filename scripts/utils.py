@@ -503,6 +503,7 @@ def replace_values(line, replacements):
         line = line.replace(key, value)
     return line
 
+
 def panacota_post_processor(panacota_output_folder, run_name, output_folder, type="nucl"):
 
     new_name_to_origin_name = {}
@@ -538,7 +539,6 @@ def panacota_pipeline_runner(list_file, dbpath, output_directory, run_name, n_co
 
     pc_tree_command = f"PanACoTA tree -a {output_directory}/align_out/Phylo-{run_name}/{run_name}.{type}.grp.aln -o {output_directory}/tree/ --threads {n_cores} >> {log_file} 2>&1"
 
-
     print(f"Running PanACoTA annotate...")
     os.system(pc_annotate_command)
     print(f"Running PanACoTA pangenome...")
@@ -568,6 +568,8 @@ def binary_table_threshold_with_percentage(binary_table, output_folder, threshol
 
     df = pd.read_csv(binary_table, sep="\t")
 
+    print(f"Number of mutations in the table: {len(df.columns[1:])}")
+
     cols_to_be_dropped = []
 
     amount_of_strains = int(df.shape[0])
@@ -578,7 +580,11 @@ def binary_table_threshold_with_percentage(binary_table, output_folder, threshol
         if int(df[col].sum()) <= int(threshold_value):
             cols_to_be_dropped.append(col)
 
+    print(f"Number of mutations to be dropped: {len(cols_to_be_dropped)}")
+
     dropped_df = df.drop(cols_to_be_dropped, axis=1)
+
+    print(f"Number of mutations in the table after dropping: {len(dropped_df.columns[1:])}")
             
     dropped_df.to_csv(os.path.join(output_folder, f"binary_mutation_table_threshold_{threshold_percentage}_percent.tsv"), sep="\t", index=False)
 

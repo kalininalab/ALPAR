@@ -771,7 +771,6 @@ def binary_table_threshold(args):
         else:
             os.mkdir(args.temp)
 
-    binary_table_threshold_temp = os.path.join(args.temp, "binary_table_threshold")
     binary_table_threshold_output = os.path.join(args.output, "binary_table_threshold")
 
     # Check if output folder empty
@@ -780,17 +779,17 @@ def binary_table_threshold(args):
             print("Error: Output folder is not empty.")
             sys.exit(1)
 
-    # Create the temp folder
-    if not os.path.exists(binary_table_threshold_temp):
-        os.mkdir(binary_table_threshold_temp)
-
     # Create the output folder
     if not os.path.exists(binary_table_threshold_output):
         os.mkdir(binary_table_threshold_output)
 
     threshold_percentage_float = float(args.threshold_percentage)
+
+    print("Creating binary table with threshold...")
     
     binary_table_threshold_with_percentage(args.input, binary_table_threshold_output, threshold_percentage_float)
+
+    print(f"Binary table with threshold {threshold_percentage_float} is created. Can be found in: {binary_table_threshold_output}/binary_mutation_table_threshold_{threshold_percentage_float}_percent.tsv")
 
     end_time = time.time()
 
