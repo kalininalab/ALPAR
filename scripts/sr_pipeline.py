@@ -80,6 +80,16 @@ def main():
     parser_panacota.add_argument('--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
     parser_panacota.add_argument('--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
     parser_panacota.set_defaults(func=panacota_pipeline)
+
+    parser_phylogenetic_tree = subparsers.add_parser('phylogenetic_tree', help='create phylogenetic tree from genomic fasta files via SANS')
+    parser_phylogenetic_tree.add_argument('-i', '--input', type=str, help='txt file that contains path of each strain per line or input folder path, can be found create_binary_tables output path as strains.txt', required=True)
+    parser_phylogenetic_tree.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
+    parser_phylogenetic_tree.add_argument('--random_names_dict', type=str, help='random names dictionary path')
+    parser_phylogenetic_tree.add_argument('--overwrite', action='store_true', help='overwrite the output folder if exists, default=False')
+    parser_phylogenetic_tree.add_argument('--cpus', type=int, help='number of cpus to use, default=1', default=1)
+    parser_phylogenetic_tree.add_argument('--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
+    parser_phylogenetic_tree.add_argument('--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
+    parser_phylogenetic_tree.set_defaults(func=phylogenetic_tree_pipeline)
     
     parser_gwas = subparsers.add_parser('gwas', help='run gwas analysis')
     parser_gwas.add_argument('-i', '--input', type=str, help='binary mutation table path', required=True)
@@ -960,6 +970,10 @@ def phenotype_table_pipeline(args):
 
     print(time_function(start_time, end_time))
 
+
+def phylogenetic_tree_pipeline(args):
+
+    return None
 
 if __name__ == "__main__":
     main()
