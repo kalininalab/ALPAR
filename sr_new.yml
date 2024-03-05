@@ -2,11 +2,9 @@ name: SR-AMR
 channels:
   - kalininalab
   - etetoolkit
-  - defaults
-  - bioconda
   - conda-forge
-  - salilab
-  - r
+  - bioconda
+  - defaults
 dependencies:
   - _libgcc_mutex=0.1=conda_forge
   - _openmp_mutex=4.5=2_gnu
@@ -41,7 +39,7 @@ dependencies:
   - cairo=1.18.0=h3faef2a_0
   - capnproto=0.9.1=ha19adfc_4
   - cd-hit=4.8.1=h43eeafb_9
-  - certifi=2024.2.2=py39h06a4308_0
+  - certifi=2024.2.2=pyhd8ed1ab_0
   - chardet=5.2.0=py39hf3d152e_1
   - charset-normalizer=3.3.2=pyhd8ed1ab_0
   - clarabel=0.6.0=py39ha56439a_1
@@ -193,6 +191,7 @@ dependencies:
   - makefun=1.15.2=pyhd8ed1ab_0
   - markupsafe=2.1.5=py39hd1e30aa_0
   - mash=2.3=ha9a2dd8_3
+  - mashtree=1.4.6=pl5321h031d066_0
   - matplotlib=3.8.3=py39hf3d152e_0
   - matplotlib-base=3.8.3=py39he9076e7_0
   - metis=5.1.0=h59595ed_1007
@@ -253,6 +252,8 @@ dependencies:
   - perl-constant=1.33=pl5321hd8ed1ab_0
   - perl-data-dumper=2.183=pl5321h166bdaf_0
   - perl-db_file=1.858=pl5321h166bdaf_0
+  - perl-dbd-sqlite=1.72=pl5321h031d066_1
+  - perl-dbi=1.643=pl5321h166bdaf_0
   - perl-devel-stacktrace=2.04=pl5321ha770c72_0
   - perl-digest-hmac=1.04=pl5321hdfd78af_0
   - perl-digest-md5=2.58=pl5321h166bdaf_0
@@ -268,6 +269,7 @@ dependencies:
   - perl-file-sort=1.01=pl5321hdfd78af_3
   - perl-file-spec=3.48_01=pl5321hdfd78af_2
   - perl-file-temp=0.2304=pl5321hd8ed1ab_0
+  - perl-file-which=1.24=pl5321hd8ed1ab_0
   - perl-getopt-long=2.54=pl5321hdfd78af_0
   - perl-html-parser=3.81=pl5321h4ac6f70_1
   - perl-html-tagset=3.20=pl5321hdfd78af_4
@@ -364,6 +366,7 @@ dependencies:
   - pyyaml=6.0.1=py39hd1e30aa_1
   - qdldl-python=0.1.7.post0=py39hddac248_1
   - qt-main=5.15.8=hc47bfe8_16
+  - quicktree=2.5=h031d066_6
   - rdkit=2023.09.5=py39hce5ca95_0
   - readline=8.2=h8228510_1
   - reportlab=4.1.0=py39hd1e30aa_0
@@ -443,37 +446,37 @@ dependencies:
   - zlib=1.2.13=hd590300_5
   - zstd=1.5.5=hfc55251_0
   - pip:
-    - appdirs==1.4.4
-    - auto-sklearn==0.15.0
-    - click==8.1.7
-    - cloudpickle==3.0.0
-    - colorlog==6.8.2
-    - configspace==0.4.21
-    - cython==3.0.8
-    - dask==2024.2.1
-    - distributed==2024.2.1
-    - distro==1.9.0
-    - emcee==3.1.4
-    - fsspec==2024.2.0
-    - future==1.0.0
-    - grakel==0.1.10
-    - liac-arff==2.5.0
-    - locket==1.0.0
-    - msgpack==1.0.7
-    - ncbi-genome-download==0.3.3
-    - panacota==1.4.0
-    - partd==1.4.1
-    - progressbar2==4.4.1
-    - psutil==5.9.8
-    - pynisher==0.6.4
-    - pyrfr==0.8.3
-    - python-utils==3.8.2
-    - scikit-learn==0.24.2
-    - seaborn==0.13.2
-    - smac==1.2
-    - sortedcontainers==2.4.0
-    - tblib==3.0.0
-    - termcolor==2.4.0
-    - toolz==0.12.1
-    - zict==3.0.0
-prefix: /home/ayu21/miniconda3/envs/SR-AMR
+      - appdirs==1.4.4
+      - auto-sklearn==0.15.0
+      - click==8.1.7
+      - cloudpickle==3.0.0
+      - colorlog==6.8.2
+      - configspace==0.4.21
+      - cython==3.0.8
+      - dask==2024.2.1
+      - distributed==2024.2.1
+      - distro==1.9.0
+      - emcee==3.1.4
+      - fsspec==2024.2.0
+      - future==1.0.0
+      - grakel==0.1.10
+      - liac-arff==2.5.0
+      - locket==1.0.0
+      - msgpack==1.0.7
+      - ncbi-genome-download==0.3.3
+      - panacota==1.4.0
+      - partd==1.4.1
+      - progressbar2==4.4.1
+      - psutil==5.9.8
+      - pynisher==0.6.4
+      - pyrfr==0.8.3
+      - python-utils==3.8.2
+      - scikit-learn==0.24.2
+      - seaborn==0.13.2
+      - smac==1.2
+      - sortedcontainers==2.4.0
+      - tblib==3.0.0
+      - termcolor==2.4.0
+      - toolz==0.12.1
+      - zict==3.0.0
+prefix: /home/alper/miniconda3/envs/SR-AMR
