@@ -479,4 +479,3 @@ dependencies:
       - termcolor==2.4.0
       - toolz==0.12.1
       - zict==3.0.0
-prefix: /home/alper/miniconda3/envs/SR-AMR
