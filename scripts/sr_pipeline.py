@@ -23,7 +23,7 @@ from joblib import Parallel, delayed
 import time
 import copy
 import multiprocessing
-from utils import is_tool_installed, snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, panacota_pipeline_runner, pyseer_runner, pyseer_similarity_matrix_creator, pyseer_phenotype_file_creator, pyseer_genotype_matrix_creator, panacota_pre_processor, panacota_post_processor, temp_folder_remover, binary_table_threshold_with_percentage, time_function, pyseer_post_processor, pyseer_gwas_graph_creator
+from utils import is_tool_installed, snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, panacota_pipeline_runner, pyseer_runner, pyseer_similarity_matrix_creator, pyseer_phenotype_file_creator, pyseer_genotype_matrix_creator, panacota_pre_processor, panacota_post_processor, temp_folder_remover, binary_table_threshold_with_percentage, time_function, pyseer_post_processor, pyseer_gwas_graph_creator, mash_preprocessor, mash_distance_runner
 from prps import PRPS_runner
 from ml import rf_auto_ml, svm, rf, svm_cv, prps_ml_preprecessor, gb_auto_ml, gb
 from ds import datasail_runner
@@ -86,7 +86,6 @@ def main():
     parser_phylogenetic_tree.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
     parser_phylogenetic_tree.add_argument('--random_names_dict', type=str, help='random names dictionary path')
     parser_phylogenetic_tree.add_argument('--overwrite', action='store_true', help='overwrite the output folder if exists, default=False')
-    parser_phylogenetic_tree.add_argument('--cpus', type=int, help='number of cpus to use, default=1', default=1)
     parser_phylogenetic_tree.add_argument('--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
     parser_phylogenetic_tree.add_argument('--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
     parser_phylogenetic_tree.set_defaults(func=phylogenetic_tree_pipeline)
@@ -973,7 +972,61 @@ def phenotype_table_pipeline(args):
 
 def phylogenetic_tree_pipeline(args):
 
-    return None
+    start_time = time.time()
+
+    # Sanity checks
+
+    # Check the arguments
+    if args.input is None:
+        print("Error: Input file is required.")
+        sys.exit(1)
+
+    # Check if output folder exists and create if not
+    if not os.path.exists(args.output):
+        os.mkdir(args.output)
+
+    # Check if output folder empty
+    if os.path.exists(args.output) and os.path.isdir(args.output):
+        if not args.overwrite:
+            print("Error: Output folder is not empty.")
+            sys.exit(1)
+
+    if args.temp is None:
+        args.temp = os.path.join(args.output, "temp")
+
+    # Check if temp folder exists and create if not
+    if not os.path.exists(args.temp):
+        os.mkdir(args.temp)
+
+    # Check if temp folder empty
+    if os.path.exists(os.path.join(args.temp, "phylogeny")) and os.path.isdir(os.path.join(args.temp, "phylogeny")):
+        if not args.overwrite:
+            print("Error: Temp folder is not empty.")
+            sys.exit(1)
+    else:
+        os.mkdir(os.path.join(args.temp, "phylogeny"))
+
+    mash_temp = os.path.join(args.temp, "phylogeny")
+    mash_output = os.path.join(args.output, "phylogeny")
+
+    if not os.path.exists(mash_output):
+        os.mkdir(mash_output)
+
+    print("Running phylogenetic tree pipeline...")
+    mash_preprocessor(args.input, mash_temp, args.random_names_dict)
+    
+    mash_distance_runner(mash_output, mash_temp)
+
+    print("Done")
+    
+    if not args.keep_temp_files:
+        print("Removing temp folder...")
+        temp_folder_remover(mash_temp)
+
+    end_time = time.time()
+
+    print(time_function(start_time, end_time))
+
 
 if __name__ == "__main__":
     main()

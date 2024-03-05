@@ -589,6 +589,43 @@ def binary_table_threshold_with_percentage(binary_table, output_folder, threshol
     dropped_df.to_csv(os.path.join(output_folder, f"binary_mutation_table_threshold_{threshold_percentage}_percent.tsv"), sep="\t", index=False)
 
 
+def mash_preprocessor(strains_text_file, temp_folder, random_names_dict):
+
+    os.mkdir(os.path.join(temp_folder, "fasta_files"))
+
+    fasta_files_folder = os.path.join(temp_folder, "fasta_files")
+
+    if random_names_dict != None:
+        random_names_will_be_used = True
+        random_names = {}
+        with open(random_names_dict, "r") as infile:
+            lines = infile.readlines()
+            for line in lines:
+                splitted = line.split("\t")
+                random_names[splitted[0].strip()] = splitted[1].strip()
+
+    with open (strains_text_file) as infile:
+        lines = infile.readlines()
+        for line in lines:
+            strain_path = line.strip()
+            if random_names_will_be_used:
+                shutil.copy2(strain_path, f"{fasta_files_folder}/{random_names[os.path.splitext(line.split('/')[-1].strip())[0]]}.fna")
+            else:
+                shutil.copy2(strain_path, f"{fasta_files_folder}/{line.split('/')[-1].strip()}")
+
+
+def mash_distance_runner(output_folder, temp_folder):
+
+    # Get the absolute path of the current file
+    temp_folder_abs_path = os.path.abspath(temp_folder)
+
+    print(temp_folder_abs_path)
+
+    mash_tree_command = f"mashtree {temp_folder_abs_path}/fasta_files/* > {output_folder}/phylogenetic_tree.tree"
+    
+    os.system(mash_tree_command)
+
+
 def time_function(start_time, end_time):
 
     elapsed_time = end_time - start_time
