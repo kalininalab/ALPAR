@@ -106,9 +106,24 @@ Basic usage:
 ./scripts/sr_pipeline.py binary_tables_threshold -i example/example_output/binary_mutation_table.tsv -o example/example_output/ 
 ```
 
+## Phylogenetic Tree
+
+Runs Phylogeny pipeline to create phylogenetic tree. (Alignment free)
+
+- Input, `-i`: Text file that contains path of each strain per line. It can be found in create_binary_tables output path as `strains.txt`
+
+- Output, `-o`: Output folder path, where the output will be stored. If path exist, `--overwrite` option can be used to overwrite existing output.
+
+- Random names dictionary path, `--random_names_dict`: Random names text file path. If not provided, strain's original names will be used for phylogenetic tree
+
+Basic usage:
+```bash
+./scripts/sr_pipeline.py phylogenetic_tree -i example/example_output/strains.txt -o example/example_output/ --random_names_dict example/example_output/random_names.txt 
+```
+
 ## Panacota
 
-Runs PanACoTA pipeline to create phylogenetic tree.
+Runs PanACoTA pipeline to create phylogenetic tree. (Alignment based)
 
 - Input, `-i`: Text file that contains path of each strain per line. It can be found in create_binary_tables output path as `strains.txt`
 
@@ -129,13 +144,13 @@ Runs GWAS analysis to detect important mutations in the data.
 
 - Phenotype, `-p`:  Binary phenotype table path,  can be found in create_binary_tables output path as `phenotype_table.tsv` if `--create_phenotype_from_folder` is used. Can also created manually and used.
 
-- Tree, `-t` : Phylogenetic tree path, can be found in panacota output path as `phylogenetic_tree.newick`
+- Tree, `-t` : Phylogenetic tree path, can be found in panacota output path as `phylogenetic_tree.newick` or phylogeny output path as `phylogenetic_tree.tree`
 
 - Output, `-o`: Output folder path, where the output will be stored. If path exist, `--overwrite` option can be used to overwrite existing output.
 
 Basic usage:
 ```bash
-./scripts/sr_pipeline.py gwas -i example/example_output/binary_mutation_table_with_gene_presence_absence.tsv -p example/example_output/phenotype_table.tsv -t example/example_output/phylogenetic_tree.newick -o example_output/
+./scripts/sr_pipeline.py gwas -i example/example_output/binary_mutation_table_with_gene_presence_absence.tsv -p example/example_output/phenotype_table.tsv -t example/example_output/phylogeny/phylogenetic_tree.tree -o example_output/
 ```
 
 ## PRPS
@@ -144,13 +159,13 @@ Runs PRPS (Phylogeny-Related Parallelism Score) to detect the mutations are more
 
 - Input, `-i`:  Binary mutation table path that is created via create_binary_tables command, can be found in create_binary_tables output path as `binary_mutation_table.tsv` or if threshold applied, can be found in binary_table_threshold output path as `binary_mutation_table_threshold_*_percent.tsv`
 
-- Tree, `-t` : Phylogenetic tree path, can be found in panacota output path as `phylogenetic_tree.newick`
+- Tree, `-t` : Phylogenetic tree path, can be found in panacota output path as `phylogenetic_tree.newick` or phylogeny output path as `phylogenetic_tree.tree`
 
 - Output, `-o`: Output folder path, where the output will be stored. If path exist, `--overwrite` option can be used to overwrite existing output.
 
 Basic usage:
 ```bash
-./scripts/sr_pipeline.py prps -i example/example_output/binary_mutation_table.tsv -t example/example_output/phylogenetic_tree.newick -o example_output/
+./scripts/sr_pipeline.py prps -i example/example_output/binary_mutation_table.tsv -t example/example_output/phylogeny/phylogenetic_tree.tree -o example_output/
 ```
 
 ## DataSAIL
@@ -159,13 +174,13 @@ Splits data into training, validation and test sets against information leakage 
 
 - Input, `-i`:  Binary mutation table path that is created via create_binary_tables command, can be found in create_binary_tables output path as `binary_mutation_table.tsv` or if threshold applied, can be found in binary_table_threshold output path as `binary_mutation_table_threshold_*_percent.tsv`
 
-- Tree, `-t` : Phylogenetic tree path, can be found in panacota output path as `phylogenetic_tree.newick`
+- Tree, `-t` : Phylogenetic tree path, can be found in panacota output path as `phylogenetic_tree.newick` or phylogeny output path as `phylogenetic_tree.tree`
 
 - Output, `-o`: Output folder path, where the output will be stored. If path exist, `--overwrite` option can be used to overwrite existing output.
 
 Basic usage:
 ```bash
-./scripts/sr_pipeline.py datasail -i example/example_output/binary_mutation_table.tsv -t example/example_output/phylogenetic_tree.newick -o example_output/
+./scripts/sr_pipeline.py datasail -i example/example_output/binary_mutation_table.tsv -t example/example_output/phylogeny/phylogenetic_tree.tree -o example_output/
 ```
 
 ## ML
