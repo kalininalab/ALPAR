@@ -23,6 +23,10 @@ def datasail_runner(distance_matrix, output_folder, temp_folder):
     -------
     datasail_output 
     """
-    
+
+
+    splits, _, _ = datasail(techniques=["I1e"], splits=[0.7,0.3], names=["train", "test"], e_type="P", e_data=[], e_diat=np.array([[...], [...], ...]))
+
+    print("Splits: ", splits)
 
     return None

@@ -23,7 +23,7 @@ from joblib import Parallel, delayed
 import time
 import copy
 import multiprocessing
-from utils import is_tool_installed, snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, panacota_pipeline_runner, pyseer_runner, pyseer_similarity_matrix_creator, pyseer_phenotype_file_creator, pyseer_genotype_matrix_creator, panacota_pre_processor, panacota_post_processor, temp_folder_remover, binary_table_threshold_with_percentage, time_function, pyseer_post_processor, pyseer_gwas_graph_creator, mash_preprocessor, mash_distance_runner
+from utils import is_tool_installed, snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, panacota_pipeline_runner, pyseer_runner, pyseer_similarity_matrix_creator, pyseer_phenotype_file_creator, pyseer_genotype_matrix_creator, panacota_pre_processor, panacota_post_processor, temp_folder_remover, binary_table_threshold_with_percentage, time_function, pyseer_post_processor, pyseer_gwas_graph_creator, mash_preprocessor, mash_distance_runner, prokka_create_database
 from prps import PRPS_runner
 from ml import rf_auto_ml, svm, rf, svm_cv, prps_ml_preprecessor, gb_auto_ml, gb
 from ds import datasail_runner
@@ -42,6 +42,7 @@ def main():
     parser_main_pipeline.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
     parser_main_pipeline.add_argument('--reference', type=str, help='path of the reference file', required=True)
     parser_main_pipeline.add_argument('--create_phenotype_from_folder', type=str, help='create phenotype file from the folders that contains genomic files, folder path should be given with the option, default=None')
+    parser_main_pipeline.add_argument('--custom_database', type=str, nargs=2, help='creates and uses custom database for prokka, require path of the fasta file and genus name, default=None')
     parser_main_pipeline.add_argument('--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
     parser_main_pipeline.add_argument('--overwrite', action='store_true', help='overwrite the output and temp folder if exists, default=False')
     parser_main_pipeline.add_argument('--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
@@ -162,11 +163,11 @@ def main():
         sys.exit(1)
 
 
-def run_snippy_and_prokka(strain, random_names, snippy_output, prokka_output, args, snippy_flag, prokka_flag):
+def run_snippy_and_prokka(strain, random_names, snippy_output, prokka_output, args, snippy_flag, prokka_flag, custom_db=None):
     if snippy_flag:
         snippy_runner(strain, random_names[os.path.splitext(strain.split("/")[-1].strip())[0]], snippy_output, args.reference, f"{args.temp}/snippy_log.txt", 1, args.ram)
     if prokka_flag:
-        prokka_runner(strain, random_names[os.path.splitext(strain.split("/")[-1].strip())[0]], prokka_output, args.reference, f"{args.temp}/prokka_log.txt", 1)
+        prokka_runner(strain, random_names[os.path.splitext(strain.split("/")[-1].strip())[0]], prokka_output, args.reference, f"{args.temp}/prokka_log.txt", 1, custom_db)
 
 
 def binary_table_pipeline(args):
@@ -220,9 +221,10 @@ def binary_table_pipeline(args):
 
     if args.temp is None:
         args.temp = os.path.join(args.output, "temp")
-        os.mkdir(args.temp)
-        temp_folder_created = True
-    
+        if not os.path.exists(args.temp):
+            os.mkdir(args.temp)
+            temp_folder_created = True
+        
     if not temp_folder_created:
         # Check if temp folder empty
         if os.path.exists(args.temp) and os.path.isdir(args.temp):
@@ -360,6 +362,19 @@ def binary_table_pipeline(args):
                 added_strains.append(os.path.splitext(line.split("/")[-1].strip())[0])
                 strain_list.append(line.strip())
  
+    if args.custom_database:
+        if len(args.custom_database) != 2:
+            print("Error: Custom database option should have two arguments.")
+            sys.exit(1)
+
+        if not os.path.exists(args.custom_database[0]):
+            print("Error: Custom database fasta file does not exist.")
+            sys.exit(1)
+
+        print("Creating custom database...")
+        prokka_create_database(args.custom_database[0], args.custom_database[1], args.temp, args.cpus, args.ram)
+        print("Custom database created.")
+
     # Run snippy and prokka
     
     print(f"Number of strains to be processed: {len(strain_list)}")
@@ -368,6 +383,9 @@ def binary_table_pipeline(args):
     num_parallel_tasks = args.cpus
 
     params = [(strain, random_names, snippy_output, prokka_output, args, snippy_flag, prokka_flag) for strain in strain_list]
+    
+    if args.custom_database:
+        params = [(strain, random_names, snippy_output, prokka_output, args, snippy_flag, prokka_flag, args.custom_database[1]) for strain in strain_list]
 
     with multiprocessing.Pool(num_parallel_tasks) as pool:
         pool.starmap(run_snippy_and_prokka, params)
@@ -489,6 +507,7 @@ def panacota_pipeline(args):
 
     print(time_function(start_time, end_time))
 
+
 def gwas_pipeline(args):
 
     start_time = time.time()
@@ -548,6 +567,7 @@ def gwas_pipeline(args):
 
     print(time_function(start_time, end_time))
 
+
 def prps_pipeline(args):
 
     start_time = time.time()
@@ -584,6 +604,7 @@ def prps_pipeline(args):
     end_time = time.time()
 
     print(time_function(start_time, end_time))
+
 
 def ml_pipeline(args):
 
@@ -800,6 +821,21 @@ def binary_table_threshold(args):
 
     print(f"Binary table with threshold {threshold_percentage_float} is created. Can be found in: {binary_table_threshold_output}/binary_mutation_table_threshold_{threshold_percentage_float}_percent.tsv")
 
+
+    with open(args.input) as infile:
+        line = infile.readline()
+        splitted = line.split("\t")
+        print(f"Number of mutations in the original binary table: {len(splitted) - 1}")
+        original_table_mutations = len(splitted) - 1
+
+    with open(os.path.join(binary_table_threshold_output, f"binary_mutation_table_threshold_{threshold_percentage_float}_percent.tsv")) as infile:
+        line = infile.readline()
+        splitted = line.split("\t")
+        print(f"Number of mutations in the thresholded binary table: {len(splitted) - 1}")
+        thresholded_table_mutations = len(splitted) - 1
+    
+    print(f"Percentage of mutations kept: {thresholded_table_mutations/original_table_mutations * 100}%")
+
     end_time = time.time()
 
     print(time_function(start_time, end_time))
@@ -849,9 +885,9 @@ def datasail_pipeline(args):
 
     pyseer_similarity_matrix_creator(args.tree, os.path.join(datasail_output, "similarity_matrix.tsv"))
 
-    # print("Running datasail...")
+    print("Running datasail...")
 
-    # datasail_runner(args.input, datasail_output, datasail_temp)
+    datasail_runner(args.input, datasail_output, datasail_temp)
 
     # if not args.keep_temp_files:
     #     print(f"Removing temp folder {datasail_temp}...")

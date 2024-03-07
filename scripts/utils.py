@@ -23,6 +23,7 @@ import copy
 import seaborn as sns
 import matplotlib.pyplot as plt
 import math
+import logging
 
 # Get the path of the script
 PATH_OF_SCRIPT = pathlib.Path(__file__).parent.resolve()
@@ -85,8 +86,66 @@ def snippy_runner(input, strain_random_name, output, reference, log_file, cpus =
     os.system(run_command)
 
 
-# Maybe can be improved by using parallel run
-def prokka_runner(input, strain_random_name, output, reference, log_file, cpus = 1, parallel_run = False):
+def prokka_create_database(faa_file, genus_name, temp_folder, cpus = 1, memory = 4):
+
+    output_dir = os.path.join(temp_folder, genus_name)
+
+    if not os.path.exists(output_dir):
+        os.mkdir(output_dir)
+
+    script_command = f"cd-hit -i {faa_file} -o {output_dir}/{genus_name} -T {cpus} -M {memory*1024} -g 1 -s 0.8 -c 0.9"
+
+    print(script_command)
+    
+    p = subprocess.Popen(script_command, shell=True)
+
+    p.wait()
+
+    if os.path.exists(f"{output_dir}/{genus_name}.bak.clstr"):
+        os.remove(f"{output_dir}/{genus_name}.bak.clstr")
+
+    if os.path.exists(f"{output_dir}/{genus_name}.clstr"):
+        os.remove(f"{output_dir}/{genus_name}.clstr")
+
+    script_command = f"makeblastdb -dbtype prot -in {genus_name}"
+
+    p = subprocess.Popen(script_command, cwd=output_dir, shell=True)
+
+    p.wait()
+
+    logging.basicConfig(filename=f"{os.path.join(temp_folder, 'db_path.txt')}", level=logging.INFO)
+
+    command = "prokka --listdb"
+
+    process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+    for line in iter(process.stdout.readline, b''):
+        line = line.decode('utf-8').strip()
+        logging.info(line)
+
+    process.communicate()
+
+    process.wait()
+
+    with open (f"{os.path.join(temp_folder, 'db_path.txt')}") as infile:
+        
+        lines = infile.readlines()
+
+        for line in lines:
+            if "Looking for databases in:" in line:
+                splitted = line.split(":")
+                db_path = splitted[-1].strip()
+    
+    if db_path == "":
+        print("Database path could not be found, please check the log file for more information.")
+        sys.exit(1)
+
+    for file in os.listdir(output_dir):
+
+        shutil.copy2(os.path.join(output_dir, file), os.path.join(db_path, "genus"))
+
+
+def prokka_runner(input, strain_random_name, output, reference, log_file, cpus = 1, parallel_run = False, custom_db = None):
 
     """
 
@@ -101,16 +160,10 @@ def prokka_runner(input, strain_random_name, output, reference, log_file, cpus =
 
     main_path = os.getcwd()
 
-    # Create the output directory
-
-    # if not os.path.exists(f"{output}/{strain_random_name}"):
-    #     os.mkdir(f"{output}/{strain_random_name}")
-
-    # Check extension for reference file
-    #reference_path = f"{PATH_OF_SCRIPT}/reference_files/{bacterium}.fasta"
-
-    run_command = f"prokka --cpus {cpus} --outdir {output}/{strain_random_name} --proteins {reference} --force {input} >> {log_file} 2>&1"
-
+    if custom_db == None:
+        run_command = f"prokka --cpus {cpus} --outdir {output}/{strain_random_name} --proteins {reference} --force {input} >> {log_file} 2>&1"
+    else:
+        run_command = f"prokka --cpus {cpus} --outdir {output}/{strain_random_name} --proteins {reference} --usegenus --genus {custom_db} --force {input} >> {log_file} 2>&1"
 
     # Run prokka
     os.system(run_command)
@@ -385,6 +438,34 @@ def pyseer_phenotype_file_creator(phenotype_file, output_file_directory):
         df_column.to_csv(output_file, sep="\t")
 
 
+def pyseer_individual_genotype_creator(pyseer_genotype_matrix, pyseer_phenotype_matrix, output_folder):
+
+    genotype_df = pd.read_csv(pyseer_genotype_matrix, sep="\t", index_col=0)
+
+    phenotype_df = pd.read_csv(pyseer_phenotype_matrix, sep="\t", index_col=0)
+
+    strains_to_be_dropped = []
+
+    with open(pyseer_phenotype_matrix) as infile:
+        lines = infile.readlines()
+        for line in lines[1:]:
+            splitted = line.split("\t")
+            if int(splitted[1].strip()) == 2:
+                strains_to_be_dropped.append(splitted[0].strip())
+    
+    genotype_df_dropped = genotype_df.drop(strains_to_be_dropped, axis=1)
+
+    phenotype_df_dropped = phenotype_df.drop(strains_to_be_dropped, axis=0)
+
+    os.mkdir(os.path.join(output_folder, "genotype_files_individual"))
+
+    os.mkdir(os.path.join(output_folder, "phenotype_files_individual"))
+
+    genotype_df_dropped.to_csv(f"{output_folder}/genotype_files_individual/{pyseer_phenotype_matrix.split('/')[-1][:-6]}.tsv", sep="\t")
+
+    phenotype_df_dropped.to_csv(f"{output_folder}/phenotype_files_individual/{pyseer_phenotype_matrix.split('/')[-1][:-6]}.pheno", sep="\t")
+
+
 def pyseer_similarity_matrix_creator(phylogenetic_tree, output_file):
     
     script_command = f"python {PATH_OF_SCRIPT}/phylogeny_distance.py --lmm {phylogenetic_tree} > {output_file}"
@@ -396,8 +477,10 @@ def pyseer_runner(genotype_file_path, phenotype_file_path, similarity_matrix, ou
 
     phenotypes = os.listdir(f"{phenotype_file_path}")
 
+    genotypes = os.listdir(f"{genotype_file_path}")
+
     for phenotype in phenotypes:
-        script_command = f"pyseer --lmm --phenotypes {phenotype_file_path}/{phenotype} --pres {genotype_file_path} --similarity {similarity_matrix} > {output_file_directory}/{phenotype}.tsv"
+        script_command = f"pyseer --lmm --phenotypes {phenotype_file_path}/{phenotype} --pres {genotypes}/{phenotype[:-6]}.tsv --similarity {similarity_matrix} > {output_file_directory}/{phenotype}.tsv"
                 
         if not os.path.exists(f"{output_file_directory}"):
             os.mkdir(f"{output_file_directory}")
