@@ -59,7 +59,7 @@ From genomic files, creates binary mutation and phenotype tables
 - Reference, `--reference`: Reference file path, accepted file formats are: `.gbk .gbff`
 
 - Creation of phenotype table (Optional):
-    - `--create_phenotype_from_folder` and `--phenotype_folder {Genomes_folder_path}` should used
+    - `--create_phenotype_from_folder` should be used
     - Genomes_folder_path should have structure: input_folder -> antibiotic -> [Resistant, Susceptible] -> genomic fasta files
     ```
     input_folder

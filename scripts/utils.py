@@ -562,24 +562,45 @@ def panacota_pre_processor(list_file, temp_folder, output_folder, random_names_d
     if random_names_dict != None:
         random_names_will_be_used = True
         random_names = {}
+        random_names_to_strains = {}
         with open(random_names_dict, "r") as infile:
             lines = infile.readlines()
             for line in lines:
                 splitted = line.split("\t")
                 random_names[splitted[0].strip()] = splitted[1].strip()
+                random_names_to_strains[splitted[1].strip()] = splitted[0].strip()
+    
+    already_copied = []
 
     with open(list_file, "r") as infile:
         lines = infile.readlines()
         for line in lines:
             strain_path = line.strip()
             if random_names_will_be_used:
-                shutil.copy2(strain_path, f"{temp_folder}/{random_names[os.path.splitext(line.split('/')[-1].strip())[0]]}")
+                if not random_names[os.path.splitext(line.split('/')[-1].strip())[0]] in already_copied:
+                    shutil.copy2(strain_path, f"{temp_folder}/{random_names[os.path.splitext(line.split('/')[-1].strip())[0]]}")
+                    already_copied.append(random_names[os.path.splitext(line.split('/')[-1].strip())[0]])
             else:
-                shutil.copy2(strain_path, f"{temp_folder}/{line.split('/')[-1].strip()}")
+                if not line.split('/')[-1].strip() in already_copied:
+                    shutil.copy2(strain_path, f"{temp_folder}/{line.split('/')[-1].strip()}")
+                    already_copied.append(line.split('/')[-1].strip())
+                
+    the_names_will_be_skipped = []
+    
+    if os.path.exists(f"{os.path.dirname(output_folder)}/snippy"):
 
+        snippy_dir = os.listdir(f"{os.path.dirname(output_folder)}/snippy")
+
+        for strain in os.listdir(temp_folder):
+            if strain not in snippy_dir:
+                the_names_will_be_skipped.append(strain)
+    
+    print(f"The following strains will be skipped: {the_names_will_be_skipped}")
+   
     with open(os.path.join(output_folder, "panacota_input.lst"), "w") as ofile:
         for strain in os.listdir(temp_folder):
-            ofile.write(f"{strain}\n")
+            if not strain in the_names_will_be_skipped:
+                ofile.write(f"{strain}\n")
 
 def replace_values(line, replacements):
     for key, value in replacements.items():
