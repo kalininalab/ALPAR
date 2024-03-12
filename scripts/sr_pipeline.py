@@ -77,6 +77,7 @@ def main():
     parser_panacota.add_argument('--cpus', type=int, help='number of cpus to use, default=1', default=1)
     parser_panacota.add_argument('--name', type=str, help='name of the analysis, default=WIBI', default="WIBI")
     parser_panacota.add_argument('--min_seq_id', type=float, help='Minimum sequence identity to be considered in the same cluster (float between 0 and 1). Default is 0.8', default=0.8)
+    parser_panacota.add_argument('--core_genome_percentage', type=float, help='Percentage of core genome to be considered as core genome, default=1', default=1)
     parser_panacota.add_argument('--clustering_mode', type=int, help='Choose the clustering mode: 0 for set cover, 1 for single-linkage, 2 for CD-Hit. Default is single-linkage (1)', default=1)
     parser_panacota.add_argument('--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
     parser_panacota.add_argument('--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
@@ -493,7 +494,7 @@ def panacota_pipeline(args):
 
     print(f"Running PanACoTA pipeline with {args.cpus} cores...")
 
-    panacota_pipeline_runner(os.path.join(panacota_output, "panacota_input.lst"), panacota_temp, panacota_output, args.name, args.cpus, panacota_log_file, type=args.data_type, min_seq_id=args.min_seq_id, mode=args.clustering_mode)
+    panacota_pipeline_runner(os.path.join(panacota_output, "panacota_input.lst"), panacota_temp, panacota_output, args.name, args.cpus, panacota_log_file, type=args.data_type, min_seq_id=args.min_seq_id, mode=args.clustering_mode, core_genome_percentage=args.core_genome_percentage)
 
     print(f"Running PanACoTA pipeline post-precessor...")
 

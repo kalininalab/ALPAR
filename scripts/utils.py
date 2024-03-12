@@ -595,7 +595,8 @@ def panacota_pre_processor(list_file, temp_folder, output_folder, random_names_d
             if strain not in snippy_dir:
                 the_names_will_be_skipped.append(strain)
     
-    print(f"The following strains will be skipped: {the_names_will_be_skipped}")
+    if len(the_names_will_be_skipped) > 0:
+        print(f"The following strains will be skipped for panacota: {the_names_will_be_skipped}")
    
     with open(os.path.join(output_folder, "panacota_input.lst"), "w") as ofile:
         for strain in os.listdir(temp_folder):
@@ -627,18 +628,18 @@ def panacota_post_processor(panacota_output_folder, run_name, output_folder, typ
     
             
 # TODO PanACoTA needs all the files in one folder, need to process them before running PanACoTA
-def panacota_pipeline_runner(list_file, dbpath, output_directory, run_name, n_cores, log_file, type="nucl", mode=1, min_seq_id=0.8):
+def panacota_pipeline_runner(list_file, dbpath, output_directory, run_name, n_cores, log_file, type="nucl", mode=1, min_seq_id=0.8, core_genome_percentage=1):
     
     pc_annotate_command = f"PanACoTA annotate -l {list_file} -d {dbpath} -r {output_directory}/annotate_out -n {run_name} --threads {n_cores} >> {log_file} 2>&1"
     
     pc_pangenome_command = f"PanACoTA pangenome -l {output_directory}/annotate_out/LSTINFO-{list_file.split('/')[-1]} -d {output_directory}/annotate_out/Proteins/ -o {output_directory}/pangenome_out/ -n {run_name} --threads {n_cores} >> {log_file} 2>&1"
 
     if n_cores > 1:
-        pc_corepers_command = f"PanACoTA corepers -p {output_directory}/pangenome_out/PanGenome-{run_name}.All.prt-clust-{min_seq_id}-mode{mode}-th{n_cores}.lst -o {output_directory}/corepers_out/  >> {log_file} 2>&1"
+        pc_corepers_command = f"PanACoTA corepers -p {output_directory}/pangenome_out/PanGenome-{run_name}.All.prt-clust-{min_seq_id}-mode{mode}-th{n_cores}.lst -o {output_directory}/corepers_out/ -t {core_genome_percentage} >> {log_file} 2>&1"
         pc_align_command =  f"PanACoTA align -c {output_directory}/corepers_out/PersGenome_PanGenome-{run_name}.All.prt-clust-{min_seq_id}-mode{mode}-th{n_cores}.lst-all_1.lst -l {output_directory}/annotate_out/LSTINFO-{list_file.split('/')[-1]} -n {run_name} -d {output_directory}/annotate_out/ -o {output_directory}/align_out --threads {n_cores} >> {log_file} 2>&1"
     
     else:
-        pc_corepers_command = f"PanACoTA corepers -p {output_directory}/pangenome_out/PanGenome-{run_name}.All.prt-clust-{min_seq_id}-mode{mode}.lst -o {output_directory}/corepers_out/  >> {log_file} 2>&1"
+        pc_corepers_command = f"PanACoTA corepers -p {output_directory}/pangenome_out/PanGenome-{run_name}.All.prt-clust-{min_seq_id}-mode{mode}.lst -o {output_directory}/corepers_out/ -t {core_genome_percentage} >> {log_file} 2>&1"
         pc_align_command =  f"PanACoTA align -c {output_directory}/corepers_out/PersGenome_PanGenome-{run_name}.All.prt-clust-{min_seq_id}-mode{mode}.lst-all_1.lst -l {output_directory}/annotate_out/LSTINFO-{list_file.split('/')[-1]} -n {run_name} -d {output_directory}/annotate_out/ -o {output_directory}/align_out --threads {n_cores} >> {log_file} 2>&1"
 
     pc_tree_command = f"PanACoTA tree -a {output_directory}/align_out/Phylo-{run_name}/{run_name}.{type}.grp.aln -o {output_directory}/tree/ --threads {n_cores} >> {log_file} 2>&1"
