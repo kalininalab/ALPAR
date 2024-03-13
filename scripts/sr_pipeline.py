@@ -888,7 +888,7 @@ def datasail_pipeline(args):
 
     print("Running datasail...")
 
-    datasail_runner(args.input, datasail_output, datasail_temp)
+    #datasail_runner(args.input, datasail_output, datasail_temp)
 
     # if not args.keep_temp_files:
     #     print(f"Removing temp folder {datasail_temp}...")
