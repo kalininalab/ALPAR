@@ -411,6 +411,27 @@ def phenotype_dataframe_creator(data_folder_path, output_file, random_names_dict
     df.to_csv(output_file, sep="\t")
 
 
+def phenotype_dataframe_creator_post_processor(genotype_data, phenotype_data):
+    
+    genotype_df = pd.read_csv(genotype_data, sep="\t", index_col=0, header=0)
+
+    phenotype_df = pd.read_csv(phenotype_data, sep="\t", index_col=0, header=0)
+
+    strains_to_be_dropped = []
+
+    phenotype_strains = phenotype_df.index.to_list()
+
+    genotype_strains = genotype_df.index.to_list()
+
+    for strain in phenotype_strains:
+        if not strain in genotype_strains:
+            strains_to_be_dropped.append(strain)
+
+    phenotype_df_dropped = phenotype_df.drop(strains_to_be_dropped, axis=0)
+
+    phenotype_df_dropped.to_csv(phenotype_data, sep="\t")
+
+
 def pyseer_genotype_matrix_creator(binary_mutation_table, output_file):
 
     genotype_df = pd.read_csv(binary_mutation_table, sep="\t", index_col=0)
@@ -627,7 +648,6 @@ def panacota_post_processor(panacota_output_folder, run_name, output_folder, typ
     shutil.copyfile(f"{panacota_output_folder}/phylogenetic_tree.newick", f"{output_folder}/phylogenetic_tree.newick")
     
             
-# TODO PanACoTA needs all the files in one folder, need to process them before running PanACoTA
 def panacota_pipeline_runner(list_file, dbpath, output_directory, run_name, n_cores, log_file, type="nucl", mode=1, min_seq_id=0.8, core_genome_percentage=1):
     
     pc_annotate_command = f"PanACoTA annotate -l {list_file} -d {dbpath} -r {output_directory}/annotate_out -n {run_name} --threads {n_cores} >> {log_file} 2>&1"
@@ -693,13 +713,11 @@ def binary_table_threshold_with_percentage(binary_table, output_folder, threshol
             
     dropped_df.to_csv(os.path.join(output_folder, f"binary_mutation_table_threshold_{threshold_percentage}_percent.tsv"), sep="\t", index=False)
 
-
-def mash_preprocessor(strains_text_file, temp_folder, random_names_dict):
+def mash_preprocessor(strains_text_file, output_folder, temp_folder, random_names_dict):
 
     os.mkdir(os.path.join(temp_folder, "fasta_files"))
 
     fasta_files_folder = os.path.join(temp_folder, "fasta_files")
-
     if random_names_dict != None:
         random_names_will_be_used = True
         random_names = {}
@@ -718,6 +736,20 @@ def mash_preprocessor(strains_text_file, temp_folder, random_names_dict):
             else:
                 shutil.copy2(strain_path, f"{fasta_files_folder}/{line.split('/')[-1].strip()}")
 
+    if os.path.exists(f"{os.path.dirname(output_folder)}/snippy"):
+
+        snippy_dir = os.listdir(f"{os.path.dirname(output_folder)}/snippy")
+
+        the_names_will_be_skipped = []
+
+        copied_files = os.listdir(f"{fasta_files_folder}")
+
+        for file in copied_files:
+            if file not in snippy_dir:
+                the_names_will_be_skipped.append(file)
+
+        for file in the_names_will_be_skipped:
+            os.remove(f"{fasta_files_folder}/{file}")
 
 def mash_distance_runner(output_folder, temp_folder):
 
@@ -737,3 +769,92 @@ def time_function(start_time, end_time):
     hours, rem = divmod(elapsed_time, 3600)
     minutes, seconds = divmod(rem, 60)
     return f"Elapsed time: {int(hours)} hours, {int(minutes)} minutes, {seconds:.2f} seconds"
+
+
+def datasail_pre_precessor(strains_text_file, temp_folder, random_names_dict, output_folder, cpus = 1):
+
+    os.mkdir(os.path.join(temp_folder, "fasta_files"))
+
+    fasta_files_folder = os.path.join(temp_folder, "fasta_files")
+
+    if random_names_dict != None:
+        random_names_will_be_used = True
+        random_names = {}
+        random_names_to_strains = {}
+        with open(random_names_dict, "r") as infile:
+            lines = infile.readlines()
+            for line in lines:
+                splitted = line.split("\t")
+                random_names[splitted[0].strip()] = splitted[1].strip()
+                random_names_to_strains[splitted[1].strip()] = splitted[0].strip()
+    
+    already_copied = []
+
+    with open(strains_text_file, "r") as infile:
+        lines = infile.readlines()
+        for line in lines:
+            strain_path = line.strip()
+            if random_names_will_be_used:
+                if not random_names[os.path.splitext(line.split('/')[-1].strip())[0]] in already_copied:
+                    shutil.copy2(strain_path, f"{fasta_files_folder}/{random_names[os.path.splitext(line.split('/')[-1].strip())[0]]}")
+                    already_copied.append(random_names[os.path.splitext(line.split('/')[-1].strip())[0]])
+            else:
+                if not line.split('/')[-1].strip() in already_copied:
+                    shutil.copy2(strain_path, f"{fasta_files_folder}/{line.split('/')[-1].strip()}")
+                    already_copied.append(line.split('/')[-1].strip())
+
+    if os.path.exists(f"{os.path.dirname(output_folder)}/snippy"):
+
+        snippy_dir = os.listdir(f"{os.path.dirname(output_folder)}/snippy")
+
+        the_names_will_be_skipped = []
+
+        copied_files = os.listdir(f"{fasta_files_folder}")
+
+        for file in copied_files:
+            if file not in snippy_dir:
+                the_names_will_be_skipped.append(file)
+
+        for file in the_names_will_be_skipped:
+            os.remove(f"{fasta_files_folder}/{file}")
+
+    mash_sketch_command = f"mash sketch -p {cpus} -o {temp_folder}/mash_sketch {fasta_files_folder}/*"
+
+    os.system(mash_sketch_command)
+
+    mash_dist_command = f"mash dist -p {cpus} -t {temp_folder}/mash_sketch.msh {temp_folder}/mash_sketch.msh > {temp_folder}/distance_matrix.tsv"
+
+    os.system(mash_dist_command)
+
+    with open(f"{output_folder}/distance_matrix.tsv", "w") as ofile:
+        with open(f"{temp_folder}/distance_matrix.tsv") as dist_matr_file:
+            lines = dist_matr_file.readlines()
+        
+        first_line_splitted = lines[0].split("\t")
+
+        first_line = ""
+        for split in first_line_splitted:
+            if "/" in split:
+                splitted2 = split.split("/")
+                first_line += f"{splitted2[-1].strip()}\t"
+            else:
+                first_line += f"{split.strip()}\t"
+        
+        ofile.write(f"{first_line.strip()}\n")
+
+        for line in lines[1:]:
+
+            print_line = ""
+
+            splitted = line.split("\t")
+
+            for split in splitted:
+                if "/" in split:
+                    splitted2 = split.split("/")
+                    print_line += f"{splitted2[-1].strip()}\t"
+                else:
+                    print_line += f"{split.strip()}\t"
+
+            ofile.write(f"{print_line.strip()}\n")
+
+            

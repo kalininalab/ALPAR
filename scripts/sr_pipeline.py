@@ -23,7 +23,7 @@ from joblib import Parallel, delayed
 import time
 import copy
 import multiprocessing
-from utils import is_tool_installed, snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, panacota_pipeline_runner, pyseer_runner, pyseer_similarity_matrix_creator, pyseer_phenotype_file_creator, pyseer_genotype_matrix_creator, panacota_pre_processor, panacota_post_processor, temp_folder_remover, binary_table_threshold_with_percentage, time_function, pyseer_post_processor, pyseer_gwas_graph_creator, mash_preprocessor, mash_distance_runner, prokka_create_database
+from utils import is_tool_installed, snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, panacota_pipeline_runner, pyseer_runner, pyseer_similarity_matrix_creator, pyseer_phenotype_file_creator, pyseer_genotype_matrix_creator, panacota_pre_processor, panacota_post_processor, temp_folder_remover, binary_table_threshold_with_percentage, time_function, pyseer_post_processor, pyseer_gwas_graph_creator, mash_preprocessor, mash_distance_runner, prokka_create_database, datasail_pre_precessor, phenotype_dataframe_creator_post_processor
 from prps import PRPS_runner
 from ml import rf_auto_ml, svm, rf, svm_cv, prps_ml_preprecessor, gb_auto_ml, gb
 from ds import datasail_runner
@@ -110,16 +110,6 @@ def main():
     parser_prps.add_argument('--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
     parser_prps.set_defaults(func=prps_pipeline)
 
-    parser_datasail = subparsers.add_parser('datasail', help='splits data against information leakage')
-    parser_datasail.add_argument('-i', '--input', type=str, help='binary mutation file path', required=True)
-    parser_datasail.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
-    parser_datasail.add_argument('-t', '--tree', type=str, help='phylogenetic tree file path', required=True)
-    parser_datasail.add_argument('--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
-    parser_datasail.add_argument('--overwrite', action='store_true', help='overwrite the output and temp folder if exists, default=False')
-    parser_datasail.add_argument('--cpus', type=int, help='number of cpus to use, default=1', default=1)
-    parser_datasail.add_argument('--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
-    parser_datasail.set_defaults(func=datasail_pipeline)
-
     parser_ml = subparsers.add_parser('ml', help='run machine learning analysis')
     parser_ml.add_argument('-i', '--input', type=str, help='binary mutation table path', required=True)
     parser_ml.add_argument('-o', '--output', type=str, help='path of the output folder', required=True)
@@ -127,7 +117,7 @@ def main():
     parser_ml.add_argument('-a', '--antibiotic', type=str, help='antibiotic name', required=True)
     parser_ml.add_argument('--prps', type=str, help='prps score file path')
     parser_ml.add_argument('--prps_percentage', type=int, help='percentage of the top scores of prps to be used, should be used with --prps option, default=30', default=30)
-    parser_ml.add_argument('--sail', action='store_true', help='split against information leakage, default=False')
+    parser_ml.add_argument('--sail', type=str, help='split against information leakage, requires txt file that contains path of each strain per line or input folder path, can be found create_binary_tables output path as strains.txt, default=None')
     parser_ml.add_argument('--overwrite', action='store_true', help='overwrite the output folder if exists, default=False')
     parser_ml.add_argument('--cpus', type=int, help='number of cpus to use, default=1', default=1)
     parser_ml.add_argument('--ram', type=int, help='amount of ram to use in GB, default=4', default=4)
@@ -354,7 +344,6 @@ def binary_table_pipeline(args):
 
     strain_list = []
 
-    # TODO check if strain is added, if yes, don't add and process it again!!!
     with open(input_file, "r") as infile:
         added_strains = []
         lines = infile.readlines()
@@ -429,6 +418,8 @@ def binary_table_pipeline(args):
             print("Creating phenotype dataframe...")
             # Create the phenotype dataframe
             phenotype_dataframe_creator(args.create_phenotype_from_folder, os.path.join(args.output, "phenotype_table.tsv"), random_names)
+
+            phenotype_dataframe_creator_post_processor(os.path.join(args.output, "binary_mutation_table.tsv"), os.path.join(args.output, "phenotype_table.tsv"))
 
     if not args.keep_temp_files:
         temp_folder_remover(os.path.join(args.temp))
@@ -696,6 +687,68 @@ def ml_pipeline(args):
         print("Error: Number of repeats for feature importance analysis should be positive and bigger than 0.")
         sys.exit(1)
 
+    train_strains = []
+    test_strains = []
+    
+    if args.sail:
+    
+        datasail_temp = os.path.join(args.temp, "datasail")
+        datasail_output = os.path.join(args.output, "datasail")
+
+        if os.path.exists(os.path.join(datasail_output, "splits.tsv")):
+            print("Warning: Split file already exists, it will be used for calculations. If you want to re-run the datasail, please remove the splits.tsv file from the output folder.")
+        
+        else:
+            # Check if output folder empty
+            if os.path.exists(datasail_output) and os.path.isdir(datasail_output):
+                if not args.overwrite:
+                    print("Error: Output folder is not empty.")
+                    sys.exit(1)
+
+            # Create the temp folder
+            if not os.path.exists(datasail_temp):
+                os.mkdir(datasail_temp)
+
+            # Create the output folder
+            if not os.path.exists(datasail_output):
+                os.mkdir(datasail_output)
+            
+            if os.path.exists(f"{os.path.dirname(args.sail)}/random_names.txt"):
+                random_names_dict = f"{os.path.dirname(args.sail)}/random_names.txt"
+            else:
+                random_names_dict = None
+
+            if args.test_train_split:
+                train_test = [float(1-args.test_train_split), float(args.test_train_split)]
+                
+            print("Creating distance matrix...")
+
+            datasail_pre_precessor(args.sail, datasail_temp, random_names_dict, datasail_output, args.cpus)
+
+            print("Running datasail...")
+
+            distance_matrix = os.path.join(datasail_output, "distance_matrix.tsv")
+
+            datasail_runner(distance_matrix, datasail_output, splits=train_test, cpus=args.cpus)
+
+            if not args.keep_temp_files:
+                print(f"Removing temp folder {datasail_temp}...")
+                temp_folder_remover(datasail_temp)
+
+            if not os.path.exists(os.path.join(datasail_output, "splits.tsv")):
+                print("Error: Splits file does not exist. Check the datasail output folder.")
+                sys.exit(1)
+
+        with open(os.path.join(datasail_output, "splits.tsv")) as splits_file:
+            lines = splits_file.readlines()
+            for line in lines:
+                splitted = line.split("\t")
+                if splitted[1].strip() == "train":
+                    train_strains.append(splitted[0].strip())
+                elif splitted[1].strip() == "test":
+                    test_strains.append(splitted[0].strip())
+    
+
     if args.ml_algorithm == "rf":
 
         if args.parameter_optimization:
@@ -708,22 +761,25 @@ def ml_pipeline(args):
                     print("Error: Same setup run count reached 99.")
                     print("Please change the output folder name.")
                     sys.exit(1)
-
-                if not os.path.exists(os.path.join(ml_output, f"seed_{args.random_state}_testsize_{args.test_train_split}_resampling_{args.resampling_strategy}_RF_AutoML_{same_setup_run_count}")):       
-                    os.mkdir(os.path.join(ml_output, f"seed_{args.random_state}_testsize_{args.test_train_split}_resampling_{args.resampling_strategy}_RF_AutoML_{same_setup_run_count}"))
-                    ml_output = os.path.join(ml_output, f"seed_{args.random_state}_testsize_{args.test_train_split}_resampling_{args.resampling_strategy}_RF_AutoML_{same_setup_run_count}")
+                if args.sail:
+                    output_folder_name = f"seed_{args.random_state}_testsize_{args.test_train_split}_resampling_{args.resampling_strategy}_RF_AutoML_{same_setup_run_count}_sail"
+                else:
+                    output_folder_name = f"seed_{args.random_state}_testsize_{args.test_train_split}_resampling_{args.resampling_strategy}_RF_AutoML_{same_setup_run_count}"
+                if not os.path.exists(os.path.join(ml_output, output_folder_name)):       
+                    os.mkdir(os.path.join(ml_output, output_folder_name))
+                    ml_output = os.path.join(ml_output, output_folder_name)
                     break
                 else:
                     same_setup_run_count += 1
 
             with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:   
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
-                    rf_auto_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, ml_temp, args.ram, args.optimization_time_limit, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5)
+                    rf_auto_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, ml_temp, args.ram, args.optimization_time_limit, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, train=train_strains, test=test_strains, same_setup_run_count=same_setup_run_count)
         
         else:
             with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:   
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
-                    rf(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split)
+                    rf(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains)
 
     elif args.ml_algorithm == "svm":
 
@@ -732,11 +788,11 @@ def ml_pipeline(args):
         if args.resampling_strategy == "cv":
             with open(os.path.join(ml_output, f"{ml_log_name}_log_file.txt"), "w") as log_file:    
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
-                    svm_cv(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy="cv", fia_repeats=5, optimization=False)
+                    svm_cv(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy="cv", fia_repeats=5, optimization=False, train=train_strains, test=test_strains)
         elif args.resampling_strategy == "holdout":
              with open(os.path.join(ml_output, f"{ml_log_name}_log_file.txt"), "w") as log_file:   
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
-                    svm(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy="holdout", fia_repeats=5, optimization=False)
+                    svm(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy="holdout", fia_repeats=5, optimization=False, train=train_strains, test=test_strains)
 
     elif args.ml_algorithm == "gb":
 
@@ -759,11 +815,11 @@ def ml_pipeline(args):
                     same_setup_run_count += 1
             with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:   
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
-                    gb_auto_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, ml_temp, args.ram, args.optimization_time_limit, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5)
+                    gb_auto_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, ml_temp, args.ram, args.optimization_time_limit, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, train=train_strains, test=test_strains)
         else:
             with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:   
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
-                    gb(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split)
+                    gb(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains)
 
     if not args.keep_temp_files:
         print(f"Removing temp folder {ml_temp}...")
@@ -882,17 +938,23 @@ def datasail_pipeline(args):
     if not os.path.exists(datasail_output):
         os.mkdir(datasail_output)
     
+    if not args.random_names_dict:
+        args.random_names_dict = None
+        
     print("Creating distance matrix...")
-
-    pyseer_similarity_matrix_creator(args.tree, os.path.join(datasail_output, "similarity_matrix.tsv"))
+    
+    #strains_text_file, temp_folder, random_names_dict, cpus = 1
+    #datasail_pre_precessor(args.input, datasail_temp, args.random_names_dict, datasail_output, args.cpus)
 
     print("Running datasail...")
 
-    #datasail_runner(args.input, datasail_output, datasail_temp)
+    distance_matrix = os.path.join(datasail_output, "distance_matrix.tsv")
 
-    # if not args.keep_temp_files:
-    #     print(f"Removing temp folder {datasail_temp}...")
-    #     temp_folder_remover(datasail_temp)
+    datasail_runner(distance_matrix, datasail_output, datasail_temp)
+
+    if not args.keep_temp_files:
+        print(f"Removing temp folder {datasail_temp}...")
+        temp_folder_remover(datasail_temp)
 
     end_time = time.time()
 
@@ -1050,7 +1112,7 @@ def phylogenetic_tree_pipeline(args):
         os.mkdir(mash_output)
 
     print("Running phylogenetic tree pipeline...")
-    mash_preprocessor(args.input, mash_temp, args.random_names_dict)
+    mash_preprocessor(args.input, mash_output, mash_temp, args.random_names_dict)
     
     mash_distance_runner(mash_output, mash_temp)
 
