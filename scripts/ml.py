@@ -125,11 +125,11 @@ def rf_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, 
         for train_strain in train:
             if train_strain in genotype_df.index.to_list():
                 X_train.append(genotype_df[:].loc[train_strain].astype(int))
-                y_train.append(phenotype_df[:].loc[train_strain].astype(int))
+                y_train.append(phenotype_df[antibiotic].loc[train_strain].astype(int))
         for test_strain in test:
             if test_strain in genotype_df.index.to_list():
                 X_test.append(genotype_df[:].loc[test_strain].astype(int))
-                y_test.append(phenotype_df[:].loc[test_strain].astype(int))
+                y_test.append(phenotype_df[antibiotic].loc[test_strain].astype(int))
 
         X_train = np.array(X_train)
         y_train = np.array(y_train)
