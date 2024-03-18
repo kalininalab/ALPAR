@@ -23,6 +23,27 @@ Activate conda environment
 conda activate SR-AMR
 ```
 
+## Lightweight Version
+
+Lightweight version of the tool, missing; DataSAIL (Split Against Information Leakage), Pyseer (GWAS), PanACoTA (Alignment-Based Phylogenetic Tree Creation), MashTree (Alignment-Free Phylogenetic Tree Creation), PRPS (Phylogeny Related Parallelism Score), AutoSklearn (Machine Learning Parameter Optimization)
+
+Download Single-Reference AMR:
+```bash
+git clone https://github.com/kalininalab/SR-AMR.git
+```
+Enter downloaded folder:
+```bash
+cd SR-AMR
+```
+Create conda environment from provided environment file
+```bash
+conda env create -f SR-AMR_env_LW.yml
+```
+Activate conda environment
+```bash
+conda activate SR-AMR-LW
+```
+
 ## Create Binary Tables
 
 From genomic files, creates binary mutation and phenotype tables
