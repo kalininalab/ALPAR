@@ -191,25 +191,62 @@ def rf_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, 
     output_file_writer(outfile, y_test, y_hat, cls)
 
 
-def rf(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, feature_importance_analysis = False, save_model = False, resampling_strategy="holdout", fia_repeats=5, custom_scorer="MCC", n_estimators=100, max_depth=2, min_samples_leaf=1, min_samples_split=2):
+def rf(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, feature_importance_analysis = False, save_model = False, resampling_strategy="holdout", fia_repeats=5, custom_scorer="MCC", n_estimators=100, max_depth=2, min_samples_leaf=1, min_samples_split=2, train=[], test=[], same_setup_run_count=1):
     
     output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_RF"
 
-    genotype_df = pd.read_csv(binary_mutation_table, sep="\t")
-    phenotype_df = pd.read_csv(phenotype_table, sep="\t")
+    genotype_df = pd.read_csv(binary_mutation_table, sep="\t", index_col=0, header=0)
+    phenotype_df = pd.read_csv(phenotype_table, sep="\t", index_col=0, header=0)
+    
+    strains_to_be_skipped_phenotype = []
+    for strain in phenotype_df.index.to_list():
+        if strain not in genotype_df.index.to_list():
+            strains_to_be_skipped_phenotype.append(strain)
+    
+    phenotype_df = phenotype_df.drop(strains_to_be_skipped_phenotype, axis=0)
 
     # Make sure rows are matching
     phenotype_df = phenotype_df.reindex(genotype_df.index)
 
+    index_of_antibiotic = phenotype_df.columns.get_loc(antibiotic)
+
+    # Get rid of uninformative strains for given antibiotic
+    strains_to_be_skipped = []
+
+    for strain in phenotype_df.index.to_list():
+        if phenotype_df.loc[strain, antibiotic] == "2" or phenotype_df.loc[strain, antibiotic] == 2:
+            strains_to_be_skipped.append(strain)
+    
+    genotype_df = genotype_df.drop(strains_to_be_skipped, axis=0)
+    phenotype_df = phenotype_df.drop(strains_to_be_skipped, axis=0)
+
     genotype_array = genotype_df.to_numpy()
     phenotype_array = phenotype_df.to_numpy()
 
-    index_of_antibiotic = phenotype_df.columns.get_loc(antibiotic)
+    if len(train)==0 and len(test)==0:
+        X = genotype_array[:, :].astype(int)
+        y = phenotype_array[:, index_of_antibiotic].astype(int)
+        X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, random_state=random_seed, test_size=float(test_size))
+    
+    else:
+        X_train = []
+        y_train = []
+        X_test = []
+        y_test = []
 
-    X = genotype_array[:, 1:].astype(int)
-    y = phenotype_array[:, index_of_antibiotic].astype(int)
+        for train_strain in train:
+            if train_strain in genotype_df.index.to_list():
+                X_train.append(genotype_df[:].loc[train_strain].astype(int))
+                y_train.append(phenotype_df[antibiotic].loc[train_strain].astype(int))
+        for test_strain in test:
+            if test_strain in genotype_df.index.to_list():
+                X_test.append(genotype_df[:].loc[test_strain].astype(int))
+                y_test.append(phenotype_df[antibiotic].loc[test_strain].astype(int))
 
-    X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, random_state=random_seed, test_size=float(test_size))
+        X_train = np.array(X_train)
+        y_train = np.array(y_train)
+        X_test = np.array(X_test)
+        y_test = np.array(y_test)
 
     rf_cls = RandomForestClassifier(class_weight={0: sum(y_train), 1: len(y_train) - sum(y_train)}, n_estimators=n_estimators, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split)
 
@@ -237,6 +274,8 @@ def rf(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split
 
     outfile = os.path.join(output_folder, f"{output_file_template}_Result") 
 
+    output_file_writer(outfile, y_test, y_hat)
+
     if feature_importance_analysis:
 
         r = permutation_importance(rf_cls, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
@@ -251,29 +290,63 @@ def rf(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split
         model_file = os.path.join(output_folder, f"{output_file_template}_model.sav")
         pickle.dump(rf_cls, open(model_file, 'wb'))
 
-    output_file_writer(outfile, y_test, y_hat)
 
-
-
-def svm(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_size, output_folder, n_jobs, feature_importance_analysis = False, save_model = False, resampling_strategy="holdout", fia_repeats=5, optimization=False, kernel="linear"):
+def svm(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_size, output_folder, n_jobs, feature_importance_analysis = False, save_model = False, resampling_strategy="holdout", fia_repeats=5, optimization=False, kernel="linear", train=[], test=[]):
 
     output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_SVM"
 
-    genotype_df = pd.read_csv(binary_mutation_table, sep="\t")
-    phenotype_df = pd.read_csv(phenotype_table, sep="\t")
+    genotype_df = pd.read_csv(binary_mutation_table, sep="\t", index_col=0, header=0)
+    phenotype_df = pd.read_csv(phenotype_table, sep="\t", index_col=0, header=0)
+
+    strains_to_be_skipped_phenotype = []
+    for strain in phenotype_df.index.to_list():
+        if strain not in genotype_df.index.to_list():
+            strains_to_be_skipped_phenotype.append(strain)
+    
+    phenotype_df = phenotype_df.drop(strains_to_be_skipped_phenotype, axis=0)
 
     # Make sure rows are matching
     phenotype_df = phenotype_df.reindex(genotype_df.index)
 
+    index_of_antibiotic = phenotype_df.columns.get_loc(antibiotic)
+
+    # Get rid of uninformative strains for given antibiotic
+    strains_to_be_skipped = []
+
+    for strain in phenotype_df.index.to_list():
+        if phenotype_df.loc[strain, antibiotic] == "2" or phenotype_df.loc[strain, antibiotic] == 2:
+            strains_to_be_skipped.append(strain)
+    
+    genotype_df = genotype_df.drop(strains_to_be_skipped, axis=0)
+    phenotype_df = phenotype_df.drop(strains_to_be_skipped, axis=0)
+
     genotype_array = genotype_df.to_numpy()
     phenotype_array = phenotype_df.to_numpy()
 
-    index_of_antibiotic = phenotype_df.columns.get_loc(antibiotic)
+    if len(train)==0 and len(test)==0:
+        X = genotype_array[:, :].astype(int)
+        y = phenotype_array[:, index_of_antibiotic].astype(int)
+        X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, random_state=random_seed, test_size=float(test_size))
+    
+    else:
+        X_train = []
+        y_train = []
+        X_test = []
+        y_test = []
 
-    X = genotype_array[:, 1:].astype(int)
-    y = phenotype_array[:, index_of_antibiotic].astype(int)
+        for train_strain in train:
+            if train_strain in genotype_df.index.to_list():
+                X_train.append(genotype_df[:].loc[train_strain].astype(int))
+                y_train.append(phenotype_df[antibiotic].loc[train_strain].astype(int))
+        for test_strain in test:
+            if test_strain in genotype_df.index.to_list():
+                X_test.append(genotype_df[:].loc[test_strain].astype(int))
+                y_test.append(phenotype_df[antibiotic].loc[test_strain].astype(int))
 
-    X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, random_state=random_seed, test_size=float(test_size))
+        X_train = np.array(X_train)
+        y_train = np.array(y_train)
+        X_test = np.array(X_test)
+        y_test = np.array(y_test)
 
     best_model_mcc = -1.0
     bm_c = 0
@@ -297,6 +370,8 @@ def svm(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_si
             bm_c = c_val
     
     outfile = os.path.join(output_folder, f"{output_file_template}_Result") 
+
+    output_file_writer(outfile, y_test, y_hat, best_c=bm_c)
     
     if feature_importance_analysis:
 
@@ -312,28 +387,64 @@ def svm(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_si
         model_file = os.path.join(output_folder, f"{output_file_template}_model.sav")
         pickle.dump(best_model, open(model_file, 'wb'))
 
-    output_file_writer(outfile, y_test, y_hat, best_c=bm_c)
     
 
-def svm_cv(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_size, output_folder, n_jobs, cv_split, feature_importance_analysis = False, save_model = False, resampling_strategy="cv", fia_repeats=5, optimization=False, custom_scorer="MCC", kernel="linear"):
+def svm_cv(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_size, output_folder, n_jobs, cv_split, feature_importance_analysis = False, save_model = False, resampling_strategy="cv", fia_repeats=5, optimization=False, custom_scorer="MCC", kernel="linear", train=[], test=[]):
     
     output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_SVM"
 
-    genotype_df = pd.read_csv(binary_mutation_table, sep="\t")
-    phenotype_df = pd.read_csv(phenotype_table, sep="\t")
+    genotype_df = pd.read_csv(binary_mutation_table, sep="\t", index_col=0, header=0)
+    phenotype_df = pd.read_csv(phenotype_table, sep="\t", index_col=0, header=0)
+
+    strains_to_be_skipped_phenotype = []
+    for strain in phenotype_df.index.to_list():
+        if strain not in genotype_df.index.to_list():
+            strains_to_be_skipped_phenotype.append(strain)
+    
+    phenotype_df = phenotype_df.drop(strains_to_be_skipped_phenotype, axis=0)
 
     # Make sure rows are matching
     phenotype_df = phenotype_df.reindex(genotype_df.index)
 
+    index_of_antibiotic = phenotype_df.columns.get_loc(antibiotic)
+
+    # Get rid of uninformative strains for given antibiotic
+    strains_to_be_skipped = []
+
+    for strain in phenotype_df.index.to_list():
+        if phenotype_df.loc[strain, antibiotic] == "2" or phenotype_df.loc[strain, antibiotic] == 2:
+            strains_to_be_skipped.append(strain)
+    
+    genotype_df = genotype_df.drop(strains_to_be_skipped, axis=0)
+    phenotype_df = phenotype_df.drop(strains_to_be_skipped, axis=0)
+
     genotype_array = genotype_df.to_numpy()
     phenotype_array = phenotype_df.to_numpy()
 
-    index_of_antibiotic = phenotype_df.columns.get_loc(antibiotic)
+    if len(train)==0 and len(test)==0:
+        X = genotype_array[:, :].astype(int)
+        y = phenotype_array[:, index_of_antibiotic].astype(int)
+        X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, random_state=random_seed, test_size=float(test_size))
+    
+    else:
+        X_train = []
+        y_train = []
+        X_test = []
+        y_test = []
 
-    X = genotype_array[:, 1:].astype(int)
-    y = phenotype_array[:, index_of_antibiotic].astype(int)
+        for train_strain in train:
+            if train_strain in genotype_df.index.to_list():
+                X_train.append(genotype_df[:].loc[train_strain].astype(int))
+                y_train.append(phenotype_df[antibiotic].loc[train_strain].astype(int))
+        for test_strain in test:
+            if test_strain in genotype_df.index.to_list():
+                X_test.append(genotype_df[:].loc[test_strain].astype(int))
+                y_test.append(phenotype_df[antibiotic].loc[test_strain].astype(int))
 
-    X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, random_state=random_seed, test_size=float(test_size))
+        X_train = np.array(X_train)
+        y_train = np.array(y_train)
+        X_test = np.array(X_test)
+        y_test = np.array(y_test)
 
     # Define the hyperparameter grid to search for the best 'C' value
     param_grid = {'C': [1, 10, 100]}
@@ -360,6 +471,8 @@ def svm_cv(binary_mutation_table, phenotype_table, antibiotic, random_seed, test
     y_hat = final_svm_model.predict(X_test)
 
     outfile = os.path.join(output_folder, f"{output_file_template}_Result") 
+
+    output_file_writer(outfile, y_test, y_hat, best_c=str(best_params['C']))
     
     if feature_importance_analysis:
 
@@ -374,8 +487,6 @@ def svm_cv(binary_mutation_table, phenotype_table, antibiotic, random_seed, test
 
         model_file = os.path.join(output_folder, f"{output_file_template}_model.sav")
         pickle.dump(final_svm_model, open(model_file, 'wb'))
-
-    output_file_writer(outfile, y_test, y_hat, best_c=str(best_params['C']))
 
     
 def prps_ml_preprecessor(binary_mutation_table, prps_score_file, prps_percentage, temp_path):
@@ -417,25 +528,62 @@ def prps_ml_preprecessor(binary_mutation_table, prps_score_file, prps_percentage
     genotype_df_dropped.to_csv(os.path.join(temp_path, "prps_filtered_table.tsv"), sep="\t", index=False)
 
 
-def gb_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, temp_folder, ram, optimization_time_limit, feature_importance_analysis = False, save_model = False, resampling_strategy="holdout", custom_scorer="MCC", fia_repeats=5):
+def gb_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, temp_folder, ram, optimization_time_limit, feature_importance_analysis = False, save_model = False, resampling_strategy="holdout", custom_scorer="MCC", fia_repeats=5, train=[], test=[], same_setup_run_count=1):
 
     output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_GB_AutoML"
 
-    genotype_df = pd.read_csv(binary_mutation_table, sep="\t")
-    phenotype_df = pd.read_csv(phenotype_table, sep="\t")
+    genotype_df = pd.read_csv(binary_mutation_table, sep="\t", index_col=0, header=0)
+    phenotype_df = pd.read_csv(phenotype_table, sep="\t", index_col=0, header=0)
+
+    strains_to_be_skipped_phenotype = []
+    for strain in phenotype_df.index.to_list():
+        if strain not in genotype_df.index.to_list():
+            strains_to_be_skipped_phenotype.append(strain)
+    
+    phenotype_df = phenotype_df.drop(strains_to_be_skipped_phenotype, axis=0)
 
     # Make sure rows are matching
     phenotype_df = phenotype_df.reindex(genotype_df.index)
 
+    index_of_antibiotic = phenotype_df.columns.get_loc(antibiotic)
+
+    # Get rid of uninformative strains for given antibiotic
+    strains_to_be_skipped = []
+
+    for strain in phenotype_df.index.to_list():
+        if phenotype_df.loc[strain, antibiotic] == "2" or phenotype_df.loc[strain, antibiotic] == 2:
+            strains_to_be_skipped.append(strain)
+    
+    genotype_df = genotype_df.drop(strains_to_be_skipped, axis=0)
+    phenotype_df = phenotype_df.drop(strains_to_be_skipped, axis=0)
+
     genotype_array = genotype_df.to_numpy()
     phenotype_array = phenotype_df.to_numpy()
 
-    index_of_antibiotic = phenotype_df.columns.get_loc(antibiotic)
+    if len(train)==0 and len(test)==0:
+        X = genotype_array[:, :].astype(int)
+        y = phenotype_array[:, index_of_antibiotic].astype(int)
+        X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, random_state=random_seed, test_size=float(test_size))
+    
+    else:
+        X_train = []
+        y_train = []
+        X_test = []
+        y_test = []
 
-    X = genotype_array[:, 1:].astype(int)
-    y = phenotype_array[:, index_of_antibiotic].astype(int)
+        for train_strain in train:
+            if train_strain in genotype_df.index.to_list():
+                X_train.append(genotype_df[:].loc[train_strain].astype(int))
+                y_train.append(phenotype_df[antibiotic].loc[train_strain].astype(int))
+        for test_strain in test:
+            if test_strain in genotype_df.index.to_list():
+                X_test.append(genotype_df[:].loc[test_strain].astype(int))
+                y_test.append(phenotype_df[antibiotic].loc[test_strain].astype(int))
 
-    X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, random_state=random_seed, test_size=float(test_size))
+        X_train = np.array(X_train)
+        y_train = np.array(y_train)
+        X_test = np.array(X_test)
+        y_test = np.array(y_test)
 
     if custom_scorer == "MCC":
         scorer = mcc_scorer
@@ -467,6 +615,8 @@ def gb_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, 
 
     outfile = os.path.join(output_folder, f"{output_file_template}_Result") 
 
+    output_file_writer(outfile, y_test, y_hat, cls)
+
     if feature_importance_analysis:
 
         r = permutation_importance(cls, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
@@ -481,28 +631,63 @@ def gb_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, 
         model_file = os.path.join(output_folder, f"{output_file_template}_model.sav")
         pickle.dump(cls, open(model_file, 'wb'))
 
-    output_file_writer(outfile, y_test, y_hat, cls)
 
-
-def gb(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, feature_importance_analysis = False, save_model = False, resampling_strategy="holdout", fia_repeats=5, custom_scorer="MCC", n_estimators=100, max_depth=2, min_samples_leaf=1, min_samples_split=2):
+def gb(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, feature_importance_analysis = False, save_model = False, resampling_strategy="holdout", fia_repeats=5, custom_scorer="MCC", n_estimators=100, max_depth=2, min_samples_leaf=1, min_samples_split=2, train=[], test=[], same_setup_run_count=1):
     
     output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_GB"
 
-    genotype_df = pd.read_csv(binary_mutation_table, sep="\t")
-    phenotype_df = pd.read_csv(phenotype_table, sep="\t")
+    genotype_df = pd.read_csv(binary_mutation_table, sep="\t", index_col=0, header=0)
+    phenotype_df = pd.read_csv(phenotype_table, sep="\t", index_col=0, header=0)
+
+    strains_to_be_skipped_phenotype = []
+    for strain in phenotype_df.index.to_list():
+        if strain not in genotype_df.index.to_list():
+            strains_to_be_skipped_phenotype.append(strain)
+    
+    phenotype_df = phenotype_df.drop(strains_to_be_skipped_phenotype, axis=0)
 
     # Make sure rows are matching
     phenotype_df = phenotype_df.reindex(genotype_df.index)
 
+    index_of_antibiotic = phenotype_df.columns.get_loc(antibiotic)
+
+    # Get rid of uninformative strains for given antibiotic
+    strains_to_be_skipped = []
+
+    for strain in phenotype_df.index.to_list():
+        if phenotype_df.loc[strain, antibiotic] == "2" or phenotype_df.loc[strain, antibiotic] == 2:
+            strains_to_be_skipped.append(strain)
+    
+    genotype_df = genotype_df.drop(strains_to_be_skipped, axis=0)
+    phenotype_df = phenotype_df.drop(strains_to_be_skipped, axis=0)
+
     genotype_array = genotype_df.to_numpy()
     phenotype_array = phenotype_df.to_numpy()
 
-    index_of_antibiotic = phenotype_df.columns.get_loc(antibiotic)
+    if len(train)==0 and len(test)==0:
+        X = genotype_array[:, :].astype(int)
+        y = phenotype_array[:, index_of_antibiotic].astype(int)
+        X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, random_state=random_seed, test_size=float(test_size))
+    
+    else:
+        X_train = []
+        y_train = []
+        X_test = []
+        y_test = []
 
-    X = genotype_array[:, 1:].astype(int)
-    y = phenotype_array[:, index_of_antibiotic].astype(int)
+        for train_strain in train:
+            if train_strain in genotype_df.index.to_list():
+                X_train.append(genotype_df[:].loc[train_strain].astype(int))
+                y_train.append(phenotype_df[antibiotic].loc[train_strain].astype(int))
+        for test_strain in test:
+            if test_strain in genotype_df.index.to_list():
+                X_test.append(genotype_df[:].loc[test_strain].astype(int))
+                y_test.append(phenotype_df[antibiotic].loc[test_strain].astype(int))
 
-    X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, random_state=random_seed, test_size=float(test_size))
+        X_train = np.array(X_train)
+        y_train = np.array(y_train)
+        X_test = np.array(X_test)
+        y_test = np.array(y_test)
 
     gb_cls = GradientBoostingClassifier(class_weight={0: sum(y_train), 1: len(y_train) - sum(y_train)}, n_estimators=n_estimators, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split)
 
@@ -530,6 +715,8 @@ def gb(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split
 
     outfile = os.path.join(output_folder, f"{output_file_template}_Result") 
 
+    output_file_writer(outfile, y_test, y_hat)
+
     if feature_importance_analysis:
 
         r = permutation_importance(gb_cls, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
@@ -543,5 +730,3 @@ def gb(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split
 
         model_file = os.path.join(output_folder, f"{output_file_template}_model.sav")
         pickle.dump(gb_cls, open(model_file, 'wb'))
-
-    output_file_writer(outfile, y_test, y_hat)
