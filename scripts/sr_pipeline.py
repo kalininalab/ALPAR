@@ -5,35 +5,41 @@ import os
 import sys
 import argparse
 import pathlib
-import subprocess
 import contextlib
-import random
-import string
-import shutil
-import pandas as pd
-from Bio.Seq import Seq
-from Bio.SeqRecord import SeqRecord
-from Bio.SeqFeature import SeqFeature, FeatureLocation
-from Bio import SeqIO
-import matplotlib.pyplot as plt
-import numpy as np
-from collections import Counter
-from datetime import datetime
-from joblib import Parallel, delayed
 import time
-import copy
 import multiprocessing
-from utils import is_tool_installed, snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, panacota_pipeline_runner, pyseer_runner, pyseer_similarity_matrix_creator, pyseer_phenotype_file_creator, pyseer_genotype_matrix_creator, panacota_pre_processor, panacota_post_processor, temp_folder_remover, binary_table_threshold_with_percentage, time_function, pyseer_post_processor, pyseer_gwas_graph_creator, mash_preprocessor, mash_distance_runner, prokka_create_database, datasail_pre_precessor, phenotype_dataframe_creator_post_processor
-from prps import PRPS_runner
-from ml import rf_auto_ml, svm, rf, svm_cv, prps_ml_preprecessor, gb_auto_ml, gb
-from ds import datasail_runner
+
+from utils import is_tool_installed, temp_folder_remover, time_function 
+
+try:
+    from panacota import panacota_pre_processor, panacota_post_processor, panacota_pipeline_runner
+    from gwas import pyseer_runner, pyseer_similarity_matrix_creator, pyseer_phenotype_file_creator, pyseer_genotype_matrix_creator, pyseer_post_processor, pyseer_gwas_graph_creator
+    from binary_tables import snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, phenotype_dataframe_creator_post_processor, prokka_create_database
+    from binary_table_threshold import binary_table_threshold_with_percentage
+    from phylogeny_tree import mash_preprocessor, mash_distance_runner
+    from prps import PRPS_runner
+    from ds import datasail_runner, datasail_pre_precessor
+    from ml import rf_auto_ml, svm, rf, svm_cv, prps_ml_preprecessor, gb_auto_ml, gb
+    isLite = False
+    print("Full version is running.")
+
+except ImportError as e:
+    print(e)
+    from binary_tables import snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, phenotype_dataframe_creator_post_processor, prokka_create_database
+    from binary_table_threshold import binary_table_threshold_with_percentage
+    from ml_lite import svm, rf, svm_cv, prps_ml_preprecessor, gb
+    isLite = True
+    print("Lite version is running.")
 
 # SNIPPY VCF EMPTY ISSUE SOLUTION = conda install snippy vt=0.57721
 def main():
     # Create the parser
     parser = argparse.ArgumentParser(description="Single reference AMR is a tool to get mutation and gene presence absence information from genome sequences.")
     
-    parser.add_argument('--version', action='version', version='%(prog)s 0.0.2')
+    if isLite:
+        parser.add_argument('--version', action='version', version='%(prog)s 0.1.1 Lite')
+    else:
+        parser.add_argument('--version', action='version', version='%(prog)s 0.1.1')
 
     subparsers = parser.add_subparsers(help='For suggested pipeline, check out our github page: https://github.com/kalininalab/SR-AMR')
 

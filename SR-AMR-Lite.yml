@@ -1,0 +1,11 @@
+name: SR-AMR-Lite
+channels:
+  - defaults
+  - bioconda
+  - conda-forge
+dependencies:
+  - snippy
+  - prokka
+  - panaroo
+  - pandas
+  - scikit-learn

@@ -3,7 +3,6 @@ from tqdm import tqdm
 import ete3
 import os
 
-
 def load_tree(newick):
     """
     Loads the tree and returns the list of nodes and the list of names of the nodes.
@@ -27,7 +26,6 @@ def load_tree(newick):
     
     node_list = []
     names_list=[]
-
 
     n=0
     for node in t.traverse("postorder"):
