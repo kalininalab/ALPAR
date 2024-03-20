@@ -134,14 +134,6 @@ def rf_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, 
         y_train = np.array(y_train)
         X_test = np.array(X_test)
         y_test = np.array(y_test)
-        print("X_train")
-        print(X_train)
-        print("y_train")
-        print(y_train)
-        print("X_test")
-        print(X_test)
-        print("y_test")
-        print(y_test)
 
     if custom_scorer == "MCC":
         scorer = mcc_scorer
@@ -173,6 +165,8 @@ def rf_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, 
 
     outfile = os.path.join(output_folder, f"{output_file_template}_Result") 
 
+    output_file_writer(outfile, y_test, y_hat, cls)
+
     if feature_importance_analysis:
 
         r = permutation_importance(cls, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
@@ -187,9 +181,7 @@ def rf_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, 
         model_file = os.path.join(output_folder, f"{output_file_template}_model.sav")
         pickle.dump(cls, open(model_file, 'wb'))
 
-    output_file_writer(outfile, y_test, y_hat, cls)
-
-
+    
 def rf(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, feature_importance_analysis = False, save_model = False, resampling_strategy="holdout", fia_repeats=5, custom_scorer="MCC", n_estimators=100, max_depth=2, min_samples_leaf=1, min_samples_split=2, train=[], test=[], same_setup_run_count=1):
     
     output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_RF"
