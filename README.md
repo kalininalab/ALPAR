@@ -44,6 +44,12 @@ Activate conda environment
 conda activate SR-AMR-LW
 ```
 
+## Example Files
+
+Example files can be downloaded from:
+
+https://github.com/kalininalab/SR-AMR-Example
+
 ## Create Binary Tables
 
 From genomic files, creates binary mutation and phenotype tables
