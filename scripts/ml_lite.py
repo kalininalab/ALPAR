@@ -156,7 +156,7 @@ def rf(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split
 
         r = permutation_importance(rf_cls, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
 
-        with open(os.path.join(output_folder, f"{output_file_template}_FIA", "w")) as ofile:
+        with open(os.path.join(output_folder, f"{output_file_template}_FIA"), "w") as ofile:
             for i in r.importances_mean.argsort()[::-1]:
                 if r.importances_mean[i] - 2 * r.importances_std[i] > 0:
                     ofile.write(f"{genotype_df.columns[i]:<8};{r.importances_mean[i]:.3f};+/-{r.importances_std[i]:.3f}\n")
@@ -253,7 +253,7 @@ def svm(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_si
 
         r = permutation_importance(best_model, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
 
-        with open(os.path.join(output_folder, f"{output_file_template}_FIA", "w")) as ofile:
+        with open(os.path.join(output_folder, f"{output_file_template}_FIA"), "w") as ofile:
             for i in r.importances_mean.argsort()[::-1]:
                 if r.importances_mean[i] - 2 * r.importances_std[i] > 0:
                     ofile.write(f"{genotype_df.columns[i]:<8};{r.importances_mean[i]:.3f};+/-{r.importances_std[i]:.3f}\n")
@@ -353,7 +353,7 @@ def svm_cv(binary_mutation_table, phenotype_table, antibiotic, random_seed, test
 
         r = permutation_importance(final_svm_model, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
 
-        with open(os.path.join(output_folder, f"{output_file_template}_FIA", "w")) as ofile:
+        with open(os.path.join(output_folder, f"{output_file_template}_FIA"), "w") as ofile:
             for i in r.importances_mean.argsort()[::-1]:
                 if r.importances_mean[i] - 2 * r.importances_std[i] > 0:
                     ofile.write(f"{genotype_df.columns[i]:<8};{r.importances_mean[i]:.3f};+/-{r.importances_std[i]:.3f}\n")
@@ -492,7 +492,7 @@ def gb(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split
 
         r = permutation_importance(gb_cls, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
 
-        with open(os.path.join(output_folder, f"{output_file_template}_FIA", "w")) as ofile:
+        with open(os.path.join(output_folder, f"{output_file_template}_FIA"), "w") as ofile:
             for i in r.importances_mean.argsort()[::-1]:
                 if r.importances_mean[i] - 2 * r.importances_std[i] > 0:
                     ofile.write(f"{genotype_df.columns[i]:<8};{r.importances_mean[i]:.3f};+/-{r.importances_std[i]:.3f}\n")
