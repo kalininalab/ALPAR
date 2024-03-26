@@ -24,6 +24,8 @@ def binary_table_threshold_with_percentage(binary_table, output_folder, threshol
 
     dropped_df = df.drop(cols_to_be_dropped, axis=1)
 
-    print(f"Number of mutations in the table after dropping: {len(dropped_df.columns[1:])}")
-            
-    dropped_df.to_csv(os.path.join(output_folder, f"binary_mutation_table_threshold_{threshold_percentage}_percent.tsv"), sep="\t", index=False)
+    print(
+        f"Number of mutations in the table after dropping: {len(dropped_df.columns[1:])}")
+
+    dropped_df.to_csv(os.path.join(
+        output_folder, f"binary_mutation_table_threshold_{threshold_percentage}_percent.tsv"), sep="\t", index=False)

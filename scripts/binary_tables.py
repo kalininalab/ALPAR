@@ -16,7 +16,7 @@ def check_contigs(input):
     """
     Check if the input file is a fasta file and if it has more than 1 contig
     """
-    
+
     with open(input, 'r') as f:
         contigs = 0
         for line in f.readlines():
@@ -27,8 +27,8 @@ def check_contigs(input):
         else:
             return False
 
-def snippy_runner(input, strain_random_name, output, reference, log_file, cpus = 1, memory = 4, parallel_run = False):
 
+def snippy_runner(input, strain_random_name, output, reference, log_file, cpus=1, memory=4, parallel_run=False):
     """
     input (str): Path to the input file
     output (str): Path to the output directory
@@ -46,14 +46,13 @@ def snippy_runner(input, strain_random_name, output, reference, log_file, cpus =
 
     if contigs == True:
         run_command = f"{run_command} --ctgs"
-    
 
     run_command = f"{run_command} {input} >> {log_file} 2>&1"
 
     os.system(run_command)
 
 
-def prokka_create_database(faa_file, genus_name, temp_folder, cpus = 1, memory = 4):
+def prokka_create_database(faa_file, genus_name, temp_folder, cpus=1, memory=4):
 
     output_dir = os.path.join(temp_folder, genus_name)
 
@@ -63,7 +62,7 @@ def prokka_create_database(faa_file, genus_name, temp_folder, cpus = 1, memory =
     script_command = f"cd-hit -i {faa_file} -o {output_dir}/{genus_name} -T {cpus} -M {memory*1024} -g 1 -s 0.8 -c 0.9"
 
     print(script_command)
-    
+
     p = subprocess.Popen(script_command, shell=True)
 
     p.wait()
@@ -80,11 +79,13 @@ def prokka_create_database(faa_file, genus_name, temp_folder, cpus = 1, memory =
 
     p.wait()
 
-    logging.basicConfig(filename=f"{os.path.join(temp_folder, 'db_path.txt')}", level=logging.INFO)
+    logging.basicConfig(
+        filename=f"{os.path.join(temp_folder, 'db_path.txt')}", level=logging.INFO)
 
     command = "prokka --listdb"
 
-    process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    process = subprocess.Popen(
+        command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
     for line in iter(process.stdout.readline, b''):
         line = line.decode('utf-8').strip()
@@ -94,26 +95,26 @@ def prokka_create_database(faa_file, genus_name, temp_folder, cpus = 1, memory =
 
     process.wait()
 
-    with open (f"{os.path.join(temp_folder, 'db_path.txt')}") as infile:
-        
+    with open(f"{os.path.join(temp_folder, 'db_path.txt')}") as infile:
+
         lines = infile.readlines()
 
         for line in lines:
             if "Looking for databases in:" in line:
                 splitted = line.split(":")
                 db_path = splitted[-1].strip()
-    
+
     if db_path == "":
         print("Database path could not be found, please check the log file for more information.")
         sys.exit(1)
 
     for file in os.listdir(output_dir):
 
-        shutil.copy2(os.path.join(output_dir, file), os.path.join(db_path, "genus"))
+        shutil.copy2(os.path.join(output_dir, file),
+                     os.path.join(db_path, "genus"))
 
 
-def prokka_runner(input, strain_random_name, output, reference, log_file, cpus = 1, parallel_run = False, custom_db = None):
-
+def prokka_runner(input, strain_random_name, output, reference, log_file, cpus=1, parallel_run=False, custom_db=None):
     """
 
     input (str): Path to the input file
@@ -136,7 +137,9 @@ def prokka_runner(input, strain_random_name, output, reference, log_file, cpus =
 def generate_random_key():
     return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(8))
 
+
 random_names = {}
+
 
 def random_name_giver(strains_text_file, random_name_file_output):
 
@@ -148,7 +151,7 @@ def random_name_giver(strains_text_file, random_name_file_output):
             # make sure it is unique
             while random_key in random_names.keys():
                 random_key = generate_random_key()
-            
+
             random_names[strain] = random_key
 
     with open(random_name_file_output, "w") as ofile:
@@ -168,13 +171,14 @@ def panaroo_input_creator(random_names_txt, prokka_output_folder, temp_folder, s
             if given_random_name in strains_to_be_processed:
                 for prokka_output_file in os.listdir(f"{prokka_output_folder}/{given_random_name}"):
                     if prokka_output_file.endswith(".gff"):
-                        shutil.copyfile(f"{prokka_output_folder}/{given_random_name}/{prokka_output_file}", f"{temp_folder}/{given_random_name}.gff")
+                        shutil.copyfile(
+                            f"{prokka_output_folder}/{given_random_name}/{prokka_output_file}", f"{temp_folder}/{given_random_name}.gff")
 
 
 def panaroo_runner(panaroo_input_folder, panaroo_output_folder, log_file, cpus):
 
     run_command = f"panaroo -i {panaroo_input_folder}/*.gff -o {panaroo_output_folder} --clean-mode strict -t {cpus} >> {log_file} 2>&1"
-    
+
     os.system(run_command)
 
 
@@ -184,7 +188,7 @@ def read_vcf_and_return_snp_class_list(vcf_path):
         lines = infile.readlines()
 
     snp_list = []
-    
+
     for line in lines:
         if not line.startswith("#"):
             splitted = line.split("\t")
@@ -214,7 +218,8 @@ def process_folder(snippy_out_path, folder):
 def read_vcf_files_and_store_data(snippy_out_path, n_jobs, strains_to_be_processed):
     snp_combined_list = []
     mutation_dict = {}
-    folders = [folder for folder in os.listdir(snippy_out_path) if os.path.isfile(f"{snippy_out_path}/{folder}/snps.vcf")]
+    folders = [folder for folder in os.listdir(snippy_out_path) if os.path.isfile(
+        f"{snippy_out_path}/{folder}/snps.vcf")]
 
     folders = [strain for strain in folders if strain in strains_to_be_processed]
 
@@ -225,9 +230,9 @@ def read_vcf_files_and_store_data(snippy_out_path, n_jobs, strains_to_be_process
     for folder, snp_list in results:
         mutation_dict[folder] = snp_list
         snp_combined_list = snp_combined_list + snp_list
-    
+
     snp_combined_set = set(snp_combined_list)
-    
+
     return mutation_dict, snp_combined_set
 
 
@@ -259,19 +264,21 @@ def strain_presence_absence(list_of_mutations, temp_dict):
 
     for mutation in list_of_mutations:
         mut_presence_absence_dict[mutation] = 1
-    
+
     return mut_presence_absence_dict
 
 
-def binary_table_creator (input_folder, output_file, number_of_cores, strains_to_be_processed):
+def binary_table_creator(input_folder, output_file, number_of_cores, strains_to_be_processed):
 
     number_of_cores = int(number_of_cores)
 
-    mut_dict, snp_combined_set = read_vcf_files_and_store_data(f"{input_folder}", number_of_cores, strains_to_be_processed)
+    mut_dict, snp_combined_set = read_vcf_files_and_store_data(
+        f"{input_folder}", number_of_cores, strains_to_be_processed)
 
     temp_dict = temp_dict_creator(snp_combined_set)
 
-    mutation_presence_absence_dict = mutation_presence_absence_dict_creator(mut_dict, temp_dict, number_of_cores)
+    mutation_presence_absence_dict = mutation_presence_absence_dict_creator(
+        mut_dict, temp_dict, number_of_cores)
 
     df = pd.DataFrame.from_dict(mutation_presence_absence_dict, orient='index')
 
@@ -280,19 +287,22 @@ def binary_table_creator (input_folder, output_file, number_of_cores, strains_to
 
 def binary_mutation_table_gpa_information_adder(binary_mutation_table, panaroo_output_gpa, binary_mutation_table_with_gpa_information):
 
-    binary_mutation_table_df = pd.read_csv(binary_mutation_table, sep="\t", index_col=0)
+    binary_mutation_table_df = pd.read_csv(
+        binary_mutation_table, sep="\t", index_col=0)
 
-    binary_mutation_table_df_dict = binary_mutation_table_df.to_dict(orient='index')
+    binary_mutation_table_df_dict = binary_mutation_table_df.to_dict(
+        orient='index')
 
-    binary_mutation_table_gpa_dict = copy.deepcopy(binary_mutation_table_df_dict)
+    binary_mutation_table_gpa_dict = copy.deepcopy(
+        binary_mutation_table_df_dict)
 
     strain_index_dict = {}
 
-    with open (panaroo_output_gpa) as infile:
+    with open(panaroo_output_gpa) as infile:
         lines = infile.readlines()
         index_line = lines[0]
         index_line_split = index_line.split(",")
-        for strain_idx in range(len(index_line_split)):     
+        for strain_idx in range(len(index_line_split)):
             if strain_idx < 3:
                 continue
             strain_index_dict[strain_idx] = index_line_split[strain_idx].strip()
@@ -300,13 +310,13 @@ def binary_mutation_table_gpa_information_adder(binary_mutation_table, panaroo_o
             splitted = line.split(",")
             gene = splitted[0].strip()
             cnt = 3
-            for ocome in splitted[3:]:             
+            for ocome in splitted[3:]:
                 if ocome.strip() != "":
                     try:
                         binary_mutation_table_gpa_dict[strain_index_dict[cnt]][gene] = 1
                         cnt += 1
                     except:
-                        cnt += 1                  
+                        cnt += 1
                 else:
                     try:
                         binary_mutation_table_gpa_dict[strain_index_dict[cnt]][gene] = 0
@@ -314,10 +324,12 @@ def binary_mutation_table_gpa_information_adder(binary_mutation_table, panaroo_o
                     except:
                         cnt += 1
 
-    binary_mutation_table_gpa_df = pd.DataFrame.from_dict(binary_mutation_table_gpa_dict, orient='index')
-    binary_mutation_table_gpa_df.to_csv(binary_mutation_table_with_gpa_information, sep="\t")
+    binary_mutation_table_gpa_df = pd.DataFrame.from_dict(
+        binary_mutation_table_gpa_dict, orient='index')
+    binary_mutation_table_gpa_df.to_csv(
+        binary_mutation_table_with_gpa_information, sep="\t")
 
-        
+
 def phenotype_dataframe_creator(data_folder_path, output_file, random_names_dict):
     list_of_antibiotics = os.listdir(data_folder_path)
 
@@ -330,35 +342,50 @@ def phenotype_dataframe_creator(data_folder_path, output_file, random_names_dict
 
     for antibiotic in list_of_antibiotics:
         if not antibiotic.startswith("."):
-            res_strains = os.listdir(f"{data_folder_path}/{antibiotic}/Resistant")
-            sus_strains = os.listdir(f"{data_folder_path}/{antibiotic}/Susceptible")
+            res_strains = os.listdir(
+                f"{data_folder_path}/{antibiotic}/Resistant")
+            sus_strains = os.listdir(
+                f"{data_folder_path}/{antibiotic}/Susceptible")
             for strain in res_strains:
                 if strain.endswith(".fna"):
                     if not random_names_dict[strain[:-4]] in strain_phenotype_dict.keys():
-                        strain_phenotype_dict[random_names_dict[strain[:-4]]] = copy.deepcopy(phenotype_dict)                  
-                    strain_phenotype_dict[random_names_dict[strain[:-4]]][antibiotic] = 1            
+                        strain_phenotype_dict[random_names_dict[strain[:-4]]
+                                              ] = copy.deepcopy(phenotype_dict)
+                    strain_phenotype_dict[random_names_dict[strain[:-4]]
+                                          ][antibiotic] = 1
             for strain in sus_strains:
                 if strain.endswith(".fna"):
                     if not random_names_dict[strain[:-4]] in strain_phenotype_dict.keys():
-                        strain_phenotype_dict[random_names_dict[strain[:-4]]] = copy.deepcopy(phenotype_dict)                  
-                    strain_phenotype_dict[random_names_dict[strain[:-4]]][antibiotic] = 0
+                        strain_phenotype_dict[random_names_dict[strain[:-4]]
+                                              ] = copy.deepcopy(phenotype_dict)
+                    strain_phenotype_dict[random_names_dict[strain[:-4]]
+                                          ][antibiotic] = 0
 
     df = pd.DataFrame.from_dict(strain_phenotype_dict, orient="index")
     df.to_csv(output_file, sep="\t")
 
 
 def phenotype_dataframe_creator_post_processor(genotype_data, phenotype_data):
-    
+
     genotype_df = pd.read_csv(genotype_data, sep="\t", index_col=0, header=0)
     phenotype_df = pd.read_csv(phenotype_data, sep="\t", index_col=0, header=0)
 
     strains_to_be_dropped = []
     phenotype_strains = phenotype_df.index.to_list()
     genotype_strains = genotype_df.index.to_list()
-    
+
     for strain in phenotype_strains:
         if not strain in genotype_strains:
             strains_to_be_dropped.append(strain)
 
     phenotype_df_dropped = phenotype_df.drop(strains_to_be_dropped, axis=0)
     phenotype_df_dropped.to_csv(phenotype_data, sep="\t")
+
+
+def snippy_processed_file_creator(snippy_output_folder, snippy_processed_text_file):
+
+    processed_by_snippy = os.listdir(snippy_output_folder)
+
+    with open(snippy_processed_text_file, "w") as ofile:
+        for strain in processed_by_snippy:
+            ofile.write(f"{strain}\n")
