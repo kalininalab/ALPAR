@@ -2,7 +2,7 @@
 
 Pipeline for generating binary matrices suitable for machine learning from genomic fasta data.
 
-![Pipeline](./SR-AMR_Flowchart_Git.jpg?raw=true "Pipeline")
+![Pipeline](./flowcharts/SR-AMR_Flowchart.jpg?raw=true "Pipeline")
 
 ## Installation
 
