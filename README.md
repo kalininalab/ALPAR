@@ -117,7 +117,7 @@ From genomic files, creates binary mutation and phenotype tables
 
 Basic usage:
 ```bash
-./scripts/sr-amr.py create_binary_tables -i example/example_files/ -o example/example_output/ --reference example/reference.gbff
+./scripts/sr_amr.py create_binary_tables -i example/example_files/ -o example/example_output/ --reference example/reference.gbff
 ```
 
 ## Binary Table Threshold
@@ -132,7 +132,7 @@ Applies threshold to binary mutation table, and drops columns that has less than
 
 Basic usage:
 ```bash
-./scripts/sr-amr.py binary_tables_threshold -i example/example_output/binary_mutation_table.tsv -o example/example_output/ 
+./scripts/sr_amr.py binary_tables_threshold -i example/example_output/binary_mutation_table.tsv -o example/example_output/ 
 ```
 
 ## Phylogenetic Tree
@@ -147,7 +147,7 @@ Runs Phylogeny pipeline to create phylogenetic tree. (Alignment free)
 
 Basic usage:
 ```bash
-./scripts/sr-amr.py phylogenetic_tree -i example/example_output/strains.txt -o example/example_output/ --random_names_dict example/example_output/random_names.txt 
+./scripts/sr_amr.py phylogenetic_tree -i example/example_output/strains.txt -o example/example_output/ --random_names_dict example/example_output/random_names.txt 
 ```
 
 ## Panacota
@@ -162,7 +162,7 @@ Runs PanACoTA pipeline to create phylogenetic tree. (Alignment based)
 
 Basic usage:
 ```bash
-./scripts/sr-amr.py panacota -i example/example_output/strains.txt -o example/example_output/
+./scripts/sr_amr.py panacota -i example/example_output/strains.txt -o example/example_output/
 ```
 
 ## GWAS
@@ -179,7 +179,7 @@ Runs GWAS analysis to detect important mutations in the data.
 
 Basic usage:
 ```bash
-./scripts/sr-amr.py gwas -i example/example_output/binary_mutation_table_with_gene_presence_absence.tsv -p example/example_output/phenotype_table.tsv -t example/example_output/phylogeny/phylogenetic_tree.tree -o example_output/
+./scripts/sr_amr.py gwas -i example/example_output/binary_mutation_table_with_gene_presence_absence.tsv -p example/example_output/phenotype_table.tsv -t example/example_output/phylogeny/phylogenetic_tree.tree -o example_output/
 ```
 
 ## PRPS
@@ -194,7 +194,7 @@ Runs PRPS (Phylogeny-Related Parallelism Score) to detect the mutations are more
 
 Basic usage:
 ```bash
-./scripts/sr-amr.py prps -i example/example_output/binary_mutation_table.tsv -t example/example_output/phylogeny/phylogenetic_tree.tree -o example_output/
+./scripts/sr_amr.py prps -i example/example_output/binary_mutation_table.tsv -t example/example_output/phylogeny/phylogenetic_tree.tree -o example_output/
 ```
 
 ## DataSAIL
@@ -209,7 +209,7 @@ Basic usage:
 
 Basic usage:
 ```bash
-./scripts/sr-amr.py datasail -i example/example_output/binary_mutation_table.tsv -t example/example_output/phylogeny/phylogenetic_tree.tree -o example_output/
+./scripts/sr_amr.py datasail -i example/example_output/binary_mutation_table.tsv -t example/example_output/phylogeny/phylogenetic_tree.tree -o example_output/
 ```
 
 ## ML
@@ -236,10 +236,10 @@ Available Classification algorithms: Random Forest, Support Vector Machine and G
 
     More optional arguments can be found in help page: 
     ```bash
-    python scripts/sr-amr.py ml -h
+    python scripts/sr_amr.py ml -h
     ```
 
 Basic usage:
 ```bash
-./scripts/sr-amr.py ml -i example/example_output/binary_mutation_table.tsv -p example/example_output/phenotype_table.tsv -o example_output/ -a amikacin
+./scripts/sr_amr.py ml -i example/example_output/binary_mutation_table.tsv -p example/example_output/phenotype_table.tsv -o example_output/ -a amikacin
 ```
