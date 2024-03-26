@@ -1,4 +1,4 @@
-from scripts.sr_pipeline import main
+from scripts.sr-amr import main
 
 
 if __name__ == '__main__':

@@ -4,6 +4,8 @@ Pipeline for generating binary matrices suitable for machine learning from genom
 
 ![Pipeline](./flowcharts/SR-AMR_Flowchart.jpg?raw=true "Pipeline")
 
+(Orange parts does not exist in lite version)
+
 ## Installation
 
 Download Single-Reference AMR:
@@ -23,9 +25,9 @@ Activate conda environment
 conda activate SR-AMR
 ```
 
-## Lightweight Version
+## Lite Version
 
-Lightweight version of the tool, missing; DataSAIL (Split Against Information Leakage), Pyseer (GWAS), PanACoTA (Alignment-Based Phylogenetic Tree Creation), MashTree (Alignment-Free Phylogenetic Tree Creation), PRPS (Phylogeny Related Parallelism Score), AutoSklearn (Machine Learning Parameter Optimization)
+Lite version of the tool, missing; DataSAIL (Split Against Information Leakage), Pyseer (GWAS), PanACoTA (Alignment-Based Phylogenetic Tree Creation), MashTree (Alignment-Free Phylogenetic Tree Creation), PRPS (Phylogeny Related Parallelism Score), AutoSklearn (Machine Learning Parameter Optimization)
 
 Download Single-Reference AMR:
 ```bash
@@ -37,11 +39,11 @@ cd SR-AMR
 ```
 Create conda environment from provided environment file
 ```bash
-conda env create -f SR-AMR_env_LW.yml
+conda env create -f SR-AMR-Lite.yml
 ```
 Activate conda environment
 ```bash
-conda activate SR-AMR-LW
+conda activate SR-AMR-Lite
 ```
 
 ## Example Files
@@ -115,7 +117,7 @@ From genomic files, creates binary mutation and phenotype tables
 
 Basic usage:
 ```bash
-./scripts/sr_pipeline.py create_binary_tables -i example/example_files/ -o example/example_output/ --reference example/reference.gbff
+./scripts/sr-amr.py create_binary_tables -i example/example_files/ -o example/example_output/ --reference example/reference.gbff
 ```
 
 ## Binary Table Threshold
@@ -130,7 +132,7 @@ Applies threshold to binary mutation table, and drops columns that has less than
 
 Basic usage:
 ```bash
-./scripts/sr_pipeline.py binary_tables_threshold -i example/example_output/binary_mutation_table.tsv -o example/example_output/ 
+./scripts/sr-amr.py binary_tables_threshold -i example/example_output/binary_mutation_table.tsv -o example/example_output/ 
 ```
 
 ## Phylogenetic Tree
@@ -145,7 +147,7 @@ Runs Phylogeny pipeline to create phylogenetic tree. (Alignment free)
 
 Basic usage:
 ```bash
-./scripts/sr_pipeline.py phylogenetic_tree -i example/example_output/strains.txt -o example/example_output/ --random_names_dict example/example_output/random_names.txt 
+./scripts/sr-amr.py phylogenetic_tree -i example/example_output/strains.txt -o example/example_output/ --random_names_dict example/example_output/random_names.txt 
 ```
 
 ## Panacota
@@ -160,7 +162,7 @@ Runs PanACoTA pipeline to create phylogenetic tree. (Alignment based)
 
 Basic usage:
 ```bash
-./scripts/sr_pipeline.py panacota -i example/example_output/strains.txt -o example/example_output/
+./scripts/sr-amr.py panacota -i example/example_output/strains.txt -o example/example_output/
 ```
 
 ## GWAS
@@ -177,7 +179,7 @@ Runs GWAS analysis to detect important mutations in the data.
 
 Basic usage:
 ```bash
-./scripts/sr_pipeline.py gwas -i example/example_output/binary_mutation_table_with_gene_presence_absence.tsv -p example/example_output/phenotype_table.tsv -t example/example_output/phylogeny/phylogenetic_tree.tree -o example_output/
+./scripts/sr-amr.py gwas -i example/example_output/binary_mutation_table_with_gene_presence_absence.tsv -p example/example_output/phenotype_table.tsv -t example/example_output/phylogeny/phylogenetic_tree.tree -o example_output/
 ```
 
 ## PRPS
@@ -192,12 +194,12 @@ Runs PRPS (Phylogeny-Related Parallelism Score) to detect the mutations are more
 
 Basic usage:
 ```bash
-./scripts/sr_pipeline.py prps -i example/example_output/binary_mutation_table.tsv -t example/example_output/phylogeny/phylogenetic_tree.tree -o example_output/
+./scripts/sr-amr.py prps -i example/example_output/binary_mutation_table.tsv -t example/example_output/phylogeny/phylogenetic_tree.tree -o example_output/
 ```
 
 ## DataSAIL
 
-Splits data into training, validation and test sets against information leakage to train better models.
+
 
 - Input, `-i`:  Binary mutation table path that is created via create_binary_tables command, can be found in create_binary_tables output path as `binary_mutation_table.tsv` or if threshold applied, can be found in binary_table_threshold output path as `binary_mutation_table_threshold_*_percent.tsv`
 
@@ -207,7 +209,7 @@ Splits data into training, validation and test sets against information leakage 
 
 Basic usage:
 ```bash
-./scripts/sr_pipeline.py datasail -i example/example_output/binary_mutation_table.tsv -t example/example_output/phylogeny/phylogenetic_tree.tree -o example_output/
+./scripts/sr-amr.py datasail -i example/example_output/binary_mutation_table.tsv -t example/example_output/phylogeny/phylogenetic_tree.tree -o example_output/
 ```
 
 ## ML
@@ -230,13 +232,14 @@ Available Classification algorithms: Random Forest, Support Vector Machine and G
     - Parameter optimization, `--parameter_optimization`: Parameter optimization for model with autosklearn (https://automl.github.io/auto-sklearn/master/index.html)
     - Save model, `--save_model`: Save model
     - Feature importance analysis, `--feature_importance_analysis`: Analyze important features in the model with permutation importance
+    - Datasail, `--sail`: Splits data into training and test sets against information leakage to train better models. Requires text file that contains path of each strain per line. It can be found in create_binary_tables output path as `strains.txt` 
 
     More optional arguments can be found in help page: 
     ```bash
-    python scripts/sr_pipeline.py ml -h
+    python scripts/sr-amr.py ml -h
     ```
 
 Basic usage:
 ```bash
-./scripts/sr_pipeline.py ml -i example/example_output/binary_mutation_table.tsv -p example/example_output/phenotype_table.tsv -o example_output/ -a amikacin
+./scripts/sr-amr.py ml -i example/example_output/binary_mutation_table.tsv -p example/example_output/phenotype_table.tsv -o example_output/ -a amikacin
 ```
