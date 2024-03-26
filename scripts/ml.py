@@ -193,6 +193,8 @@ def rf_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, 
 
     output_file_writer(outfile, y_test, y_hat, cls)
 
+    output_file_writer(outfile, y_test, y_hat, cls)
+
     if feature_importance_analysis:
 
         r = permutation_importance(
@@ -210,9 +212,9 @@ def rf_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, 
             output_folder, f"{output_file_template}_model.sav")
         pickle.dump(cls, open(model_file, 'wb'))
 
-
-def rf(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, feature_importance_analysis=False, save_model=False, resampling_strategy="holdout", fia_repeats=5, custom_scorer="MCC", n_estimators=100, max_depth=2, min_samples_leaf=1, min_samples_split=2, train=[], test=[], same_setup_run_count=1):
-
+    
+def rf(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, feature_importance_analysis = False, save_model = False, resampling_strategy="holdout", fia_repeats=5, custom_scorer="MCC", n_estimators=100, max_depth=2, min_samples_leaf=1, min_samples_split=2, train=[], test=[], same_setup_run_count=1):
+    
     output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_RF"
 
     genotype_df = pd.read_csv(binary_mutation_table,
