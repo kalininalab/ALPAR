@@ -548,6 +548,13 @@ def prps_ml_preprecessor(binary_mutation_table, prps_score_file, prps_percentage
 
     with open(prps_score_file, "r") as prps_file:
         prps_score_lines = prps_file.readlines()
+    
+    if len(prps_score_lines) == 0:
+        print("Error: PRPS score file is empty.")
+        sys.exit(1)
+    
+    if len(prps_score_lines) != len(genotype_df.columns) -1:
+        print("Warning: PRPS score file and genotype table do not have the same number of columns.")
 
     for line in prps_score_lines:
         splitted = line.split("\t")

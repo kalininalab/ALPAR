@@ -59,9 +59,9 @@ def prokka_create_database(faa_file, genus_name, temp_folder, cpus=1, memory=4):
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
 
-    script_command = f"cd-hit -i {faa_file} -o {output_dir}/{genus_name} -T {cpus} -M {memory*1024} -g 1 -s 0.8 -c 0.9"
+    log_file = os.path.join(temp_folder, "prokka_db.log")
 
-    print(script_command)
+    script_command = f"cd-hit -i {faa_file} -o {output_dir}/{genus_name} -T {cpus} -M {memory*1024} -g 1 -s 0.8 -c 0.9 >> {log_file} 2>&1"
 
     p = subprocess.Popen(script_command, shell=True)
 

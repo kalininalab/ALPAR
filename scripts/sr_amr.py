@@ -294,7 +294,7 @@ def binary_table_pipeline(args):
 
     # Check if output folder empty
     if os.path.exists(args.output) and os.path.isdir(args.output):
-        if not args.overwrite:
+        if os.listdir(args.output) and not args.overwrite:
             print("Error: Output folder is not empty.")
             sys.exit(1)
 
@@ -313,7 +313,7 @@ def binary_table_pipeline(args):
     if not temp_folder_created:
         # Check if temp folder empty
         if os.path.exists(args.temp) and os.path.isdir(args.temp):
-            if not args.overwrite:
+            if os.listdir(args.temp) and not args.overwrite:
                 print("Error: Temp folder is not empty.")
                 sys.exit(1)
 
@@ -1031,7 +1031,7 @@ def binary_table_threshold(args):
         thresholded_table_mutations = len(splitted) - 1
 
     print(
-        f"Percentage of mutations kept: {thresholded_table_mutations/original_table_mutations * 100}%")
+    f"Percentage of mutations kept: {thresholded_table_mutations/original_table_mutations * 100:.2f}%")
 
     print("Done")
 
