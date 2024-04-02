@@ -66,7 +66,7 @@ def main():
     parser_main_pipeline.add_argument(
         '--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
     parser_main_pipeline.add_argument(
-        '--cpus', type=int, help='number of cpus to use, default=1', default=1)
+        '--threads', type=int, help='number of threads to use, default=1', default=1)
     parser_main_pipeline.add_argument(
         '--ram', type=int, help='amount of ram to use in GB, default=4', default=4)
     parser_main_pipeline.add_argument('--no_gene_presence_absence', action='store_true',
@@ -114,7 +114,7 @@ def main():
     parser_panacota.add_argument('--overwrite', action='store_true',
                                  help='overwrite the output folder if exists, default=False')
     parser_panacota.add_argument(
-        '--cpus', type=int, help='number of cpus to use, default=1', default=1)
+        '--threads', type=int, help='number of threads to use, default=1', default=1)
     parser_panacota.add_argument(
         '--name', type=str, help='name of the analysis, default=WIBI', default="WIBI")
     parser_panacota.add_argument(
@@ -170,7 +170,7 @@ def main():
     parser_prps.add_argument('--overwrite', action='store_true',
                              help='overwrite the output and temp folder if exists, default=False')
     parser_prps.add_argument(
-        '--cpus', type=int, help='number of cpus to use, default=1', default=1)
+        '--threads', type=int, help='number of threads to use, default=1', default=1)
     parser_prps.add_argument('--keep_temp_files', action='store_true',
                              help='keep the temporary files, default=False')
     parser_prps.set_defaults(func=prps_pipeline)
@@ -192,7 +192,7 @@ def main():
     parser_ml.add_argument('--overwrite', action='store_true',
                            help='overwrite the output folder if exists, default=False')
     parser_ml.add_argument(
-        '--cpus', type=int, help='number of cpus to use, default=1', default=1)
+        '--threads', type=int, help='number of threads to use, default=1', default=1)
     parser_ml.add_argument(
         '--ram', type=int, help='amount of ram to use in GB, default=4', default=4)
     parser_ml.add_argument(
@@ -317,13 +317,13 @@ def binary_table_pipeline(args):
                 print("Error: Temp folder is not empty.")
                 sys.exit(1)
 
-    # Check if cpus is positive
-    if args.cpus is not None:
-        if args.cpus <= 0:
-            print("Error: Number of cpus should be positive.")
+    # Check if threads is positive
+    if args.threads is not None:
+        if args.threads <= 0:
+            print("Error: Number of threads should be positive.")
             sys.exit(1)
     else:
-        args.cpus = 1
+        args.threads = 1
 
     # Check if ram is positive
     if args.ram is not None:
@@ -461,7 +461,7 @@ def binary_table_pipeline(args):
 
         print("Creating custom database...")
         prokka_create_database(
-            args.custom_database[0], args.custom_database[1], args.temp, args.cpus, args.ram)
+            args.custom_database[0], args.custom_database[1], args.temp, args.threads, args.ram)
         print("Custom database created.")
 
     # Run snippy and prokka
@@ -469,7 +469,7 @@ def binary_table_pipeline(args):
     print(f"Number of strains to be processed: {len(strain_list)}")
     print("Running snippy and prokka...")
 
-    num_parallel_tasks = args.cpus
+    num_parallel_tasks = args.threads
 
     params = [(strain, random_names, snippy_output, prokka_output,
                args, snippy_flag, prokka_flag) for strain in strain_list]
@@ -507,12 +507,12 @@ def binary_table_pipeline(args):
         print("Running panaroo...")
         # Run panaroo
         panaroo_runner(os.path.join(args.temp, "panaroo"), panaroo_output, os.path.join(
-            args.temp, "panaroo_log.txt"), args.cpus)
+            args.temp, "panaroo_log.txt"), args.threads)
 
         print("Creating binary mutation table...")
         # Create the binary table
         binary_table_creator(snippy_output, os.path.join(
-            args.output, "binary_mutation_table.tsv"), args.cpus, strains_to_be_processed)
+            args.output, "binary_mutation_table.tsv"), args.threads, strains_to_be_processed)
 
         print("Adding gene presence absence information to the binary table...")
         # Add gene presence absence information to the binary table
@@ -600,9 +600,9 @@ def panacota_pipeline(args):
     panacota_pre_processor(args.input, panacota_temp,
                            panacota_output, args.random_names_dict)
 
-    print(f"Running PanACoTA pipeline with {args.cpus} cores...")
+    print(f"Running PanACoTA pipeline with {args.threads} cores...")
 
-    panacota_pipeline_runner(os.path.join(panacota_output, "panacota_input.lst"), panacota_temp, panacota_output, args.name, args.cpus, panacota_log_file,
+    panacota_pipeline_runner(os.path.join(panacota_output, "panacota_input.lst"), panacota_temp, panacota_output, args.name, args.threads, panacota_log_file,
                              type=args.data_type, min_seq_id=args.min_seq_id, mode=args.clustering_mode, core_genome_percentage=args.core_genome_percentage)
 
     print(f"Running PanACoTA pipeline post-precessor...")
@@ -666,7 +666,7 @@ def gwas_pipeline(args):
     # pyseer_similarity_matrix_creator(phylogenetic_tree, output_file):
     pyseer_similarity_matrix_creator(
         args.tree, os.path.join(gwas_output, "similarity_matrix.tsv"))
-    # pyseer_runner(genotype_file_path, phenotype_file_path, similarity_matrix, output_file_directory, cpus):
+    # pyseer_runner(genotype_file_path, phenotype_file_path, similarity_matrix, output_file_directory, threads):
     pyseer_runner(os.path.join(gwas_output, "genotype_matrix.tsv"), os.path.join(gwas_output, "pyseer_phenotypes"),
                   os.path.join(gwas_output, "similarity_matrix.tsv"), os.path.join(gwas_output, "gwas_results"))
 
@@ -807,8 +807,8 @@ def ml_pipeline(args):
         print("Error: Random state should be positive.")
         sys.exit(1)
 
-    if int(args.cpus) < 1:
-        print("Error: Number of cpus should be positive.")
+    if int(args.threads) < 1:
+        print("Error: Number of threads should be positive.")
         sys.exit(1)
 
     if int(args.ram) < 1:
@@ -857,7 +857,7 @@ def ml_pipeline(args):
             print("Creating distance matrix...")
 
             datasail_pre_precessor(
-                args.sail, datasail_temp, random_names_dict, datasail_output, args.cpus)
+                args.sail, datasail_temp, random_names_dict, datasail_output, args.threads)
 
             print("Running datasail...")
 
@@ -865,7 +865,7 @@ def ml_pipeline(args):
                 datasail_output, "distance_matrix.tsv")
 
             datasail_runner(distance_matrix, datasail_output,
-                            splits=train_test, cpus=args.cpus)
+                            splits=train_test, threads=args.threads)
 
             if not args.keep_temp_files:
                 print(f"Removing temp folder {datasail_temp}...")
@@ -910,13 +910,13 @@ def ml_pipeline(args):
 
             with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
-                    rf_auto_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, ml_temp, args.ram, args.optimization_time_limit,
+                    rf_auto_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, args.optimization_time_limit,
                                args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, train=train_strains, test=test_strains, same_setup_run_count=same_setup_run_count)
 
         else:
             with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
-                    rf(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy,
+                    rf(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy,
                        custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains)
 
     elif args.ml_algorithm == "svm":
@@ -926,12 +926,12 @@ def ml_pipeline(args):
         if args.resampling_strategy == "cv":
             with open(os.path.join(ml_output, f"{ml_log_name}_log_file.txt"), "w") as log_file:
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
-                    svm_cv(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.test_train_split, ml_output, args.cpus,
+                    svm_cv(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.test_train_split, ml_output, args.threads,
                            args.feature_importance_analysis, args.save_model, resampling_strategy="cv", fia_repeats=5, optimization=False, train=train_strains, test=test_strains)
         elif args.resampling_strategy == "holdout":
             with open(os.path.join(ml_output, f"{ml_log_name}_log_file.txt"), "w") as log_file:
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
-                    svm(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.test_train_split, ml_output, args.cpus,
+                    svm(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.test_train_split, ml_output, args.threads,
                         args.feature_importance_analysis, args.save_model, resampling_strategy="holdout", fia_repeats=5, optimization=False, train=train_strains, test=test_strains)
 
     elif args.ml_algorithm == "gb":
@@ -957,12 +957,12 @@ def ml_pipeline(args):
                     same_setup_run_count += 1
             with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
-                    gb_auto_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, ml_temp, args.ram, args.optimization_time_limit,
+                    gb_auto_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, args.optimization_time_limit,
                                args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, train=train_strains, test=test_strains)
         else:
             with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
-                    gb(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.cpus, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy,
+                    gb(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy,
                        custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains)
 
     if not args.keep_temp_files:
