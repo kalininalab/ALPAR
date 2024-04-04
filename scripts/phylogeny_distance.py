@@ -49,7 +49,8 @@ if __name__ == "__main__":
         preserve_underscores=True)
 
     if options.midpoint:
-        tree.reroot_at_midpoint(update_bipartitions=True, suppress_unifurcations=False)
+        tree.reroot_at_midpoint(update_bipartitions=True,
+                                suppress_unifurcations=False)
 
     d = {}
     pdm = tree.phylogenetic_distance_matrix()
@@ -61,9 +62,11 @@ if __name__ == "__main__":
                     mrca = pdm.mrca(taxon1, taxon2)
                     d[taxon1.label][taxon2.label] = mrca.distance_from_root()
                 elif options.topology:
-                    d[taxon1.label][taxon2.label] = pdm.path_edge_count(taxon1, taxon2)
+                    d[taxon1.label][taxon2.label] = pdm.path_edge_count(
+                        taxon1, taxon2)
                 else:
-                    d[taxon1.label][taxon2.label] = pdm.patristic_distance(taxon1, taxon2)
+                    d[taxon1.label][taxon2.label] = pdm.patristic_distance(
+                        taxon1, taxon2)
 
     m = pd.DataFrame(d)
     m = m.reindex(m.columns)
