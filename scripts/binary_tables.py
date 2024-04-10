@@ -389,3 +389,29 @@ def snippy_processed_file_creator(snippy_output_folder, snippy_processed_text_fi
     with open(snippy_processed_text_file, "w") as ofile:
         for strain in processed_by_snippy:
             ofile.write(f"{strain}\n")
+
+
+def check_status_of_previous_run(output_folder):
+
+    # Returns integer that defines where to continue from
+
+    # 1 - Snippy run is completed
+    # 2 - Prokka run is completed
+    # 3 - Panaroo run is completed
+    # 4 - Binary table is created
+    # 5 - Phenotype table is created
+    # 6 - Binary table with GPA information is created
+    
+    strains_text_file_created = False
+    random_names_file_created = False
+    snippy_run_completed = False
+    prokka_run_completed = False
+    panaroo_run_completed = False
+    binary_table_created = False
+    phenotype_table_created = False
+    binary_table_with_gpa_information_created = False
+
+    output_files = os.listdir(output_folder)
+
+    if "strains.txt" in output_files:
+        

@@ -296,19 +296,29 @@ def binary_table_pipeline(args):
     if os.path.exists(args.output) and os.path.isdir(args.output):
         if os.listdir(args.output) and not args.overwrite:
             print("Error: Output folder is not empty.")
+            print("If you want to overwrite the output folder or continue previos run, use --overwrite option.")
             sys.exit(1)
+        else:
+            print("Warning: Output folder is not empty.")
+            print("Checking if there is previous run files to continue.")
+            
+
 
     # Check if output folder exists and create if not
     if not os.path.exists(args.output):
         os.mkdir(args.output)
 
     temp_folder_created = False
+    continue_flag = False
 
     if args.temp is None:
         args.temp = os.path.join(args.output, "temp")
         if not os.path.exists(args.temp):
             os.mkdir(args.temp)
             temp_folder_created = True
+        else:
+            print("Warning: Temp folder already exists.")
+
 
     if not temp_folder_created:
         # Check if temp folder empty
@@ -516,17 +526,25 @@ def binary_table_pipeline(args):
 
         print("Adding gene presence absence information to the binary table...")
         # Add gene presence absence information to the binary table
-        binary_mutation_table_gpa_information_adder(os.path.join(args.output, "binary_mutation_table.tsv"), os.path.join(
-            panaroo_output, "gene_presence_absence.csv"), os.path.join(args.output, "binary_mutation_table_with_gene_presence_absence.tsv"))
 
-        if args.create_phenotype_from_folder:
-            print("Creating phenotype dataframe...")
-            # Create the phenotype dataframe
-            phenotype_dataframe_creator(args.create_phenotype_from_folder, os.path.join(
-                args.output, "phenotype_table.tsv"), random_names)
+        if not os.path.exists(os.path.join(panaroo_output, "gene_presence_absence.csv")):
+            print("Warning: Gene presence absence file does not exist.")
+            print("Gene presence absence information will not be added to the binary table.")
+            do_not_remove_temp = True
 
-            phenotype_dataframe_creator_post_processor(os.path.join(
-                args.output, "binary_mutation_table.tsv"), os.path.join(args.output, "phenotype_table.tsv"))
+        else:
+            binary_mutation_table_gpa_information_adder(os.path.join(args.output, "binary_mutation_table.tsv"), os.path.join(
+                panaroo_output, "gene_presence_absence.csv"), os.path.join(args.output, "binary_mutation_table_with_gene_presence_absence.tsv"))
+            do_not_remove_temp = False
+
+    if args.create_phenotype_from_folder:
+        print("Creating phenotype dataframe...")
+        # Create the phenotype dataframe
+        phenotype_dataframe_creator(args.create_phenotype_from_folder, os.path.join(
+            args.output, "phenotype_table.tsv"), random_names)
+
+        phenotype_dataframe_creator_post_processor(os.path.join(
+            args.output, "binary_mutation_table.tsv"), os.path.join(args.output, "phenotype_table.tsv"))
 
     snippy_processed_file_creator(snippy_output, os.path.join(
         args.output, "snippy_processed_strains.txt"))
@@ -535,12 +553,18 @@ def binary_table_pipeline(args):
         print("Warning, temp files will be kept this might take up space.")
 
     if not args.keep_temp_files:
-        temp_folder_remover(os.path.join(args.temp))
-        temp_folder_remover(os.path.join(args.output, "snippy"))
-        temp_folder_remover(os.path.join(args.output, "prokka"))
-        temp_folder_remover(os.path.join(args.output, "panaroo"))
+        if not do_not_remove_temp:
+            print("Removing temp folder...")
+            temp_folder_remover(os.path.join(args.temp))
+            temp_folder_remover(os.path.join(args.output, "snippy"))
+            temp_folder_remover(os.path.join(args.output, "prokka"))
+            temp_folder_remover(os.path.join(args.output, "panaroo"))
+        
+        else:
+            print("Warning: Temp folder will not be removed because gene presence absence file does not exist.")
+            print("Temp folder can be used for re-run panaroo again for gene presence absence information.")
+            print("You can remove the temp folder manually. Temp folder path: ", os.path.join(args.temp))
 
-    print("Done")
 
     end_time = time.time()
 
