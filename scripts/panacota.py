@@ -83,14 +83,17 @@ def panacota_post_processor(panacota_output_folder, run_name, output_folder, typ
             splitted = line.split("\t")
             new_name_to_origin_name[splitted[0].strip()] = splitted[1].strip()
 
-    with open(os.path.join(panacota_output_folder, "tree", f"{run_name}.{type}.grp.aln.iqtree_tree.treefile")) as infile:
-        line = infile.readline()
-        with open(os.path.join(panacota_output_folder, "phylogenetic_tree.newick"), "w") as ofile:
-            ofile.write(replace_values(line, new_name_to_origin_name))
+    if os.path.exists(os.path.join(panacota_output_folder, "tree", f"{run_name}.{type}.grp.aln.iqtree_tree.treefile")):
+        with open(os.path.join(panacota_output_folder, "tree", f"{run_name}.{type}.grp.aln.iqtree_tree.treefile")) as infile:
+            line = infile.readline()
+            with open(os.path.join(panacota_output_folder, "phylogenetic_tree.newick"), "w") as ofile:
+                ofile.write(replace_values(line, new_name_to_origin_name))
 
-    shutil.copyfile(f"{panacota_output_folder}/phylogenetic_tree.newick",
-                    f"{output_folder}/phylogenetic_tree.newick")
-
+        shutil.copyfile(f"{panacota_output_folder}/phylogenetic_tree.newick",
+                        f"{output_folder}/phylogenetic_tree.newick")
+        
+    else:
+        print("Warning: Phylogenetic tree could not be created with the PanACoTA pipeline! Please use phylogenetic_tree option!")
 
 def panacota_pipeline_runner(list_file, dbpath, output_directory, run_name, n_cores, log_file, type="nucl", mode=1, min_seq_id=0.8, core_genome_percentage=1):
 

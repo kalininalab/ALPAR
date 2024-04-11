@@ -20,6 +20,7 @@ try:
     from prps import PRPS_runner
     from ds import datasail_runner, datasail_pre_precessor
     from ml import rf_auto_ml, svm, rf, svm_cv, prps_ml_preprecessor, gb_auto_ml, gb
+    from full_automatix import automatix_runner
     isLite = False
     # print("Full version is running.")
 
@@ -31,7 +32,6 @@ except ImportError as e:
     isLite = True
     # print("Lite version is running.")
 
-
 def main():
     # Create the parser
     parser = argparse.ArgumentParser(
@@ -39,13 +39,32 @@ def main():
 
     if isLite:
         parser.add_argument('--version', action='version',
-                            version='%(prog)s 0.1.1 Lite')
+                            version='%(prog)s 0.2.0 Lite')
     else:
         parser.add_argument('--version', action='version',
-                            version='%(prog)s 0.1.1')
+                            version='%(prog)s 0.2.0')
 
     subparsers = parser.add_subparsers(
         help='For suggested pipeline, check out our github page: https://github.com/kalininalab/SR-AMR')
+    
+    parser_fully_automatix = subparsers.add_parser('fully_automatix', help='run fully automated pipeline')
+    parser_fully_automatix.add_argument(
+        '-i', '--input', type=str, help='input folder path (check folder structure)', required=True)
+    parser_fully_automatix.add_argument(
+        '-o', '--output', type=str, help='path of the output folder', required=True)
+    parser_fully_automatix.add_argument(
+        '--reference', type=str, help='path of the reference file', required=True)
+    parser_fully_automatix.add_argument('--custom_database', type=str,
+                                      help='creates and uses custom database for prokka, require path of the fasta file, default=None')
+    parser_fully_automatix.add_argument('--just_mutations', action='store_true',
+                                      help='only creates binary mutation table with mutations, without gene presence absence information, default=False')
+    parser_fully_automatix.add_argument(
+        '--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
+    parser_fully_automatix.add_argument(
+        '--threads', type=int, help='number of threads to use, default=1', default=1)
+    parser_fully_automatix.add_argument(
+        '--ram', type=int, help='amount of ram to use in GB, default=4', default=4)
+    parser_fully_automatix.set_defaults(func=fully_automated_pipeline)
 
     parser_main_pipeline = subparsers.add_parser(
         'create_binary_tables', help='from genomic files, create binary mutation table and phenotype table')
@@ -612,7 +631,6 @@ def binary_table_pipeline(args):
 
     print(time_function(start_time, end_time))
 
-
 def panacota_pipeline(args):
 
     start_time = time.time()
@@ -648,14 +666,14 @@ def panacota_pipeline(args):
     if not temp_folder_created:
         # Check if temp folder empty
         if os.path.exists(panacota_temp) and os.path.isdir(panacota_temp):
-            if not args.overwrite:
+            if len(os.listdir(panacota_temp)) > 0 and not args.overwrite:
                 print("Error: Temp folder is not empty.")
                 sys.exit(1)
 
     if not output_folder_created:
         # Check if output folder empty
         if os.path.exists(panacota_output) and os.path.isdir(panacota_output):
-            if not args.overwrite:
+            if len(os.listdir(panacota_output)) > 0 and not args.overwrite:
                 print("Error: Output folder is not empty.")
                 sys.exit(1)
 
@@ -1065,7 +1083,7 @@ def binary_table_threshold(args):
 
     # Check if output folder empty
     if os.path.exists(binary_table_threshold_output) and os.path.isdir(binary_table_threshold_output):
-        if not args.overwrite:
+        if len(os.listdir(binary_table_threshold_output)) > 0 and not args.overwrite:
             print("Error: Output folder is not empty.")
             sys.exit(1)
 
@@ -1276,6 +1294,15 @@ def phylogenetic_tree_pipeline(args):
 
     print(time_function(start_time, end_time))
 
+def fully_automated_pipeline(args):
+
+    start_time = time.time()
+
+    automatix_runner(args)
+
+    end_time = time.time()
+
+    print(time_function(start_time, end_time))
 
 if __name__ == "__main__":
     main()
