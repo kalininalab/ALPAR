@@ -12,7 +12,7 @@ build:
 
 requirements:
   build:
-    - python==3.9
+    - python>=3.9,<3.10
     - setuptools
     - setuptools_scm
     - pip
@@ -22,7 +22,7 @@ requirements:
     - seaborn
     - datasail>=1.0.0
     - ete3
-    - python==3.9
+    - python>=3.9,<3.10
     - auto-sklearn
     - swig
     - panacota
