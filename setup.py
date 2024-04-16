@@ -1,5 +1,5 @@
 from setuptools import setup, find_packages
-from scripts.version import __version__
+from sr-amr.version import __version__
 
 with open("README.md", "r") as desc_file:
     long_description = desc_file.read()
