@@ -27,8 +27,6 @@ requirements:
     - swig
     - panacota
     - grakel
-    - openssl>=3.0.10,<4.0a0
-    - xz>=5.4.2,<6.0a0
 
 about:
   home: https://github.com/kalininalab/SR-AMR
