@@ -12,7 +12,7 @@ build:
 
 requirements:
   build:
-    - python>=3.9,<3.10
+    - python==3.9.18
     - setuptools
     - setuptools_scm
     - pip
@@ -20,13 +20,15 @@ requirements:
     - snippy
     - panaroo
     - seaborn
-    - datasail>=1.0.0
+    - datasail >=1.0.0
     - ete3
-    - python>=3.9,<3.10
+    - python==3.9.18
     - auto-sklearn
     - swig
     - panacota
     - grakel
+    - openssl>=3.0.10,<4.0a0
+    - xz>=5.4.2,<6.0a0
 
 about:
   home: https://github.com/kalininalab/SR-AMR
