@@ -1,6 +1,6 @@
 package:
   name: "sr-amr"
-  version: '0.1.1'
+  version: '0.3.1'
 
 source:
   path: ..
@@ -18,17 +18,15 @@ requirements:
     - pip
   run:
     - snippy
-    - prokka
     - panaroo
-    - panacota
     - seaborn
-    - matplotlib
-    - datasail>=0.2.2
+    - datasail>=1.0.0
     - ete3
-    - tqdm
     - python==3.9
-    - pandas
-    - scikit-learn
+    - auto-sklearn
+    - swig
+    - panacota
+    - grakel
 
 about:
   home: https://github.com/kalininalab/SR-AMR
