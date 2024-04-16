@@ -25,7 +25,7 @@ requirements:
     - python==3.9.18
     - auto-sklearn
     - swig
-    - panacota
+    - panacota>=1.4.0
     - grakel
 
 about:
