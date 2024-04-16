@@ -1,11 +1,11 @@
 import sys
 import autosklearn
+import autosklearn.metrics
 import autosklearn.classification
 import sklearn.model_selection
 import sklearn.datasets
 import sklearn.metrics
 from sklearn.inspection import permutation_importance
-from autosklearn.experimental.askl2 import AutoSklearn2Classifier
 import pandas as pd
 from pprint import pprint
 import numpy as np

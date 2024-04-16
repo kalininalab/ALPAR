@@ -13,6 +13,7 @@ dependencies:
   - datasail>=1.0.0
   - ete3
   - python==3.9
+  - auto-sklearn
   - pip:
     - panacota
     - grakel
