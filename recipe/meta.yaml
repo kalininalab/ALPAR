@@ -27,6 +27,7 @@ requirements:
     - swig
     - panacota>=1.4.0
     - grakel
+    - prokka>=1.14.6
 
 about:
   home: https://github.com/kalininalab/SR-AMR
