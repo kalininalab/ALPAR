@@ -1,4 +1,4 @@
-name: SR-AMR-Test
+name: SR-AMR-Test3
 channels:
   - defaults
   - bioconda
@@ -10,7 +10,7 @@ dependencies:
   - snippy
   - panaroo
   - seaborn
-  - datasail>=0.2.2
+  - datasail>=1.0.0
   - ete3
   - python==3.9
   - pip:

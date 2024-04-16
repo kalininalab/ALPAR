@@ -313,13 +313,13 @@ def binary_mutation_table_gpa_information_adder(binary_mutation_table, panaroo_o
             for ocome in splitted[3:]:
                 if ocome.strip() != "":
                     try:
-                        binary_mutation_table_gpa_dict[strain_index_dict[cnt]][gene] = 1
+                        binary_mutation_table_gpa_dict[strain_index_dict[cnt]][gene] = "1"
                         cnt += 1
                     except:
                         cnt += 1
                 else:
                     try:
-                        binary_mutation_table_gpa_dict[strain_index_dict[cnt]][gene] = 0
+                        binary_mutation_table_gpa_dict[strain_index_dict[cnt]][gene] = "0"
                         cnt += 1
                     except:
                         cnt += 1

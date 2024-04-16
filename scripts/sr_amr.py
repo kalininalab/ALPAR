@@ -64,6 +64,7 @@ def main():
         '--threads', type=int, help='number of threads to use, default=1', default=1)
     parser_fully_automatix.add_argument(
         '--ram', type=int, help='amount of ram to use in GB, default=4', default=4)
+    parser_fully_automatix.add_argument('--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
     parser_fully_automatix.set_defaults(func=fully_automated_pipeline)
 
     parser_main_pipeline = subparsers.add_parser(
@@ -726,9 +727,14 @@ def gwas_pipeline(args):
 
     # Check if output folder empty
     if os.path.exists(gwas_output) and os.path.isdir(gwas_output):
-        if not args.overwrite:
+        if len(os.listdir(gwas_output)) > 0 and not args.overwrite:
             print("Error: Output folder is not empty.")
             sys.exit(1)
+        else:
+            if args.overwrite:
+                print("Warning: Output folder is not empty. Old files will be deleted.")
+                temp_folder_remover(gwas_output)
+                os.makedirs(gwas_output, exist_ok=True)
     else:
         os.mkdir(gwas_output)
 
@@ -765,8 +771,6 @@ def gwas_pipeline(args):
 
     pyseer_gwas_graph_creator(gwas_output, os.path.join(gwas_output, "graphs"))
 
-    print("Done")
-
     end_time = time.time()
 
     print(time_function(start_time, end_time))
@@ -788,14 +792,25 @@ def prps_pipeline(args):
 
     # Check if output folder empty
     if os.path.exists(prps_output) and os.path.isdir(prps_output):
-        if not args.overwrite:
+        if len(os.listdir(prps_output)) > 0 and not args.overwrite:
             print("Error: Output folder is not empty.")
             sys.exit(1)
+        else:
+            if args.overwrite:
+                print("Warning: Output folder is not empty. Old files will be deleted.")
+                temp_folder_remover(prps_output)
+                os.makedirs(prps_output, exist_ok=True)
     else:
-        os.mkdir(prps_output)
+        os.makedirs(prps_output, exist_ok=True)
 
     if not os.path.exists(prps_temp):
         os.mkdir(prps_temp)
+    
+    else:
+        if args.overwrite:
+            print("Warning: Temp folder is not empty. Old files will be deleted.")
+            temp_folder_remover(prps_temp)
+            os.makedirs(prps_temp, exist_ok=True)
 
     print("Running PRPS...")
 
@@ -832,15 +847,29 @@ def ml_pipeline(args):
 
     # Check if output folder empty
     if os.path.exists(ml_output) and os.path.isdir(ml_output):
-        if not args.overwrite:
+        if len(os.listdir(ml_output)) > 0 and not args.overwrite:
             print("Error: Output folder is not empty.")
             sys.exit(1)
+        else:
+            if args.overwrite:
+                print("Warning: Output folder is not empty. Old files will be deleted.")
+                temp_folder_remover(ml_output)
+                os.makedirs(ml_output, exist_ok=True)
     else:
         os.mkdir(ml_output)
 
-    if not os.path.exists(ml_temp):
-        os.mkdir(ml_temp)
-
+    if os.path.exists(ml_temp) and os.path.isdir(ml_temp):
+        if len(os.listdir(ml_temp)) > 0 and not args.overwrite:
+            print("Error: Temp folder is not empty.")
+            sys.exit(1)
+        else:
+            if args.overwrite:
+                print("Warning: Temp folder is not empty. Old files will be deleted.")
+                temp_folder_remover(ml_temp)
+                os.makedirs(ml_temp, exist_ok=True)
+    else:
+        os.makedirs(ml_temp, exist_ok=True)
+    
     accepted_ml_algorithms = ["rf", "svm", "gb"]
 
     if args.ml_algorithm not in accepted_ml_algorithms:

@@ -15,7 +15,7 @@ def pyseer_genotype_matrix_creator(binary_mutation_table, output_file):
 
     genotype_df = pd.read_csv(binary_mutation_table, sep="\t", index_col=0)
 
-    genotype_df_transposed = genotype_df.transpose()
+    genotype_df_transposed = genotype_df.transpose().astype(str)
 
     genotype_df_transposed.index.name = "Gene"
 

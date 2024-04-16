@@ -18,29 +18,50 @@ def automatix_runner(args):
 
     if args.custom_database != None:
         create_binary_tables_script += f" --custom_database '{args.custom_database}'"
+    
+    if args.keep_temp_files:
+        create_binary_tables_script += " --keep_temp_files"
 
     if args.just_mutations:
         binary_table_threshold_script = f"{current_directory}/sr_amr.py binary_table_threshold -i '{args.output}/binary_mutation_table.tsv' -o '{args.output}'"
+        if args.keep_temp_files:
+            binary_table_threshold_script += " --keep_temp_files"
 
     else:
         binary_table_threshold_script = f"{current_directory}/sr_amr.py binary_table_threshold -i '{args.output}/binary_mutation_table_with_gene_presence_absence.tsv' -o '{args.output}'"
+        if args.keep_temp_files:
+            binary_table_threshold_script += " --keep_temp_files"
 
     panacota_script = f"{current_directory}/sr_amr.py panacota -i '{args.output}/strains.txt' -o '{args.output}' --temp '{args.temp}' --threads {args.threads} --random_names_dict '{args.output}/random_names.txt'"
 
+    if args.keep_temp_files:
+        panacota_script += " --keep_temp_files"
+
     phylogenetic_tree_script = f"{current_directory}/sr_amr.py phylogenetic_tree -i '{args.output}/strains.txt' -o '{args.output}' --temp '{args.temp}' --random_names_dict '{args.output}/random_names.txt'"
+    
+    if args.keep_temp_files:
+        phylogenetic_tree_script += " --keep_temp_files"
 
     if args.just_mutations:
         prps_script = f"{current_directory}/sr_amr.py prps -i '{args.output}/binary_table_threshold/binary_mutation_table_threshold_0.2_percent.tsv' -o '{args.output}' --temp '{args.temp}' --threads {args.threads}"
 
+        if args.keep_temp_files:
+            prps_script += " --keep_temp_files"
+
     else:
         prps_script = f"{current_directory}/sr_amr.py prps -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{args.output}' --temp '{args.temp}' --threads {args.threads}"
+        
+        if args.keep_temp_files:
+            prps_script += " --keep_temp_files"
 
     if args.just_mutations:
         gwas_script = f"{current_directory}/sr_amr.py gwas -i '{args.output}/binary_table_threshold/binary_mutation_table_threshold_0.2_percent.tsv' -o '{args.output}' -p '{args.output}/phenotype_table.tsv'"
-
+        if args.keep_temp_files:
+            gwas_script += " --keep_temp_files"
     else:
         gwas_script = f"{current_directory}/sr_amr.py gwas -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{args.output}' -p '{args.output}/phenotype_table.tsv'"
-
+        if args.keep_temp_files:
+            gwas_script += " --keep_temp_files"
 
     # Run all steps here before ml:
 
