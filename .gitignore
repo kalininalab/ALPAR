@@ -1,8 +1,8 @@
 .vscode
 /example/example_output
 /example_output
-/sr-amr/__pycache__
+/sr_amr/__pycache__
 /example/example_files/.DS_Store
 /test_output
-/sr-amr/sans
+/sr_amr/sans
 /example

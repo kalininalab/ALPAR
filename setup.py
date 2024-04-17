@@ -1,5 +1,5 @@
 from setuptools import setup, find_packages
-from sr-amr.version import __version__
+from sr_amr.version import __version__
 
 with open("README.md", "r") as desc_file:
     long_description = desc_file.read()
@@ -21,8 +21,8 @@ setup(
         "Topic :: Scientific/Engineering :: Bio-Informatics",
     ],
     packages=find_packages(),
-    setup_requires=['setuptools_scm'],
-    include_package_data=True,
+    # setup_requires=['setuptools_scm'],
+    include_package_data=False,
     install_requires=[],
     package_data={},
     python_requires="==3.9.*",

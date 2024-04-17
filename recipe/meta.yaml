@@ -7,7 +7,7 @@ source:
 
 build:
   entry_points:
-    - sr-amr = sr-amr.sr_amr:main
+    - sr-amr = sr_amr.amr:main
   script: python setup.py install
 
 requirements:

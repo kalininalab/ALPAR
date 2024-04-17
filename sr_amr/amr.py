@@ -9,26 +9,26 @@ import contextlib
 import time
 import multiprocessing
 
-from utils import is_tool_installed, temp_folder_remover, time_function
+from sr_amr.utils import is_tool_installed, temp_folder_remover, time_function
 
 try:
-    from panacota import panacota_pre_processor, panacota_post_processor, panacota_pipeline_runner
-    from gwas import pyseer_runner, pyseer_similarity_matrix_creator, pyseer_phenotype_file_creator, pyseer_genotype_matrix_creator, pyseer_post_processor, pyseer_gwas_graph_creator
-    from binary_tables import snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, phenotype_dataframe_creator_post_processor, prokka_create_database, snippy_processed_file_creator
-    from binary_table_threshold import binary_table_threshold_with_percentage
-    from phylogeny_tree import mash_preprocessor, mash_distance_runner
-    from prps import PRPS_runner
-    from ds import datasail_runner, datasail_pre_precessor
-    from ml import rf_auto_ml, svm, rf, svm_cv, prps_ml_preprecessor, gb_auto_ml, gb
-    from full_automatix import automatix_runner
+    from sr_amr.panacota import panacota_pre_processor, panacota_post_processor, panacota_pipeline_runner
+    from sr_amr.gwas import pyseer_runner, pyseer_similarity_matrix_creator, pyseer_phenotype_file_creator, pyseer_genotype_matrix_creator, pyseer_post_processor, pyseer_gwas_graph_creator
+    from sr_amr.binary_tables import snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, phenotype_dataframe_creator_post_processor, prokka_create_database, snippy_processed_file_creator
+    from sr_amr.binary_table_threshold import binary_table_threshold_with_percentage
+    from sr_amr.phylogeny_tree import mash_preprocessor, mash_distance_runner
+    from sr_amr.prps import PRPS_runner
+    from sr_amr.ds import datasail_runner, datasail_pre_precessor
+    from sr_amr.ml import rf_auto_ml, svm, rf, svm_cv, prps_ml_preprecessor, gb_auto_ml, gb
+    from sr_amr.full_automatix import automatix_runner
     isLite = False
     # print("Full version is running.")
 
 except ImportError as e:
     print(e)
-    from binary_tables import snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, phenotype_dataframe_creator_post_processor, prokka_create_database, snippy_processed_file_creator
-    from binary_table_threshold import binary_table_threshold_with_percentage
-    from ml_lite import svm, rf, svm_cv, prps_ml_preprecessor, gb
+    from sr_amr.binary_tables import snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, phenotype_dataframe_creator_post_processor, prokka_create_database, snippy_processed_file_creator
+    from sr_amr.binary_table_threshold import binary_table_threshold_with_percentage
+    from sr_amr.ml_lite import svm, rf, svm_cv, prps_ml_preprecessor, gb
     isLite = True
     # print("Lite version is running.")
 
