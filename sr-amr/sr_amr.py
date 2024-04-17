@@ -1124,10 +1124,11 @@ def binary_table_threshold(args):
 
     print("Creating binary table with threshold...")
 
-    binary_table_threshold_with_percentage(
+    created_output_file = binary_table_threshold_with_percentage(
         args.input, binary_table_threshold_output, threshold_percentage_float)
+    
 
-    print(f"Binary table with threshold {threshold_percentage_float} is created. Can be found in: {binary_table_threshold_output}/binary_mutation_table_threshold_{threshold_percentage_float}_percent.tsv")
+    print(f"Binary table with threshold {threshold_percentage_float} is created. Can be found in: {created_output_file}")
 
     with open(args.input) as infile:
         line = infile.readline()
@@ -1136,7 +1137,7 @@ def binary_table_threshold(args):
             f"Number of mutations in the original binary table: {len(splitted) - 1}")
         original_table_mutations = len(splitted) - 1
 
-    with open(os.path.join(binary_table_threshold_output, f"binary_mutation_table_threshold_{threshold_percentage_float}_percent.tsv")) as infile:
+    with open(created_output_file) as infile:
         line = infile.readline()
         splitted = line.split("\t")
         print(
