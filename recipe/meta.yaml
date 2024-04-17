@@ -1,34 +1,31 @@
 package:
   name: "sr-amr"
-  version: '0.1.1'
+  version: '0.3.1'
 
 source:
   path: ..
 
 build:
   entry_points:
-    - sr-amr = scripts.sr-amr:main
+    - sr-amr = sr_amr.amr:main
   script: python setup.py install
 
 requirements:
   build:
-    - python==3.9
+    - python>=3.9,<3.10
     - setuptools
     - setuptools_scm
     - pip
   run:
     - snippy
-    - prokka
     - panaroo
-    - panacota
     - seaborn
-    - matplotlib
-    - datasail>=0.2.2
+    - datasail>=1.0.0
     - ete3
-    - tqdm
-    - python==3.9
-    - pandas
-    - scikit-learn
+    - python>=3.9,<3.10
+    - auto-sklearn
+    - swig
+    - grakel
 
 about:
   home: https://github.com/kalininalab/SR-AMR
