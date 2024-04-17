@@ -17,7 +17,7 @@ def automatix_runner(args):
     create_binary_tables_script = f"sr-amr create_binary_tables -i '{args.input}' -o '{args.output}' --reference '{args.reference}' --temp '{args.temp}' --threads {args.threads} --ram {args.ram}"
 
     if args.custom_database != None:
-        create_binary_tables_script += f" --custom_database '{args.custom_database}'"
+        create_binary_tables_script += f" --custom_database '{args.custom_database}' WIBI"
     
     if args.keep_temp_files:
         create_binary_tables_script += " --keep_temp_files"
