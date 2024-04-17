@@ -14,7 +14,7 @@ def automatix_runner(args):
     # Create the temporary directory
     os.makedirs(args.temp, exist_ok=True)
     
-    create_binary_tables_script = f"{current_directory}/sr_amr.py create_binary_tables -i '{args.input}' -o '{args.output}' --reference '{args.reference}' --temp '{args.temp}' --threads {args.threads} --ram {args.ram}"
+    create_binary_tables_script = f"sr-amr create_binary_tables -i '{args.input}' -o '{args.output}' --reference '{args.reference}' --temp '{args.temp}' --threads {args.threads} --ram {args.ram}"
 
     if args.custom_database != None:
         create_binary_tables_script += f" --custom_database '{args.custom_database}'"
@@ -23,43 +23,43 @@ def automatix_runner(args):
         create_binary_tables_script += " --keep_temp_files"
 
     if args.just_mutations:
-        binary_table_threshold_script = f"{current_directory}/sr_amr.py binary_table_threshold -i '{args.output}/binary_mutation_table.tsv' -o '{args.output}'"
+        binary_table_threshold_script = f"sr-amr binary_table_threshold -i '{args.output}/binary_mutation_table.tsv' -o '{args.output}'"
         if args.keep_temp_files:
             binary_table_threshold_script += " --keep_temp_files"
 
     else:
-        binary_table_threshold_script = f"{current_directory}/sr_amr.py binary_table_threshold -i '{args.output}/binary_mutation_table_with_gene_presence_absence.tsv' -o '{args.output}'"
+        binary_table_threshold_script = f"sr-amr binary_table_threshold -i '{args.output}/binary_mutation_table_with_gene_presence_absence.tsv' -o '{args.output}'"
         if args.keep_temp_files:
             binary_table_threshold_script += " --keep_temp_files"
 
-    panacota_script = f"{current_directory}/sr_amr.py panacota -i '{args.output}/strains.txt' -o '{args.output}' --temp '{args.temp}' --threads {args.threads} --random_names_dict '{args.output}/random_names.txt'"
+    panacota_script = f"sr-amr panacota -i '{args.output}/strains.txt' -o '{args.output}' --temp '{args.temp}' --threads {args.threads} --random_names_dict '{args.output}/random_names.txt'"
 
     if args.keep_temp_files:
         panacota_script += " --keep_temp_files"
 
-    phylogenetic_tree_script = f"{current_directory}/sr_amr.py phylogenetic_tree -i '{args.output}/strains.txt' -o '{args.output}' --temp '{args.temp}' --random_names_dict '{args.output}/random_names.txt'"
+    phylogenetic_tree_script = f"sr-amr phylogenetic_tree -i '{args.output}/strains.txt' -o '{args.output}' --temp '{args.temp}' --random_names_dict '{args.output}/random_names.txt'"
     
     if args.keep_temp_files:
         phylogenetic_tree_script += " --keep_temp_files"
 
     if args.just_mutations:
-        prps_script = f"{current_directory}/sr_amr.py prps -i '{args.output}/binary_table_threshold/binary_mutation_table_threshold_0.2_percent.tsv' -o '{args.output}' --temp '{args.temp}' --threads {args.threads}"
+        prps_script = f"sr-amr prps -i '{args.output}/binary_table_threshold/binary_mutation_table_threshold_0.2_percent.tsv' -o '{args.output}' --temp '{args.temp}' --threads {args.threads}"
 
         if args.keep_temp_files:
             prps_script += " --keep_temp_files"
 
     else:
-        prps_script = f"{current_directory}/sr_amr.py prps -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{args.output}' --temp '{args.temp}' --threads {args.threads}"
+        prps_script = f"sr-amr prps -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{args.output}' --temp '{args.temp}' --threads {args.threads}"
         
         if args.keep_temp_files:
             prps_script += " --keep_temp_files"
 
     if args.just_mutations:
-        gwas_script = f"{current_directory}/sr_amr.py gwas -i '{args.output}/binary_table_threshold/binary_mutation_table_threshold_0.2_percent.tsv' -o '{args.output}' -p '{args.output}/phenotype_table.tsv'"
+        gwas_script = f"sr-amr gwas -i '{args.output}/binary_table_threshold/binary_mutation_table_threshold_0.2_percent.tsv' -o '{args.output}' -p '{args.output}/phenotype_table.tsv'"
         if args.keep_temp_files:
             gwas_script += " --keep_temp_files"
     else:
-        gwas_script = f"{current_directory}/sr_amr.py gwas -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{args.output}' -p '{args.output}/phenotype_table.tsv'"
+        gwas_script = f"sr-amr gwas -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{args.output}' -p '{args.output}/phenotype_table.tsv'"
         if args.keep_temp_files:
             gwas_script += " --keep_temp_files"
 
@@ -127,11 +127,11 @@ def automatix_runner(args):
         os.makedirs(abiotic_svm_output_path, exist_ok=True)
         os.makedirs(abiotic_gb_output_path, exist_ok=True)
 
-        ml_script_rf = f"{current_directory}/sr_amr.py ml -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{abiotic_rf_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --feature_importance_analysis --prps '{args.output}/prps/prps_score.tsv --parameter_optimization --ml_algorithm 'rf'"
+        ml_script_rf = f"sr-amr ml -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{abiotic_rf_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --feature_importance_analysis --prps '{args.output}/prps/prps_score.tsv --parameter_optimization --ml_algorithm 'rf'"
 
-        ml_script_svm = f"{current_directory}/sr_amr.py ml -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{abiotic_rf_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --feature_importance_analysis --prps '{args.output}/prps/prps_score.tsv --parameter_optimization --ml_algorithm 'svm'"
+        ml_script_svm = f"sr-amr ml -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{abiotic_rf_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --feature_importance_analysis --prps '{args.output}/prps/prps_score.tsv --parameter_optimization --ml_algorithm 'svm'"
 
-        ml_script_gb = f"{current_directory}/sr_amr.py ml -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{abiotic_rf_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --feature_importance_analysis --prps '{args.output}/prps/prps_score.tsv --parameter_optimization --ml_algorithm 'gb'"
+        ml_script_gb = f"sr-amr ml -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{abiotic_rf_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --feature_importance_analysis --prps '{args.output}/prps/prps_score.tsv --parameter_optimization --ml_algorithm 'gb'"
 
         print(f"Running Random Forest for {abiotic}...")
         os.system(ml_script_rf)
