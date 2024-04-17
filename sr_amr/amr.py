@@ -628,6 +628,8 @@ def binary_table_pipeline(args):
             print("Temp folder can be used for re-run panaroo again for gene presence absence information.")
             print("You can remove the temp folder manually. Temp folder path: ", os.path.join(args.temp))
 
+    print(f"Binary tables are created, can be found in {args.output}")
+
     end_time = time.time()
 
     print(time_function(start_time, end_time))
@@ -699,7 +701,7 @@ def panacota_pipeline(args):
         print("Removing temp folder...")
         temp_folder_remover(panacota_temp)
 
-    print("Done")
+    print(f"PanACoTA pipeline is finished, results can be found in the {panacota_output}")
 
     end_time = time.time()
 
@@ -978,7 +980,7 @@ def ml_pipeline(args):
                 datasail_output, "distance_matrix.tsv")
 
             datasail_runner(distance_matrix, datasail_output,
-                            splits=train_test, threads=args.threads)
+                            splits=train_test, cpus=args.threads)
 
             if not args.keep_temp_files:
                 print(f"Removing temp folder {datasail_temp}...")

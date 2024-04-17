@@ -27,6 +27,8 @@ def binary_table_threshold_with_percentage(binary_table, output_folder, threshol
     print(
         f"Number of mutations in the table after dropping: {len(dropped_df.columns[1:])}")
     
+    dropped_df.columns.values[0] = ""
+    
     if f"with_gene_presence_absence" in binary_table:
         dropped_df.to_csv(os.path.join(output_folder, f"binary_mutation_table_with_gene_presence_absence_threshold_{threshold_percentage}_percent.tsv"), sep="\t", index=False)
         return f"{os.path.join(output_folder, f'binary_mutation_table_with_gene_presence_absence_threshold_{threshold_percentage}_percent.tsv')}"

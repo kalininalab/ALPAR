@@ -55,7 +55,8 @@ def datasail_pre_precessor(strains_text_file, temp_folder, random_names_dict, ou
         copied_files = os.listdir(f"{fasta_files_folder}")
 
         for file in copied_files:
-            if file not in snippy_dir:
+            filename_without_ext = os.path.splitext(file)[0]
+            if filename_without_ext not in snippy_dir:
                 the_names_will_be_skipped.append(file)
 
         for file in the_names_will_be_skipped:
