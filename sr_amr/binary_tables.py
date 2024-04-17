@@ -177,6 +177,10 @@ def panaroo_input_creator(random_names_txt, prokka_output_folder, temp_folder, s
 
 def panaroo_runner(panaroo_input_folder, panaroo_output_folder, log_file, cpus):
 
+    # Panaroo fails with more than 30 cpus
+    if cpus >= 32:
+        cpus = 30
+
     run_command = f"panaroo -i {panaroo_input_folder}/*.gff -o {panaroo_output_folder} --clean-mode strict -t {cpus} >> {log_file} 2>&1"
 
     os.system(run_command)
