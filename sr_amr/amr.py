@@ -65,6 +65,8 @@ def main():
     parser_automatix.add_argument(
         '--ram', type=int, help='amount of ram to use in GB, default=4', default=4)
     parser_automatix.add_argument('--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
+    parser_automatix.add_argument('--overwrite', action='store_true',
+                                      help='overwrite the output and temp folder if exists, default=False')
     parser_automatix.set_defaults(func=fully_automated_pipeline)
 
     parser_main_pipeline = subparsers.add_parser(
@@ -1329,6 +1331,20 @@ def phylogenetic_tree_pipeline(args):
 def fully_automated_pipeline(args):
 
     start_time = time.time()
+
+    # Sanity checks
+
+    if os.path.exists(args.input):
+        if len(os.listdir(args.input)) == 0:
+            print("Error: Input folder path is empty.")
+            sys.exit(1)
+    else:
+        print("Error: Input folder path does not exist.")
+        sys.exit(1)
+    
+    if os.path.exists(args.output) and not args.overwrite:
+        print("Error: Output folder is not empty.")
+        sys.exit(1)
 
     automatix_runner(args)
 

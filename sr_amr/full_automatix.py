@@ -1,4 +1,5 @@
 import os
+import sys
 
 def automatix_runner(args):    
 
@@ -62,6 +63,14 @@ def automatix_runner(args):
         gwas_script = f"sr-amr gwas -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{args.output}' -p '{args.output}/phenotype_table.tsv'"
         if args.keep_temp_files:
             gwas_script += " --keep_temp_files"
+    
+    if args.overwrite:
+        create_binary_tables_script += " --overwrite"
+        binary_table_threshold_script += " --overwrite"
+        panacota_script += " --overwrite"
+        phylogenetic_tree_script += " --overwrite"
+        prps_script += " --overwrite"
+        gwas_script += " --overwrite"
 
     # Run all steps here before ml:
 
