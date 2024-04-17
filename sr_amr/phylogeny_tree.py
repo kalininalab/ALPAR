@@ -2,6 +2,7 @@
 
 import os
 import shutil
+import sys
 
 
 def mash_preprocessor(strains_text_file, output_folder, temp_folder, random_names_dict):
@@ -43,9 +44,10 @@ def mash_preprocessor(strains_text_file, output_folder, temp_folder, random_name
         copied_files = os.listdir(f"{fasta_files_folder}")
 
         for file in copied_files:
-            if file not in snippy_dir:
+            filename_without_ext = os.path.splitext(file)[0]
+            if filename_without_ext not in snippy_dir:
                 the_names_will_be_skipped.append(file)
-
+                
         for file in the_names_will_be_skipped:
             os.remove(f"{fasta_files_folder}/{file}")
 

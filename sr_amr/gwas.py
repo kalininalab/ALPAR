@@ -79,10 +79,10 @@ def pyseer_runner(genotype_file_path, phenotype_file_path, similarity_matrix, ou
 
     phenotypes = os.listdir(f"{phenotype_file_path}")
 
-    genotypes = os.listdir(f"{genotype_file_path}")
+    #genotypes = os.listdir(f"{genotype_file_path}")
 
     for phenotype in phenotypes:
-        script_command = f"pyseer --lmm --phenotypes {phenotype_file_path}/{phenotype} --pres {genotypes}/{phenotype[:-6]}.tsv --similarity {similarity_matrix} > {output_file_directory}/{phenotype}.tsv"
+        script_command = f"pyseer --lmm --phenotypes {phenotype_file_path}/{phenotype} --pres {genotype_file_path} --similarity {similarity_matrix} > {output_file_directory}/{phenotype}.tsv"
 
         if not os.path.exists(f"{output_file_directory}"):
             os.mkdir(f"{output_file_directory}")
