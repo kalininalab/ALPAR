@@ -47,25 +47,25 @@ def main():
     subparsers = parser.add_subparsers(
         help='For suggested pipeline, check out our github page: https://github.com/kalininalab/SR-AMR')
     
-    parser_fully_automatix = subparsers.add_parser('fully_automatix', help='run fully automated pipeline')
-    parser_fully_automatix.add_argument(
+    parser_automatix = subparsers.add_parser('automatix', help='run automated pipeline')
+    parser_automatix.add_argument(
         '-i', '--input', type=str, help='input folder path (check folder structure)', required=True)
-    parser_fully_automatix.add_argument(
+    parser_automatix.add_argument(
         '-o', '--output', type=str, help='path of the output folder', required=True)
-    parser_fully_automatix.add_argument(
+    parser_automatix.add_argument(
         '--reference', type=str, help='path of the reference file', required=True)
-    parser_fully_automatix.add_argument('--custom_database', type=str,
+    parser_automatix.add_argument('--custom_database', type=str,
                                       help='creates and uses custom database for prokka, require path of the fasta file, default=None')
-    parser_fully_automatix.add_argument('--just_mutations', action='store_true',
+    parser_automatix.add_argument('--just_mutations', action='store_true',
                                       help='only creates binary mutation table with mutations, without gene presence absence information, default=False')
-    parser_fully_automatix.add_argument(
+    parser_automatix.add_argument(
         '--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
-    parser_fully_automatix.add_argument(
+    parser_automatix.add_argument(
         '--threads', type=int, help='number of threads to use, default=1', default=1)
-    parser_fully_automatix.add_argument(
+    parser_automatix.add_argument(
         '--ram', type=int, help='amount of ram to use in GB, default=4', default=4)
-    parser_fully_automatix.add_argument('--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
-    parser_fully_automatix.set_defaults(func=fully_automated_pipeline)
+    parser_automatix.add_argument('--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
+    parser_automatix.set_defaults(func=fully_automated_pipeline)
 
     parser_main_pipeline = subparsers.add_parser(
         'create_binary_tables', help='from genomic files, create binary mutation table and phenotype table')

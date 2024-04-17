@@ -8,43 +8,41 @@ Pipeline for generating binary matrices suitable for machine learning from genom
 
 ## Installation
 
-Download Single-Reference AMR:
-```bash
-git clone https://github.com/kalininalab/SR-AMR.git
-```
-Enter downloaded folder:
-```bash
-cd SR-AMR
-```
-Create conda environment from provided environment file
-```bash
-conda env create -f SR-AMR_env.yml
-```
-Activate conda environment
-```bash
-conda activate SR-AMR
-```
+Single-Reference AMR is installable from [conda](https://anaconda.org/kalininalab/sr-amr) using [mamba](https://mamba.readthedocs.io/en/latest/installation.html#existing-conda-install>):
+
+To install it into the new environment:
+
+`````shell
+mamba create -n sr_amr -c conda-forge -c kalininalab -c bioconda -c etetoolkit sr-amr
+conda activate sr_amr
+pip install panacota
+`````
+
+Or to install it into the already existing environment:
+
+`````shell
+mamba install -c conda-forge -c kalininalab -c bioconda -c etetoolkit sr-amr
+pip install panacota
+`````
 
 ## Lite Version
 
+Single-Reference AMR Lite is installable from [conda](https://anaconda.org/kalininalab/sr-amr-lite) using [mamba](https://mamba.readthedocs.io/en/latest/installation.html#existing-conda-install>):
+
 Lite version of the tool, missing; DataSAIL (Split Against Information Leakage), Pyseer (GWAS), PanACoTA (Alignment-Based Phylogenetic Tree Creation), MashTree (Alignment-Free Phylogenetic Tree Creation), PRPS (Phylogeny Related Parallelism Score), AutoSklearn (Machine Learning Parameter Optimization)
 
-Download Single-Reference AMR:
-```bash
-git clone https://github.com/kalininalab/SR-AMR.git
-```
-Enter downloaded folder:
-```bash
-cd SR-AMR
-```
-Create conda environment from provided environment file
-```bash
-conda env create -f SR-AMR-Lite.yml
-```
-Activate conda environment
-```bash
-conda activate SR-AMR-Lite
-```
+To install it into the new environment:
+
+`````shell
+mamba create -n sr_amr-lite -c conda-forge -c kalininalab -c bioconda -c etetoolkit sr-amr-lite
+conda activate sr_amr-lite
+`````
+
+Or to install it into the already existing environment:
+
+`````shell
+mamba install -c conda-forge -c kalininalab -c bioconda -c etetoolkit sr-amr-lite
+`````
 
 ## Example Files
 
@@ -52,73 +50,112 @@ Example files can be downloaded from:
 
 https://github.com/kalininalab/SR-AMR-Example
 
+## Automatic Pipeline
+
+From genomic files, creates binary mutation and phenotype tables, applies thresholds, creates phylogenetic tree, conducts GWAS analysis, calculates PRPS score and trains machine learning models with conducting feature importance analysis and splitting data aginst information leakage with [DataSAIL](https://github.com/kalininalab/DataSAIL) 
+
+- Input, `-i`: Path of folder that have structure: input_folder -> antibiotic -> [Resistant, Susceptible]
+
+    `````shell
+    📦input_folder
+    ┣ 📂antibiotic1
+    ┃ ┣ 📂Resistant
+    ┃ ┃ ┣ 📜fasta1.fna
+    ┃ ┃ ┗ 📜fasta2.fna
+    ┃ ┃ ┗ ...
+    ┃ ┗ 📂Susceptible
+    ┃ ┃ ┣ 📜fasta3.fna
+    ┃ ┃ ┗ 📜fasta4.fna
+    ┃ ┃ ┗ ...
+    ┗ 📂antibiotic2
+    ┃ ┣ 📂Resistant
+    ┃ ┃ ┣ 📜fasta2.fna
+    ┃ ┃ ┗ 📜fasta5.fna
+    ┃ ┃ ┗ ...
+    ┃ ┗ 📂Susceptible
+    ┃ ┃ ┣ 📜fasta2.fna
+    ┃ ┃ ┗ 📜fasta3.fna
+    ┃ ┃ ┗ ...
+    ┗ 📂...
+    `````
+
+- Output, `-o`: Output folder path, where the output will be stored. If path exist, `--overwrite` option can be used to overwrite existing output.
+
+- Reference, `--reference`: Reference file path, accepted file formats are: `.gbk .gbff`
+
+- Custom database (Optional), `--custom_database`: Fasta file path for protein database creation, can be downloaded from [UniProt](https://www.uniprot.org/) accepted file formats are: `.fasta`
+
+Basic usage:
+`````shell
+sr-amr automatix -i example/example_files/ -o example/example_output/ --reference example/reference.gbff
+`````
+
 ## Create Binary Tables
 
 From genomic files, creates binary mutation and phenotype tables
 
 - Input, `-i`: Path of file that contains path of genomic fasta files per line or path of folder that have structure: input_folder -> antibiotic -> [Resistant, Susceptible]
 
-    ```
-    input_folder
-    └───antibiotic1
-    │   └───Resistant
-    │   │   │   fasta1.fna
-    │   │   │   fasta2.fna
-    │   │   │   ...
-    │   │
-    │   └───Susceptible
-    │       │   fasta3.fna
-    │       │   fasta4.fna
-    │       │   ...
-    │   
-    └───antibiotic2
-    │   └───Resistant
-    │   │   │   fasta5.fna
-    │   │   │   fasta6.fna
-    │   │   │   ...
-    │   │
-    │   └───Susceptible
-    │       │   fasta2.fna
-    │       │   fasta1.fna
-    │       │   ...
-    ```
+    `````shell
+    📦input_folder
+    ┣ 📂antibiotic1
+    ┃ ┣ 📂Resistant
+    ┃ ┃ ┣ 📜fasta1.fna
+    ┃ ┃ ┗ 📜fasta2.fna
+    ┃ ┃ ┗ ...
+    ┃ ┗ 📂Susceptible
+    ┃ ┃ ┣ 📜fasta3.fna
+    ┃ ┃ ┗ 📜fasta4.fna
+    ┃ ┃ ┗ ...
+    ┗ 📂antibiotic2
+    ┃ ┣ 📂Resistant
+    ┃ ┃ ┣ 📜fasta2.fna
+    ┃ ┃ ┗ 📜fasta5.fna
+    ┃ ┃ ┗ ...
+    ┃ ┗ 📂Susceptible
+    ┃ ┃ ┣ 📜fasta2.fna
+    ┃ ┃ ┗ 📜fasta3.fna
+    ┃ ┃ ┗ ...
+    ┗ 📂...
+    `````
 
 - Output, `-o`: Output folder path, where the output will be stored. If path exist, `--overwrite` option can be used to overwrite existing output.
 
 - Reference, `--reference`: Reference file path, accepted file formats are: `.gbk .gbff`
 
+- Custom database (Optional), `--custom_database`: Fasta file path for protein database creation, can be downloaded from [UniProt](https://www.uniprot.org/) accepted file formats are: `.fasta`
+
 - Creation of phenotype table (Optional):
     - `--create_phenotype_from_folder` should be used
-    - Genomes_folder_path should have structure: input_folder -> antibiotic -> [Resistant, Susceptible] -> genomic fasta files
-    ```
-    input_folder
-    └───antibiotic1
-    │   └───Resistant
-    │   │   │   fasta1.fna
-    │   │   │   fasta2.fna
-    │   │   │   ...
-    │   │
-    │   └───Susceptible
-    │       │   fasta3.fna
-    │       │   fasta4.fna
-    │       │   ...
-    │   
-    └───antibiotic2
-    │   └───Resistant
-    │   │   │   fasta5.fna
-    │   │   │   fasta6.fna
-    │   │   │   ...
-    │   │
-    │   └───Susceptible
-    │       │   fasta2.fna
-    │       │   fasta1.fna
-    │       │   ...  
-    ```
+    - Genomes_folder_path should have a structure: input_folder -> antibiotic -> [Resistant, Susceptible] -> genomic fasta files
+
+    `````shell
+    📦input_folder
+    ┣ 📂antibiotic1
+    ┃ ┣ 📂Resistant
+    ┃ ┃ ┣ 📜fasta1.fna
+    ┃ ┃ ┗ 📜fasta2.fna
+    ┃ ┃ ┗ ...
+    ┃ ┗ 📂Susceptible
+    ┃ ┃ ┣ 📜fasta3.fna
+    ┃ ┃ ┗ 📜fasta4.fna
+    ┃ ┃ ┗ ...
+    ┗ 📂antibiotic2
+    ┃ ┣ 📂Resistant
+    ┃ ┃ ┣ 📜fasta2.fna
+    ┃ ┃ ┗ 📜fasta5.fna
+    ┃ ┃ ┗ ...
+    ┃ ┗ 📂Susceptible
+    ┃ ┃ ┣ 📜fasta2.fna
+    ┃ ┃ ┗ 📜fasta3.fna
+    ┃ ┃ ┗ ...
+    ┗ 📂...
+    `````
 
 Basic usage:
-```bash
-./sr-amr/sr_amr.py create_binary_tables -i example/example_files/ -o example/example_output/ --reference example/reference.gbff
-```
+`````shell
+sr-amr create_binary_tables -i example/example_files/ -o example/example_output/ --reference example/reference.gbff
+`````
 
 ## Binary Table Threshold
 
@@ -131,9 +168,9 @@ Applies threshold to binary mutation table, and drops columns that has less than
 - Threshold percentage, `--threshold_percentage`: Threshold percentage value to be used to drop columns. If column sum is less than this value, columns will be deleted from table
 
 Basic usage:
-```bash
-./sr-amr/sr_amr.py binary_tables_threshold -i example/example_output/binary_mutation_table.tsv -o example/example_output/ 
-```
+`````shell
+sr-amr binary_tables_threshold -i example/example_output/binary_mutation_table.tsv -o example/example_output/ 
+`````
 
 ## Phylogenetic Tree
 
@@ -146,9 +183,9 @@ Runs Phylogeny pipeline to create phylogenetic tree. (Alignment free)
 - Random names dictionary path, `--random_names_dict`: Random names text file path. If not provided, strain's original names will be used for phylogenetic tree
 
 Basic usage:
-```bash
-./sr-amr/sr_amr.py phylogenetic_tree -i example/example_output/strains.txt -o example/example_output/ --random_names_dict example/example_output/random_names.txt 
-```
+`````shell
+sr-amr phylogenetic_tree -i example/example_output/strains.txt -o example/example_output/ --random_names_dict example/example_output/random_names.txt 
+`````
 
 ## Panacota
 
@@ -161,9 +198,9 @@ Runs PanACoTA pipeline to create phylogenetic tree. (Alignment based)
 - Random names dictionary path, `--random_names_dict`: Random names text file path. If not provided, strain's original names will be used for phylogenetic tree
 
 Basic usage:
-```bash
-./sr-amr/sr_amr.py panacota -i example/example_output/strains.txt -o example/example_output/
-```
+`````shell
+sr-amr panacota -i example/example_output/strains.txt -o example/example_output/
+`````
 
 ## GWAS
 
@@ -178,9 +215,9 @@ Runs GWAS analysis to detect important mutations in the data.
 - Output, `-o`: Output folder path, where the output will be stored. If path exist, `--overwrite` option can be used to overwrite existing output.
 
 Basic usage:
-```bash
-./sr-amr/sr_amr.py gwas -i example/example_output/binary_mutation_table_with_gene_presence_absence.tsv -p example/example_output/phenotype_table.tsv -t example/example_output/phylogeny/phylogenetic_tree.tree -o example_output/
-```
+`````shell
+sr-amr gwas -i example/example_output/binary_mutation_table_with_gene_presence_absence.tsv -p example/example_output/phenotype_table.tsv -t example/example_output/phylogeny/phylogenetic_tree.tree -o example_output/
+`````
 
 ## PRPS
 
@@ -193,24 +230,10 @@ Runs PRPS (Phylogeny-Related Parallelism Score) to detect the mutations are more
 - Output, `-o`: Output folder path, where the output will be stored. If path exist, `--overwrite` option can be used to overwrite existing output.
 
 Basic usage:
-```bash
-./sr-amr/sr_amr.py prps -i example/example_output/binary_mutation_table.tsv -t example/example_output/phylogeny/phylogenetic_tree.tree -o example_output/
-```
+`````shell
+sr-amr prps -i example/example_output/binary_mutation_table.tsv -t example/example_output/phylogeny/phylogenetic_tree.tree -o example_output/
+`````
 
-## DataSAIL
-
-
-
-- Input, `-i`:  Binary mutation table path that is created via create_binary_tables command, can be found in create_binary_tables output path as `binary_mutation_table.tsv` or if threshold applied, can be found in binary_table_threshold output path as `binary_mutation_table_threshold_*_percent.tsv`
-
-- Tree, `-t` : Phylogenetic tree path, can be found in panacota output path as `phylogenetic_tree.newick` or phylogeny output path as `phylogenetic_tree.tree`
-
-- Output, `-o`: Output folder path, where the output will be stored. If path exist, `--overwrite` option can be used to overwrite existing output.
-
-Basic usage:
-```bash
-./sr-amr/sr_amr.py datasail -i example/example_output/binary_mutation_table.tsv -t example/example_output/phylogeny/phylogenetic_tree.tree -o example_output/
-```
 
 ## ML
 
@@ -235,11 +258,11 @@ Available Classification algorithms: Random Forest, Support Vector Machine and G
     - Datasail, `--sail`: Splits data into training and test sets against information leakage to train better models. Requires text file that contains path of each strain per line. It can be found in create_binary_tables output path as `strains.txt` 
 
     More optional arguments can be found in help page: 
-    ```bash
+    `````shell
     python sr-amr/sr_amr.py ml -h
-    ```
+    `````
 
 Basic usage:
-```bash
-./sr-amr/sr_amr.py ml -i example/example_output/binary_mutation_table.tsv -p example/example_output/phenotype_table.tsv -o example_output/ -a amikacin
-```
+`````shell
+sr-amr ml -i example/example_output/binary_mutation_table.tsv -p example/example_output/phenotype_table.tsv -o example_output/ -a amikacin
+`````
