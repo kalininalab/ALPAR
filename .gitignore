@@ -7,3 +7,5 @@
 /sr_amr/sans
 /example
 /input_folder
+.pytest_cache
+.__pycache__

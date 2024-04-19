@@ -468,10 +468,12 @@ def binary_table_pipeline(args):
                     for strain in resistant_strains:
                         # Make sure path is same in both Windows and Linux
                         strain_path = os.path.join(resistant_path, strain)
+                        strain_path = os.path.abspath(strain_path)
                         strain_path = strain_path.replace("\\", "/")
                         outfile.write(f"{strain_path}\n")
                     for strain in susceptible_strains:
                         strain_path = os.path.join(susceptible_path, strain)
+                        strain_path = os.path.abspath(strain_path)
                         strain_path = strain_path.replace("\\", "/")
                         outfile.write(f"{strain_path}\n")
 
@@ -824,7 +826,7 @@ def prps_pipeline(args):
         print("Removing temp folder...")
         temp_folder_remover(prps_temp)
 
-    print("Done")
+    print(f"PRPS is finished, results can be found in the {os.path.abspath(prps_output)}")
 
     end_time = time.time()
 
@@ -1086,7 +1088,7 @@ def ml_pipeline(args):
         print(f"Removing temp folder {ml_temp}...")
         temp_folder_remover(ml_temp)
 
-    print("Done")
+    print(f"ML pipeline is finished, results can be found in the {os.path.abspath(ml_output)}")
 
     end_time = time.time()
 
@@ -1151,7 +1153,7 @@ def binary_table_threshold(args):
     print(
     f"Percentage of mutations kept: {thresholded_table_mutations/original_table_mutations * 100:.2f}%")
 
-    print("Done")
+    print(f"Thresholded binary table is created. Can be found in: {os.path.abspath(created_output_file)}")
 
     end_time = time.time()
 
@@ -1263,7 +1265,8 @@ def phenotype_table_pipeline(args):
     phenotype_dataframe_creator(args.input, os.path.join(
         phenotype_output, "phenotype_table.tsv"), random_names)
 
-    print("Done")
+    print("Phenotype dataframe is created. Can be found in: ", os.path.abspath(
+        os.path.join(phenotype_output, "phenotype_table.tsv")))
 
     end_time = time.time()
 
@@ -1318,7 +1321,7 @@ def phylogenetic_tree_pipeline(args):
 
     mash_distance_runner(mash_output, mash_temp)
 
-    print("Done")
+    print("Phylogenetic tree pipeline is finished, results can be found in the ", mash_output)
 
     if not args.keep_temp_files:
         print("Removing temp folder...")

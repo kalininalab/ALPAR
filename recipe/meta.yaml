@@ -26,6 +26,9 @@ requirements:
     - auto-sklearn
     - swig
     - grakel
+    - mashtree
+    - iqtree
+    - pyseer
 
 about:
   home: https://github.com/kalininalab/SR-AMR
