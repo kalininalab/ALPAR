@@ -48,7 +48,7 @@ mamba install -c conda-forge -c kalininalab -c bioconda -c etetoolkit sr-amr-lit
 
 Example files can be downloaded from:
 
-https://github.com/kalininalab/SR-AMR-Example
+[Example files](https://github.com/kalininalab/SR-AMR-Example/blob/main/example.zip)
 
 ## Automatic Pipeline
 
