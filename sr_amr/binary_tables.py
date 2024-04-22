@@ -334,16 +334,6 @@ def binary_mutation_table_gpa_information_adder(binary_mutation_table, panaroo_o
     binary_mutation_table_gpa_df.to_csv(
         binary_mutation_table_with_gpa_information, sep="\t")
     
-    with open(binary_mutation_table_with_gpa_information, 'r') as file:
-        lines = file.readlines()
-
-    with open(binary_mutation_table_with_gpa_information, 'w') as file:
-        file.write(lines[0])
-        for line in lines[1:]:
-            line = re.sub(r'\b0.0\b', '0', line)
-            line = re.sub(r'\b1.0\b', '1', line)
-            file.write(line)
-            
     
 def phenotype_dataframe_creator(data_folder_path, output_file, random_names_dict):
     list_of_antibiotics = os.listdir(data_folder_path)
