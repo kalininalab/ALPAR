@@ -11,17 +11,17 @@ def automatix_runner(args):
 
     if args.temp == None:
         args.temp = f"{args.output}/temp"
-
-    # Create the temporary directory
-    os.makedirs(args.temp, exist_ok=True)
     
-    create_binary_tables_script = f"sr-amr create_binary_tables -i '{args.input}' -o '{args.output}' --reference '{args.reference}' --temp '{args.temp}' --threads {args.threads} --ram {args.ram}"
+    create_binary_tables_script = f"sr-amr create_binary_tables -i '{args.input}' -o '{args.output}' --reference '{args.reference}' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --create_phenotype_from_folder {args.input}"
 
     if args.custom_database != None:
         create_binary_tables_script += f" --custom_database '{args.custom_database}' WIBI"
     
     if args.keep_temp_files:
         create_binary_tables_script += " --keep_temp_files"
+
+    if args.just_mutations:
+        create_binary_tables_script += " --no_gene_presence_absence"
 
     if args.just_mutations:
         binary_table_threshold_script = f"sr-amr binary_table_threshold -i '{args.output}/binary_mutation_table.tsv' -o '{args.output}'"
@@ -57,13 +57,9 @@ def automatix_runner(args):
 
     if args.just_mutations:
         gwas_script = f"sr-amr gwas -i '{args.output}/binary_table_threshold/binary_mutation_table_threshold_0.2_percent.tsv' -o '{args.output}' -p '{args.output}/phenotype_table.tsv'"
-        if args.keep_temp_files:
-            gwas_script += " --keep_temp_files"
     else:
         gwas_script = f"sr-amr gwas -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{args.output}' -p '{args.output}/phenotype_table.tsv'"
-        if args.keep_temp_files:
-            gwas_script += " --keep_temp_files"
-    
+
     if args.overwrite:
         create_binary_tables_script += " --overwrite"
         binary_table_threshold_script += " --overwrite"
@@ -76,18 +72,60 @@ def automatix_runner(args):
 
     print("Creating binary tables...")
     os.system(create_binary_tables_script)
-    print("Creating binary tables done!")
+
+
+    if args.just_mutations:
+        files_to_be_checked_list = ["binary_mutation_table.tsv"]
+    
+    else:
+        files_to_be_checked_list = ["binary_mutation_table.tsv", "binary_mutation_table_with_gene_presence_absence.tsv"]
+
+    if not files_to_be_checked(files_to_be_checked_list, args.output):
+        print("Error in creating binary tables!")
+        print("Please check the logs and try again!")
+        sys.exit(1)
+
+    print("Creating binary tables done!") 
 
     print("Thresholding binary tables...")
     os.system(binary_table_threshold_script)
+    
+
+    if args.just_mutations:
+        files_to_be_checked_list = ["binary_mutation_table_threshold_0.2_percent.tsv"]
+    
+    else:
+        files_to_be_checked_list = ["binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv"]
+
+    if not files_to_be_checked(files_to_be_checked_list, os.path.join(args.output, "binary_table_threshold")):
+        print("Error in thresholding binary tables!")
+        print("Please check the logs and try again!")
+        sys.exit(1)
+
     print("Thresholding binary tables done!")
 
     print("Running PanACoTA...")
     os.system(panacota_script)
-    print("PanACoTA done!")
+
+    files_to_be_checked_list = ["phylogenetic_tree.newick"]
+
+    if not files_to_be_checked(files_to_be_checked_list, os.path.join(args.output, "panacota")):
+        print("Phylogenetic tree has not been created by PanACoTA!")
+        print("Phylogenetic tree will be created with MashTree...")
+    else:
+        print("PanACoTA done!")
 
     print("Running phylogenetic tree...")
+
     os.system(phylogenetic_tree_script)
+
+    files_to_be_checked_list = ["phylogenetic_tree.tree"]
+
+    if not files_to_be_checked(files_to_be_checked_list, os.path.join(args.output, "phylogeny")):
+        print("Error in creating phylogenetic tree!")
+        print("Please check the logs and try again!")
+        sys.exit(1)
+
     print("Phylogenetic tree done!")
 
     if os.path.exists(os.path.join(args.output, "panacota", "phylogenetic_tree.newick")):
@@ -125,7 +163,7 @@ def automatix_runner(args):
         splitted = header_line.split("\t")
         for i in splitted[1:]:
             if not i.startswith("."):
-                antibiotics_list.append(i)
+                antibiotics_list.append(i.strip())
 
     for abiotic in antibiotics_list:
         abiotic_rf_output_path = os.path.join(rf_output_path, f"{abiotic}")
@@ -136,11 +174,11 @@ def automatix_runner(args):
         os.makedirs(abiotic_svm_output_path, exist_ok=True)
         os.makedirs(abiotic_gb_output_path, exist_ok=True)
 
-        ml_script_rf = f"sr-amr ml -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{abiotic_rf_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --feature_importance_analysis --prps '{args.output}/prps/prps_score.tsv --parameter_optimization --ml_algorithm 'rf'"
+        ml_script_rf = f"sr-amr ml -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{abiotic_rf_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --feature_importance_analysis --prps '{args.output}/prps/prps_score.tsv' --parameter_optimization --ml_algorithm 'rf'"
 
-        ml_script_svm = f"sr-amr ml -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{abiotic_rf_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --feature_importance_analysis --prps '{args.output}/prps/prps_score.tsv --parameter_optimization --ml_algorithm 'svm'"
+        ml_script_svm = f"sr-amr ml -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{abiotic_rf_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --feature_importance_analysis --prps '{args.output}/prps/prps_score.tsv' --parameter_optimization --ml_algorithm 'svm'"
 
-        ml_script_gb = f"sr-amr ml -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{abiotic_rf_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --feature_importance_analysis --prps '{args.output}/prps/prps_score.tsv --parameter_optimization --ml_algorithm 'gb'"
+        ml_script_gb = f"sr-amr ml -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{abiotic_rf_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --feature_importance_analysis --prps '{args.output}/prps/prps_score.tsv' --parameter_optimization --ml_algorithm 'gb'"
 
         print(f"Running Random Forest for {abiotic}...")
         os.system(ml_script_rf)
@@ -152,3 +190,10 @@ def automatix_runner(args):
         os.system(ml_script_gb)
 
     print("Full automatix pipeline is done!")
+
+
+def files_to_be_checked(files_list, output_folder):
+    for file in files_list:
+        if not os.path.exists(os.path.join(output_folder, file)):
+            return False
+    return True

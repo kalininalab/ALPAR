@@ -14,7 +14,7 @@ from sr_amr.utils import is_tool_installed, temp_folder_remover, time_function
 try:
     from sr_amr.panacota import panacota_pre_processor, panacota_post_processor, panacota_pipeline_runner
     from sr_amr.gwas import pyseer_runner, pyseer_similarity_matrix_creator, pyseer_phenotype_file_creator, pyseer_genotype_matrix_creator, pyseer_post_processor, pyseer_gwas_graph_creator
-    from sr_amr.binary_tables import snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, phenotype_dataframe_creator_post_processor, prokka_create_database, snippy_processed_file_creator
+    from sr_amr.binary_tables import snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, phenotype_dataframe_creator_post_processor, prokka_create_database, snippy_processed_file_creator, annotation_function
     from sr_amr.binary_table_threshold import binary_table_threshold_with_percentage
     from sr_amr.phylogeny_tree import mash_preprocessor, mash_distance_runner
     from sr_amr.prps import PRPS_runner
@@ -26,7 +26,7 @@ try:
 
 except ImportError as e:
     print(e)
-    from sr_amr.binary_tables import snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, phenotype_dataframe_creator_post_processor, prokka_create_database, snippy_processed_file_creator
+    from sr_amr.binary_tables import snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, phenotype_dataframe_creator_post_processor, prokka_create_database, snippy_processed_file_creator, annotation_function
     from sr_amr.binary_table_threshold import binary_table_threshold_with_percentage
     from sr_amr.ml_lite import svm, rf, svm_cv, prps_ml_preprecessor, gb
     isLite = True
@@ -271,6 +271,13 @@ def main():
 
 
 def run_snippy_and_prokka(strain, random_names, snippy_output, prokka_output, args, snippy_flag, prokka_flag, custom_db=None):
+    if args.ram / args.threads < 8:
+        print("Warning: Not enough ram for the processes. Minimum 8 GB of ram per thread is recommended.")
+    
+    # Snippy creates issue with high memory usage, so it is limited to 100 GB
+    if args.ram > 100:
+        args.ram = 100
+
     if snippy_flag:
         snippy_runner(strain, random_names[os.path.splitext(strain.split("/")[-1].strip())[
                       0]], snippy_output, args.reference, f"{args.temp}/snippy_log.txt", 1, args.ram)
@@ -316,6 +323,21 @@ def binary_table_pipeline(args):
     else:
         if pathlib.Path(args.reference).suffix not in accepted_reference_extensions:
             print("Error: Reference file extension is not accepted.")
+            print("Accepted extensions: .gbk, .gbff")
+            sys.exit(1)
+    
+    if args.custom_database:
+        if len(args.custom_database) != 2:
+            print("Error: Custom database option should have two arguments.")
+            sys.exit(1)
+
+        if not os.path.exists(args.custom_database[0]):
+            print("Error: Custom database fasta file does not exist.")
+            sys.exit(1)
+        
+        if pathlib.Path(args.custom_database[0]).suffix != ".fasta":
+            print("Error: Custom database file extension is not accepted.")
+            print("Accepted extension: .fasta")
             sys.exit(1)
 
     # Check if output folder empty
@@ -347,6 +369,13 @@ def binary_table_pipeline(args):
 
     if args.temp is None:
         args.temp = os.path.join(args.output, "temp")
+        if not os.path.exists(args.temp):
+            os.mkdir(args.temp)
+            temp_folder_created = True
+        else:
+            print("Warning: Temp folder already exists. Will be used for the run.")
+    
+    else:
         if not os.path.exists(args.temp):
             os.mkdir(args.temp)
             temp_folder_created = True
@@ -569,6 +598,15 @@ def binary_table_pipeline(args):
         snippy_processed_file_creator(snippy_output, os.path.join(
             args.output, "snippy_processed_strains.txt"))
         
+        print("Creating binary mutation table...")
+            # Create the binary table
+        binary_table_creator(snippy_output, os.path.join(
+            args.output, "binary_mutation_table.tsv"), args.threads, strains_to_be_processed)
+        
+        print("Creating annotation tables...")
+        annotation_function(os.path.join(
+            args.output, "binary_mutation_table.tsv"), args.output, args.reference)
+        
         with open(os.path.join(args.temp, "status.txt"), "w") as outfile:
             outfile.write(f"3")
 
@@ -585,11 +623,6 @@ def binary_table_pipeline(args):
             # Run panaroo
             panaroo_runner(os.path.join(args.temp, "panaroo"), panaroo_output, os.path.join(
                 args.temp, "panaroo_log.txt"), args.threads)
-
-            print("Creating binary mutation table...")
-            # Create the binary table
-            binary_table_creator(snippy_output, os.path.join(
-                args.output, "binary_mutation_table.tsv"), args.threads, strains_to_be_processed)
 
             print("Adding gene presence absence information to the binary table...")
             # Add gene presence absence information to the binary table
@@ -1345,9 +1378,11 @@ def fully_automated_pipeline(args):
         print("Error: Input folder path does not exist.")
         sys.exit(1)
     
-    if os.path.exists(args.output) and not args.overwrite:
-        print("Error: Output folder is not empty.")
-        sys.exit(1)
+    if os.path.exists(args.output) and os.path.isdir(args.output):
+        if len(os.listdir(args.output)) > 0 and not args.overwrite:
+            print("Error: Output folder is not empty.")
+            print("Please provide an empty output folder or use the --overwrite option.")
+            sys.exit(1)
 
     automatix_runner(args)
 
