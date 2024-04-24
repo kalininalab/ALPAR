@@ -14,21 +14,23 @@ from sr_amr.utils import is_tool_installed, temp_folder_remover, time_function
 try:
     from sr_amr.panacota import panacota_pre_processor, panacota_post_processor, panacota_pipeline_runner
     from sr_amr.gwas import pyseer_runner, pyseer_similarity_matrix_creator, pyseer_phenotype_file_creator, pyseer_genotype_matrix_creator, pyseer_post_processor, pyseer_gwas_graph_creator
-    from sr_amr.binary_tables import snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, phenotype_dataframe_creator_post_processor, prokka_create_database, snippy_processed_file_creator, annotation_function
+    from sr_amr.binary_tables import snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, phenotype_dataframe_creator_post_processor, prokka_create_database, snippy_processed_file_creator, annotation_file_from_snippy
     from sr_amr.binary_table_threshold import binary_table_threshold_with_percentage
     from sr_amr.phylogeny_tree import mash_preprocessor, mash_distance_runner
     from sr_amr.prps import PRPS_runner
     from sr_amr.ds import datasail_runner, datasail_pre_precessor
     from sr_amr.ml import rf_auto_ml, svm, rf, svm_cv, prps_ml_preprecessor, gb_auto_ml, gb
     from sr_amr.full_automatix import automatix_runner
+    from sr_amr.ml_common_files import fia_file_annotation
     isLite = False
     # print("Full version is running.")
 
 except ImportError as e:
     print(e)
-    from sr_amr.binary_tables import snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, phenotype_dataframe_creator_post_processor, prokka_create_database, snippy_processed_file_creator, annotation_function
+    from sr_amr.binary_tables import snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, phenotype_dataframe_creator_post_processor, prokka_create_database, snippy_processed_file_creator, annotation_file_from_snippy
     from sr_amr.binary_table_threshold import binary_table_threshold_with_percentage
     from sr_amr.ml_lite import svm, rf, svm_cv, prps_ml_preprecessor, gb
+    from sr_amr.ml_common_files import fia_file_annotation
     isLite = True
     # print("Lite version is running.")
 
@@ -604,9 +606,9 @@ def binary_table_pipeline(args):
             args.output, "binary_mutation_table.tsv"), args.threads, strains_to_be_processed)
         
         print("Creating annotation tables...")
-        annotation_function(os.path.join(
-            args.output, "binary_mutation_table.tsv"), args.output, args.reference)
         
+        annotation_file_from_snippy(snippy_output, args.output)
+
         with open(os.path.join(args.temp, "status.txt"), "w") as outfile:
             outfile.write(f"3")
 
@@ -1077,13 +1079,13 @@ def ml_pipeline(args):
 
             with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
-                    rf_auto_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, args.optimization_time_limit,
+                    fia_file = rf_auto_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, args.optimization_time_limit,
                                args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, train=train_strains, test=test_strains, same_setup_run_count=same_setup_run_count)
 
         else:
             with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
-                    rf(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy,
+                    fia_file = rf(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy,
                        custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains)
 
     elif args.ml_algorithm == "svm":
@@ -1105,12 +1107,12 @@ def ml_pipeline(args):
         if args.resampling_strategy == "cv":
             with open(os.path.join(ml_output, f"{ml_log_name}_log_file.txt"), "w") as log_file:
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
-                    svm_cv(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.test_train_split, ml_output, args.threads,
+                    fia_file = svm_cv(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.test_train_split, ml_output, args.threads,
                            args.feature_importance_analysis, args.save_model, resampling_strategy="cv", fia_repeats=5, optimization=False, train=train_strains, test=test_strains)
         elif args.resampling_strategy == "holdout":
             with open(os.path.join(ml_output, f"{ml_log_name}_log_file.txt"), "w") as log_file:
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
-                    svm(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.test_train_split, ml_output, args.threads,
+                    fia_file = svm(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.test_train_split, ml_output, args.threads,
                         args.feature_importance_analysis, args.save_model, resampling_strategy="holdout", fia_repeats=5, optimization=False, train=train_strains, test=test_strains)
 
     elif args.ml_algorithm == "gb":
@@ -1148,13 +1150,21 @@ def ml_pipeline(args):
                     same_setup_run_count += 1
             with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
-                    gb_auto_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, args.optimization_time_limit,
+                    fia_file = gb_auto_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, args.optimization_time_limit,
                                args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, train=train_strains, test=test_strains)
         else:
             with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
-                    gb(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy,
+                    fia_file = gb(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy,
                        custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains)
+
+    if args.feature_importance_analysis:
+        if os.path.exists(fia_file):
+            print(f"Annotating feature importance analysis file {fia_file}...")
+            fia_file_annotation(fia_file)
+            print(
+                f"Annotated feature importance analysis file is created, can be found in {fia_file}")
+            
 
     if not args.keep_temp_files:
         print(f"Removing temp folder {ml_temp}...")

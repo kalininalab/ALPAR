@@ -166,6 +166,12 @@ def rf(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split
         model_file = os.path.join(output_folder, f"{output_file_template}_model.sav")
         pickle.dump(rf_cls, open(model_file, 'wb'))
 
+    if feature_importance_analysis:
+            
+        fia_file_path = os.path.join(output_folder, f"{output_file_template}_FIA")
+
+        return fia_file_path
+
 
 def svm(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_size, output_folder, n_jobs, feature_importance_analysis = False, save_model = False, resampling_strategy="holdout", fia_repeats=5, optimization=False, kernel="linear", train=[], test=[]):
 
@@ -262,6 +268,13 @@ def svm(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_si
 
         model_file = os.path.join(output_folder, f"{output_file_template}_model.sav")
         pickle.dump(best_model, open(model_file, 'wb'))
+    
+    if feature_importance_analysis:
+            
+        fia_file_path = os.path.join(output_folder, f"{output_file_template}_FIA")
+
+        return fia_file_path
+
 
     
 def svm_cv(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_size, output_folder, n_jobs, cv_split, feature_importance_analysis = False, save_model = False, resampling_strategy="cv", fia_repeats=5, optimization=False, custom_scorer="MCC", kernel="linear", train=[], test=[]):
@@ -362,6 +375,13 @@ def svm_cv(binary_mutation_table, phenotype_table, antibiotic, random_seed, test
 
         model_file = os.path.join(output_folder, f"{output_file_template}_model.sav")
         pickle.dump(final_svm_model, open(model_file, 'wb'))
+    
+    if feature_importance_analysis:
+            
+        fia_file_path = os.path.join(output_folder, f"{output_file_template}_FIA")
+
+        return fia_file_path
+
 
     
 def prps_ml_preprecessor(binary_mutation_table, prps_score_file, prps_percentage, temp_path):
@@ -501,3 +521,9 @@ def gb(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split
 
         model_file = os.path.join(output_folder, f"{output_file_template}_model.sav")
         pickle.dump(gb_cls, open(model_file, 'wb'))
+
+    if feature_importance_analysis:
+            
+        fia_file_path = os.path.join(output_folder, f"{output_file_template}_FIA")
+
+        return fia_file_path

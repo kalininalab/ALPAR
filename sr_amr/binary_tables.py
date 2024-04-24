@@ -492,7 +492,7 @@ def annotation_file_creator(reference_genome, output_folder):
 
     return all_the_records
 
-
+# mutations_annotation function should transfer to the snippy output check annotation_file_from_snippy function
 def mutations_annotation_adder(binary_mutation_table ,output_folder, all_the_records):
 
     mutations_position_dict = {}
@@ -521,6 +521,28 @@ def annotation_function(binary_mutation_table, output_folder, reference_genome):
     all_the_records = annotation_file_creator(reference_genome, output_folder)
 
     mutations_annotation_adder(binary_mutation_table, output_folder, all_the_records)
+
+def annotation_file_from_snippy(snippy_output_folder, output_folder):
+
+    annotation_dict = {}
+
+    snippy_output_strains = os.listdir(snippy_output_folder)
+
+    for strain in snippy_output_strains:
+        if "snps.tab" in os.listdir(os.path.join(snippy_output_folder, strain)):
+            with open(os.path.join(snippy_output_folder, strain, "snps.tab")) as infile:
+                lines = infile.readlines()
+            
+            for line in lines:
+                splitted = line.split("\t")
+                mutation = f"'{splitted[1]}','{splitted[3]}:{splitted[4]}','{splitted[2]}'"
+                if not mutation in annotation_dict.keys():
+                    annotation_dict[mutation] = [splitted[10], splitted[12], splitted[13]]
+
+    with open(os.path.join(output_folder, "mutations_annotations.tsv"), "w") as ofile:
+        ofile.write(f"Mutation\tEFFECT\tGENE\tPRODUCT\n")
+        for key in annotation_dict.keys():
+            ofile.write(f"{key}\t{annotation_dict[key][0]}\t{annotation_dict[key][1]}\t{annotation_dict[key][2]}\n")
 
 # After addition of gene presence absence with panaroo, some values become "0.0" or "1.0" instead of "0" or "1". This function changes them to "0" or "1"
 def table_binary_maker(binary_mutation_table):
