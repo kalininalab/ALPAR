@@ -10,25 +10,41 @@ import pathlib
 # Get the path of the script
 PATH_OF_SCRIPT = pathlib.Path(__file__).parent.resolve()
 
-
+# This function creates a genotype matrix from a binary mutation table.
+# It reads the table into a pandas DataFrame, fills any missing values with "0",
+# transposes the DataFrame, and then writes it to a file.
 def pyseer_genotype_matrix_creator(binary_mutation_table, output_file):
 
-    genotype_df = pd.read_csv(binary_mutation_table, sep="\t", index_col=0)
+    # Read the binary mutation table into a DataFrame
+    genotype_df = pd.read_csv(binary_mutation_table, sep="\t", index_col=0, dtype=str)
 
+    # Fill any missing values with "0"
+    genotype_df.fillna("0", inplace=True)
+
+    # Transpose the DataFrame
     genotype_df_transposed = genotype_df.transpose().astype(str)
 
+    # Set the index name to "Gene"
     genotype_df_transposed.index.name = "Gene"
 
+    # Write the DataFrame to a file
     genotype_df_transposed.to_csv(output_file, sep="\t")
 
-
+# This function creates a phenotype file for each antibiotic in the phenotype file.
+# It reads the phenotype file into a pandas DataFrame, then for each column (antibiotic),
+# it creates a new DataFrame with just that column, sets the index name to "samples",
+# and writes it to a file with a name based on the antibiotic.
 def pyseer_phenotype_file_creator(phenotype_file, output_file_directory):
 
+    # Read the phenotype file into a DataFrame
     phenotype_df = pd.read_csv(phenotype_file, sep="\t", index_col=0)
 
+    # For each antibiotic in the DataFrame
     for antibiotic in phenotype_df.columns:
+        # Create a new DataFrame with just that column
         df_column = phenotype_df[[antibiotic]]
 
+        # Set the index name to "samples"
         df_column.index.name = "samples"
 
         # Create a file name based on the column name
@@ -67,43 +83,65 @@ def pyseer_individual_genotype_creator(pyseer_genotype_matrix, pyseer_phenotype_
     phenotype_df_dropped.to_csv(
         f"{output_folder}/phenotype_files_individual/{pyseer_phenotype_matrix.split('/')[-1][:-6]}.pheno", sep="\t")
 
-
+# This function creates a similarity matrix from a phylogenetic tree.
+# It runs a script with the phylogenetic tree as an argument and writes the output to a file.
 def pyseer_similarity_matrix_creator(phylogenetic_tree, output_file):
 
+    # Define the command to run the script
     script_command = f"python {PATH_OF_SCRIPT}/phylogeny_distance.py --lmm {phylogenetic_tree} > {output_file}"
 
+    # Run the command
     os.system(script_command)
 
-
+# This function runs the pyseer tool for each phenotype in the phenotype file path.
+# It constructs a command to run pyseer with the appropriate arguments for each phenotype,
+# checks if the output directory exists and creates it if not, then runs the command.
 def pyseer_runner(genotype_file_path, phenotype_file_path, similarity_matrix, output_file_directory):
 
+    # Get a list of phenotypes
     phenotypes = os.listdir(f"{phenotype_file_path}")
 
-    #genotypes = os.listdir(f"{genotype_file_path}")
-
+    # For each phenotype
     for phenotype in phenotypes:
+
+        # Construct the command to run pyseer
         script_command = f"pyseer --lmm --phenotypes {phenotype_file_path}/{phenotype} --pres {genotype_file_path} --similarity {similarity_matrix} > {output_file_directory}/{phenotype}.tsv"
 
+        # If the output directory doesn't exist, create it
         if not os.path.exists(f"{output_file_directory}"):
             os.mkdir(f"{output_file_directory}")
 
+        # Run the command
         os.system(script_command)
 
-
+# This function processes the output of pyseer.
+# It gets a list of result files, then for each file, it sorts the file based on the fourth column,
+# writes the sorted file to a new file, then reads the sorted file and writes a cleaned version
+# to another new file, removing any lines where the last column is "bad-chisq".
 def pyseer_post_processor(pyseer_output_folder, output_folder):
 
+    # Get a list of result files
     gwas_results_files = os.listdir(pyseer_output_folder)
 
+    # For each result file
     for gwas_result_file in gwas_results_files:
+        # Construct the command to sort the file based on the fourth column
         script_command = f"sort -g -k4,4 {pyseer_output_folder}/{gwas_result_file} > {output_folder}/sorted/{gwas_result_file[:-4]}_sorted.tsv"
 
+        # Run the command
         os.system(script_command)
 
+        # Open a new file to write the cleaned version
         with open(f"{output_folder}/sorted_cleaned/{gwas_result_file[:-4]}_sorted.tsv", "w") as ofile:
+            # Open the sorted file to read
             with open(f"{output_folder}/sorted/{gwas_result_file[:-4]}_sorted.tsv", "r") as infile:
+                # Read all lines
                 lines = infile.readlines()
+                # For each line
                 for line in lines:
+                    # Split the line into columns
                     splitted = line.split("\t")
+                    # If the last column is not "bad-chisq", write the line to the cleaned file
                     if not splitted[-1].strip() == "bad-chisq":
                         ofile.write(f"{line.strip()}\n")
 

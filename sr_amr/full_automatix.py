@@ -1,13 +1,8 @@
 import os
 import sys
+from datetime import datetime
 
 def automatix_runner(args):    
-
-    # Get the absolute path of the current script
-    current_script_path = os.path.abspath(__file__)
-
-    # Get the directory containing the current script
-    current_directory = os.path.dirname(current_script_path)
 
     if args.temp == None:
         args.temp = f"{args.output}/temp"
@@ -73,7 +68,6 @@ def automatix_runner(args):
     print("Creating binary tables...")
     os.system(create_binary_tables_script)
 
-
     if args.just_mutations:
         files_to_be_checked_list = ["binary_mutation_table.tsv"]
     
@@ -84,6 +78,8 @@ def automatix_runner(args):
         print("Error in creating binary tables!")
         print("Please check the logs and try again!")
         sys.exit(1)
+
+    run_status_writer(f"{args.output}/status.txt", "Binary tables created")
 
     print("Creating binary tables done!") 
 
@@ -102,6 +98,8 @@ def automatix_runner(args):
         print("Please check the logs and try again!")
         sys.exit(1)
 
+    run_status_writer(f"{args.output}/status.txt", "Binary tables thresholded")
+
     print("Thresholding binary tables done!")
 
     print("Running PanACoTA...")
@@ -113,6 +111,9 @@ def automatix_runner(args):
         print("Phylogenetic tree has not been created by PanACoTA!")
         print("Phylogenetic tree will be created with MashTree...")
     else:
+
+        run_status_writer(f"{args.output}/status.txt", "PanACoTA done")
+
         print("PanACoTA done!")
 
     print("Running phylogenetic tree...")
@@ -126,6 +127,7 @@ def automatix_runner(args):
         print("Please check the logs and try again!")
         sys.exit(1)
 
+    run_status_writer(f"{args.output}/status.txt", "Phylogenetic tree done")
     print("Phylogenetic tree done!")
 
     if os.path.exists(os.path.join(args.output, "panacota", "phylogenetic_tree.newick")):
@@ -140,10 +142,28 @@ def automatix_runner(args):
 
     print("Running PRPS...")
     os.system(prps_script)
+
+    files_to_be_checked_list = ["prps_score.tsv"]
+
+    if not files_to_be_checked(files_to_be_checked_list, os.path.join(args.output, "prps")):
+        print("Error in PRPS calculation!")
+        print("Please check the logs and try again!")
+        sys.exit(1)
+
+    run_status_writer(f"{args.output}/status.txt", "PRPS done")
     print("PRPS done!")
 
     print("Running GWAS...")
     os.system(gwas_script)
+
+    files_to_be_checked_list = ["genotype_matrix.tsv", "similarity_matrix.tsv"]
+
+    if not files_to_be_checked(files_to_be_checked_list, os.path.join(args.output, "gwas")):
+        print("Error in GWAS!")
+        print("Please check the logs and try again!")
+        sys.exit(1)
+
+    run_status_writer(f"{args.output}/status.txt", "GWAS done")
     print("GWAS done!")
 
     # ML calculations starts here:
@@ -176,19 +196,26 @@ def automatix_runner(args):
 
         ml_script_rf = f"sr-amr ml -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{abiotic_rf_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --feature_importance_analysis --prps '{args.output}/prps/prps_score.tsv' --parameter_optimization --ml_algorithm 'rf'"
 
-        ml_script_svm = f"sr-amr ml -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{abiotic_rf_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --feature_importance_analysis --prps '{args.output}/prps/prps_score.tsv' --parameter_optimization --ml_algorithm 'svm'"
+        ml_script_svm = f"sr-amr ml -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{abiotic_svm_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --feature_importance_analysis --prps '{args.output}/prps/prps_score.tsv' --parameter_optimization --ml_algorithm 'svm'"
 
-        ml_script_gb = f"sr-amr ml -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{abiotic_rf_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --feature_importance_analysis --prps '{args.output}/prps/prps_score.tsv' --parameter_optimization --ml_algorithm 'gb'"
+        ml_script_gb = f"sr-amr ml -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{abiotic_gb_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --feature_importance_analysis --prps '{args.output}/prps/prps_score.tsv' --parameter_optimization --ml_algorithm 'gb'"
 
         print(f"Running Random Forest for {abiotic}...")
         os.system(ml_script_rf)
 
+        run_status_writer(f"{args.output}/status.txt", f"RF done for {abiotic}")
+
         print(f"Running Support Vector Machine for {abiotic}...")
         os.system(ml_script_svm)
+
+        run_status_writer(f"{args.output}/status.txt", f"SVM done for {abiotic}")
 
         print(f"Running Gradient Boosting for {abiotic}...")
         os.system(ml_script_gb)
 
+        run_status_writer(f"{args.output}/status.txt", f"GB done for {abiotic}")
+    
+    run_status_writer(f"{args.output}/status.txt", "Full automatix pipeline is done!")
     print("Full automatix pipeline is done!")
 
 
@@ -197,3 +224,7 @@ def files_to_be_checked(files_list, output_folder):
         if not os.path.exists(os.path.join(output_folder, file)):
             return False
     return True
+
+def run_status_writer(status_file, status):
+    with open(status_file, "a") as status_file:
+        status_file.write(f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\t{status}")

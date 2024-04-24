@@ -331,8 +331,13 @@ def binary_mutation_table_gpa_information_adder(binary_mutation_table, panaroo_o
 
     binary_mutation_table_gpa_df = pd.DataFrame.from_dict(
         binary_mutation_table_gpa_dict, orient='index')
+    
+    binary_mutation_table_gpa_df.fillna("0", inplace=True)
+    
     binary_mutation_table_gpa_df.to_csv(
         binary_mutation_table_with_gpa_information, sep="\t")
+    
+    table_binary_maker(binary_mutation_table_with_gpa_information)
     
 
 def phenotype_dataframe_creator(data_folder_path, output_file, random_names_dict):
@@ -516,3 +521,16 @@ def annotation_function(binary_mutation_table, output_folder, reference_genome):
     all_the_records = annotation_file_creator(reference_genome, output_folder)
 
     mutations_annotation_adder(binary_mutation_table, output_folder, all_the_records)
+
+# After addition of gene presence absence with panaroo, some values become "0.0" or "1.0" instead of "0" or "1". This function changes them to "0" or "1"
+def table_binary_maker(binary_mutation_table):
+    with open(binary_mutation_table, "r") as infile:
+        lines = infile.readlines()
+
+    with open(binary_mutation_table, "w") as ofile:
+        ofile.write(lines[0])
+        for line in lines[1:]:
+            line = line.replace("0.0", "0")
+            line = line.replace("1.0", "1")
+
+            ofile.write(line)

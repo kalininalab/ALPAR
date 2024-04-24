@@ -883,6 +883,9 @@ def ml_pipeline(args):
 
     ml_output = os.path.join(args.output, "ml")
     ml_temp = os.path.join(args.temp, "ml")
+    svm_output = os.path.join(ml_output, "svm")
+    rf_output = os.path.join(ml_output, "rf")
+    gb_output = os.path.join(ml_output, "gb")
 
     # Check if output folder empty
     if os.path.exists(ml_output) and os.path.isdir(ml_output):
@@ -1039,6 +1042,18 @@ def ml_pipeline(args):
 
     if args.ml_algorithm == "rf":
 
+        if os.path.exists(rf_output):
+            if args.overwrite:
+                print("Warning: Output folder is not empty. Old files will be deleted.")
+                temp_folder_remover(rf_output)
+                os.makedirs(rf_output, exist_ok=True)
+            else:
+                print("Error: Output folder is not empty.")
+                print("If you want to overwrite the output folder, use --overwrite option.")
+                sys.exit(1)
+        else:
+            os.makedirs(rf_output, exist_ok=True)
+
         if args.parameter_optimization:
 
             same_setup_run_count = 1
@@ -1073,6 +1088,18 @@ def ml_pipeline(args):
 
     elif args.ml_algorithm == "svm":
 
+        if os.path.exists(svm_output):
+            if args.overwrite:
+                print("Warning: Output folder is not empty. Old files will be deleted.")
+                temp_folder_remover(svm_output)
+                os.makedirs(svm_output, exist_ok=True)
+            else:
+                print("Error: Output folder is not empty.")
+                print("If you want to overwrite the output folder, use --overwrite option.")
+                sys.exit(1)
+        else:
+            os.makedirs(svm_output, exist_ok=True)
+
         ml_log_name = f"seed_{args.random_state}_testsize_{args.test_train_split}_resampling_{args.resampling_strategy}_SVM"
 
         if args.resampling_strategy == "cv":
@@ -1087,6 +1114,18 @@ def ml_pipeline(args):
                         args.feature_importance_analysis, args.save_model, resampling_strategy="holdout", fia_repeats=5, optimization=False, train=train_strains, test=test_strains)
 
     elif args.ml_algorithm == "gb":
+
+        if os.path.exists(gb_output):
+            if args.overwrite:
+                print("Warning: Output folder is not empty. Old files will be deleted.")
+                temp_folder_remover(gb_output)
+                os.makedirs(gb_output, exist_ok=True)
+            else:
+                print("Error: Output folder is not empty.")
+                print("If you want to overwrite the output folder, use --overwrite option.")
+                sys.exit(1)
+        else:
+            os.makedirs(gb_output, exist_ok=True)
 
         if args.parameter_optimization:
 
