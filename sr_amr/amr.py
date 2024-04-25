@@ -10,46 +10,35 @@ import time
 import multiprocessing
 
 from sr_amr.utils import is_tool_installed, temp_folder_remover, time_function
+from sr_amr.version import __version__
 
-try:
-    from sr_amr.panacota import panacota_pre_processor, panacota_post_processor, panacota_pipeline_runner
-    from sr_amr.gwas import pyseer_runner, pyseer_similarity_matrix_creator, pyseer_phenotype_file_creator, pyseer_genotype_matrix_creator, pyseer_post_processor, pyseer_gwas_graph_creator
-    from sr_amr.binary_tables import snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, phenotype_dataframe_creator_post_processor, prokka_create_database, snippy_processed_file_creator, annotation_file_from_snippy
-    from sr_amr.binary_table_threshold import binary_table_threshold_with_percentage
-    from sr_amr.phylogeny_tree import mash_preprocessor, mash_distance_runner
-    from sr_amr.prps import PRPS_runner
-    from sr_amr.ds import datasail_runner, datasail_pre_precessor
-    from sr_amr.ml import rf_auto_ml, svm, rf, svm_cv, prps_ml_preprecessor, gb_auto_ml, gb
-    from sr_amr.full_automatix import automatix_runner
-    from sr_amr.ml_common_files import fia_file_annotation
-    isLite = False
-    # print("Full version is running.")
 
-except ImportError as e:
-    print(e)
-    from sr_amr.binary_tables import snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, phenotype_dataframe_creator_post_processor, prokka_create_database, snippy_processed_file_creator, annotation_file_from_snippy
-    from sr_amr.binary_table_threshold import binary_table_threshold_with_percentage
-    from sr_amr.ml_lite import svm, rf, svm_cv, prps_ml_preprecessor, gb
-    from sr_amr.ml_common_files import fia_file_annotation
-    isLite = True
-    # print("Lite version is running.")
+from sr_amr.panacota import panacota_pre_processor, panacota_post_processor, panacota_pipeline_runner
+from sr_amr.gwas import pyseer_runner, pyseer_similarity_matrix_creator, pyseer_phenotype_file_creator, pyseer_genotype_matrix_creator, pyseer_post_processor, pyseer_gwas_graph_creator
+from sr_amr.binary_tables import snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, phenotype_dataframe_creator_post_processor, prokka_create_database, snippy_processed_file_creator, annotation_file_from_snippy
+from sr_amr.binary_table_threshold import binary_table_threshold_with_percentage
+from sr_amr.phylogeny_tree import mash_preprocessor, mash_distance_runner
+from sr_amr.prps import PRPS_runner
+from sr_amr.ds import datasail_runner, datasail_pre_precessor
+from sr_amr.ml import rf_auto_ml, svm, rf, svm_cv, prps_ml_preprecessor, gb_auto_ml, gb
+from sr_amr.full_automatix import automatix_runner
+from sr_amr.ml_common_files import fia_file_annotation
+from sr_amr.structman import structman_input_creator, annotation_function
+
 
 def main():
     # Create the parser
     parser = argparse.ArgumentParser(
         description="Single reference AMR is a tool to get mutation and gene presence absence information from genome sequences.")
 
-    if isLite:
-        parser.add_argument('--version', action='version',
-                            version='%(prog)s 0.2.0 Lite')
-    else:
-        parser.add_argument('--version', action='version',
-                            version='%(prog)s 0.2.0')
+    parser.add_argument('--version', action='version',
+                        version='%(prog)s ' + __version__)
 
     subparsers = parser.add_subparsers(
         help='For suggested pipeline, check out our github page: https://github.com/kalininalab/SR-AMR')
-    
-    parser_automatix = subparsers.add_parser('automatix', help='run automated pipeline')
+
+    parser_automatix = subparsers.add_parser(
+        'automatix', help='run automated pipeline')
     parser_automatix.add_argument(
         '-i', '--input', type=str, help='input folder path (check folder structure)', required=True)
     parser_automatix.add_argument(
@@ -57,18 +46,19 @@ def main():
     parser_automatix.add_argument(
         '--reference', type=str, help='path of the reference file', required=True)
     parser_automatix.add_argument('--custom_database', type=str,
-                                      help='creates and uses custom database for prokka, require path of the fasta file, default=None')
+                                  help='creates and uses custom database for prokka, require path of the fasta file, default=None')
     parser_automatix.add_argument('--just_mutations', action='store_true',
-                                      help='only creates binary mutation table with mutations, without gene presence absence information, default=False')
+                                  help='only creates binary mutation table with mutations, without gene presence absence information, default=False')
     parser_automatix.add_argument(
         '--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
     parser_automatix.add_argument(
         '--threads', type=int, help='number of threads to use, default=1', default=1)
     parser_automatix.add_argument(
         '--ram', type=int, help='amount of ram to use in GB, default=4', default=4)
-    parser_automatix.add_argument('--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
+    parser_automatix.add_argument(
+        '--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
     parser_automatix.add_argument('--overwrite', action='store_true',
-                                      help='overwrite the output and temp folder if exists, default=False')
+                                  help='overwrite the output and temp folder if exists, default=False')
     parser_automatix.set_defaults(func=fully_automated_pipeline)
 
     parser_main_pipeline = subparsers.add_parser(
@@ -98,7 +88,7 @@ def main():
     parser_main_pipeline.add_argument(
         '--no_gene_annotation', action='store_true', help='do not run gene annotation, default=False')
     parser_main_pipeline.add_argument('--checkpoint', action='store_true',
-                                    help='continues run from the checkpoint, default=False')
+                                      help='continues run from the checkpoint, default=False')
     parser_main_pipeline.set_defaults(func=binary_table_pipeline)
 
     parser_phenotype_table = subparsers.add_parser(
@@ -262,6 +252,27 @@ def main():
 
     parser_ml.set_defaults(func=ml_pipeline)
 
+    parser_structman = subparsers.add_parser(
+        'structman', help='structman input creator from feature importance analysis results')
+    parser_structman.add_argument(
+        '-i', '--input', type=str, help='output file path or txt file that contains path of each feature importance analysis result per line', required=True)
+    parser_structman.add_argument(
+        '-o', '--output', type=str, help='path of the output folder', required=True)
+    parser_structman.add_argument(
+        '--annotation', type=str, help='path of the annotation file, can be found in binary tables output as "mutations_annotations.tsv"', required=True)
+    parser_structman.add_argument(
+        '--reference', type=str, help='path of the reference file', required=True)
+    parser_structman.add_argument('--overwrite', action='store_true',
+                                  help='overwrite the output folder if exists, default=False')
+    parser_structman.add_argument(
+        '--name', type=str, help='name of the structman analysis, default=WIBI', default="WIBI")
+    parser_structman.add_argument(
+        '--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
+    parser_structman.add_argument(
+        '--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
+
+    parser_structman.set_defaults(func=structman_pipeline)
+
     # Parse the arguments
     args = parser.parse_args()
 
@@ -275,7 +286,7 @@ def main():
 def run_snippy_and_prokka(strain, random_names, snippy_output, prokka_output, args, snippy_flag, prokka_flag, custom_db=None):
     if args.ram / args.threads < 8:
         print("Warning: Not enough ram for the processes. Minimum 8 GB of ram per thread is recommended.")
-    
+
     # Snippy creates issue with high memory usage, so it is limited to 100 GB
     if args.ram > 100:
         args.ram = 100
@@ -327,7 +338,7 @@ def binary_table_pipeline(args):
             print("Error: Reference file extension is not accepted.")
             print("Accepted extensions: .gbk, .gbff")
             sys.exit(1)
-    
+
     if args.custom_database:
         if len(args.custom_database) != 2:
             print("Error: Custom database option should have two arguments.")
@@ -336,7 +347,7 @@ def binary_table_pipeline(args):
         if not os.path.exists(args.custom_database[0]):
             print("Error: Custom database fasta file does not exist.")
             sys.exit(1)
-        
+
         if pathlib.Path(args.custom_database[0]).suffix != ".fasta":
             print("Error: Custom database file extension is not accepted.")
             print("Accepted extension: .fasta")
@@ -348,14 +359,15 @@ def binary_table_pipeline(args):
             print("Warning: Output folder is not empty.")
             print("Checking if there is previous run files to continue.")
             if args.temp is None:
-                print("Warning: Temp folder is not given. Checking output folder for temp folder.")
+                print(
+                    "Warning: Temp folder is not given. Checking output folder for temp folder.")
                 temp_folder = os.path.join(args.output, "temp")
                 if os.path.exists(temp_folder):
                     if os.path.exists(os.path.join(temp_folder, "status.txt")):
                         with open(os.path.join(temp_folder, "status.txt"), "r") as infile:
                             line = infile.readline()
                             status = int(line.strip())
-                            
+
         elif len(os.listdir(args.output)) > 0 and not args.overwrite:
             print("Error: Output folder is not empty.")
             print("If you want to overwrite the output folder, use --overwrite option.")
@@ -376,7 +388,7 @@ def binary_table_pipeline(args):
             temp_folder_created = True
         else:
             print("Warning: Temp folder already exists. Will be used for the run.")
-    
+
     else:
         if not os.path.exists(args.temp):
             os.mkdir(args.temp)
@@ -388,7 +400,8 @@ def binary_table_pipeline(args):
         # Check if temp folder empty
         if os.path.exists(args.temp) and os.path.isdir(args.temp):
             if os.listdir(args.temp) and not args.overwrite:
-                print("Error: Temp folder is not empty. Please remove the temp folder or use --overwrite option.")
+                print(
+                    "Error: Temp folder is not empty. Please remove the temp folder or use --overwrite option.")
                 sys.exit(1)
 
     # Check if threads is positive
@@ -513,7 +526,7 @@ def binary_table_pipeline(args):
         if input_file is not None:
             random_names = random_name_giver(
                 input_file, os.path.join(args.output, "random_names.txt"))
-            
+
         with open(os.path.join(args.temp, "status.txt"), "w") as outfile:
             outfile.write(f"0")
             status = 0
@@ -521,7 +534,8 @@ def binary_table_pipeline(args):
     with open(os.path.join(args.output, "random_names.txt")) as random_names_file:
         random_names = {}
         for random_names_file_line in random_names_file.readlines():
-            random_names[random_names_file_line.split("\t")[0].strip()] = random_names_file_line.split("\t")[1].strip()
+            random_names[random_names_file_line.split(
+                "\t")[0].strip()] = random_names_file_line.split("\t")[1].strip()
 
     input_file = os.path.join(args.output, "strains.txt")
 
@@ -565,11 +579,11 @@ def binary_table_pipeline(args):
         num_parallel_tasks = args.threads
 
         params = [(strain, random_names, snippy_output, prokka_output,
-                args, snippy_flag, prokka_flag) for strain in strain_list]
+                   args, snippy_flag, prokka_flag) for strain in strain_list]
 
         if args.custom_database:
             params = [(strain, random_names, snippy_output, prokka_output, args,
-                    snippy_flag, prokka_flag, args.custom_database[1]) for strain in strain_list]
+                       snippy_flag, prokka_flag, args.custom_database[1]) for strain in strain_list]
 
         with multiprocessing.Pool(num_parallel_tasks) as pool:
             pool.starmap(run_snippy_and_prokka, params)
@@ -599,14 +613,14 @@ def binary_table_pipeline(args):
 
         snippy_processed_file_creator(snippy_output, os.path.join(
             args.output, "snippy_processed_strains.txt"))
-        
+
         print("Creating binary mutation table...")
-            # Create the binary table
+        # Create the binary table
         binary_table_creator(snippy_output, os.path.join(
             args.output, "binary_mutation_table.tsv"), args.threads, strains_to_be_processed)
-        
+
         print("Creating annotation tables...")
-        
+
         annotation_file_from_snippy(snippy_output, args.output)
 
         with open(os.path.join(args.temp, "status.txt"), "w") as outfile:
@@ -631,7 +645,8 @@ def binary_table_pipeline(args):
 
             if not os.path.exists(os.path.join(panaroo_output, "gene_presence_absence.csv")):
                 print("Warning: Gene presence absence file does not exist.")
-                print("Gene presence absence information will not be added to the binary table.")
+                print(
+                    "Gene presence absence information will not be added to the binary table.")
                 do_not_remove_temp = True
 
             else:
@@ -647,10 +662,10 @@ def binary_table_pipeline(args):
 
             phenotype_dataframe_creator_post_processor(os.path.join(
                 args.output, "binary_mutation_table.tsv"), os.path.join(args.output, "phenotype_table.tsv"))
-            
+
         with open(os.path.join(args.temp, "status.txt"), "w") as outfile:
             outfile.write(f"4")
-    
+
     if args.keep_temp_files:
         print("Warning, temp files will be kept this might take up space.")
 
@@ -661,17 +676,21 @@ def binary_table_pipeline(args):
             temp_folder_remover(os.path.join(args.output, "snippy"))
             temp_folder_remover(os.path.join(args.output, "prokka"))
             temp_folder_remover(os.path.join(args.output, "panaroo"))
-        
+
         else:
-            print("Warning: Temp folder will not be removed because gene presence absence file does not exist.")
-            print("Temp folder can be used for re-run panaroo again for gene presence absence information.")
-            print("You can remove the temp folder manually. Temp folder path: ", os.path.join(args.temp))
+            print(
+                "Warning: Temp folder will not be removed because gene presence absence file does not exist.")
+            print(
+                "Temp folder can be used for re-run panaroo again for gene presence absence information.")
+            print("You can remove the temp folder manually. Temp folder path: ",
+                  os.path.join(args.temp))
 
     print(f"Binary tables are created, can be found in {args.output}")
 
     end_time = time.time()
 
     print(time_function(start_time, end_time))
+
 
 def panacota_pipeline(args):
 
@@ -740,7 +759,8 @@ def panacota_pipeline(args):
         print("Removing temp folder...")
         temp_folder_remover(panacota_temp)
 
-    print(f"PanACoTA pipeline is finished, results can be found in the {panacota_output}")
+    print(
+        f"PanACoTA pipeline is finished, results can be found in the {panacota_output}")
 
     end_time = time.time()
 
@@ -846,7 +866,7 @@ def prps_pipeline(args):
 
     if not os.path.exists(prps_temp):
         os.mkdir(prps_temp)
-    
+
     else:
         if args.overwrite:
             print("Warning: Temp folder is not empty. Old files will be deleted.")
@@ -861,7 +881,8 @@ def prps_pipeline(args):
         print("Removing temp folder...")
         temp_folder_remover(prps_temp)
 
-    print(f"PRPS is finished, results can be found in the {os.path.abspath(prps_output)}")
+    print(
+        f"PRPS is finished, results can be found in the {os.path.abspath(prps_output)}")
 
     end_time = time.time()
 
@@ -913,7 +934,7 @@ def ml_pipeline(args):
                 os.makedirs(ml_temp, exist_ok=True)
     else:
         os.makedirs(ml_temp, exist_ok=True)
-    
+
     accepted_ml_algorithms = ["rf", "svm", "gb"]
 
     if args.ml_algorithm not in accepted_ml_algorithms:
@@ -1051,7 +1072,8 @@ def ml_pipeline(args):
                 os.makedirs(rf_output, exist_ok=True)
             else:
                 print("Error: Output folder is not empty.")
-                print("If you want to overwrite the output folder, use --overwrite option.")
+                print(
+                    "If you want to overwrite the output folder, use --overwrite option.")
                 sys.exit(1)
         else:
             os.makedirs(rf_output, exist_ok=True)
@@ -1080,13 +1102,13 @@ def ml_pipeline(args):
             with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
                     fia_file = rf_auto_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, args.optimization_time_limit,
-                               args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, train=train_strains, test=test_strains, same_setup_run_count=same_setup_run_count)
+                                          args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, train=train_strains, test=test_strains, same_setup_run_count=same_setup_run_count)
 
         else:
             with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
                     fia_file = rf(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy,
-                       custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains)
+                                  custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains)
 
     elif args.ml_algorithm == "svm":
 
@@ -1097,7 +1119,8 @@ def ml_pipeline(args):
                 os.makedirs(svm_output, exist_ok=True)
             else:
                 print("Error: Output folder is not empty.")
-                print("If you want to overwrite the output folder, use --overwrite option.")
+                print(
+                    "If you want to overwrite the output folder, use --overwrite option.")
                 sys.exit(1)
         else:
             os.makedirs(svm_output, exist_ok=True)
@@ -1108,12 +1131,12 @@ def ml_pipeline(args):
             with open(os.path.join(ml_output, f"{ml_log_name}_log_file.txt"), "w") as log_file:
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
                     fia_file = svm_cv(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.test_train_split, ml_output, args.threads,
-                           args.feature_importance_analysis, args.save_model, resampling_strategy="cv", fia_repeats=5, optimization=False, train=train_strains, test=test_strains)
+                                      args.feature_importance_analysis, args.save_model, resampling_strategy="cv", fia_repeats=5, optimization=False, train=train_strains, test=test_strains)
         elif args.resampling_strategy == "holdout":
             with open(os.path.join(ml_output, f"{ml_log_name}_log_file.txt"), "w") as log_file:
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
                     fia_file = svm(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.test_train_split, ml_output, args.threads,
-                        args.feature_importance_analysis, args.save_model, resampling_strategy="holdout", fia_repeats=5, optimization=False, train=train_strains, test=test_strains)
+                                   args.feature_importance_analysis, args.save_model, resampling_strategy="holdout", fia_repeats=5, optimization=False, train=train_strains, test=test_strains)
 
     elif args.ml_algorithm == "gb":
 
@@ -1124,7 +1147,8 @@ def ml_pipeline(args):
                 os.makedirs(gb_output, exist_ok=True)
             else:
                 print("Error: Output folder is not empty.")
-                print("If you want to overwrite the output folder, use --overwrite option.")
+                print(
+                    "If you want to overwrite the output folder, use --overwrite option.")
                 sys.exit(1)
         else:
             os.makedirs(gb_output, exist_ok=True)
@@ -1151,12 +1175,12 @@ def ml_pipeline(args):
             with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
                     fia_file = gb_auto_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, args.optimization_time_limit,
-                               args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, train=train_strains, test=test_strains)
+                                          args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, train=train_strains, test=test_strains)
         else:
             with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
                     fia_file = gb(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy,
-                       custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains)
+                                  custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains)
 
     if args.feature_importance_analysis:
         if os.path.exists(fia_file):
@@ -1164,13 +1188,13 @@ def ml_pipeline(args):
             fia_file_annotation(fia_file)
             print(
                 f"Annotated feature importance analysis file is created, can be found in {fia_file}")
-            
 
     if not args.keep_temp_files:
         print(f"Removing temp folder {ml_temp}...")
         temp_folder_remover(ml_temp)
 
-    print(f"ML pipeline is finished, results can be found in the {os.path.abspath(ml_output)}")
+    print(
+        f"ML pipeline is finished, results can be found in the {os.path.abspath(ml_output)}")
 
     end_time = time.time()
 
@@ -1214,9 +1238,9 @@ def binary_table_threshold(args):
 
     created_output_file = binary_table_threshold_with_percentage(
         args.input, binary_table_threshold_output, threshold_percentage_float)
-    
 
-    print(f"Binary table with threshold {threshold_percentage_float} is created. Can be found in: {created_output_file}")
+    print(
+        f"Binary table with threshold {threshold_percentage_float} is created. Can be found in: {created_output_file}")
 
     with open(args.input) as infile:
         line = infile.readline()
@@ -1233,9 +1257,10 @@ def binary_table_threshold(args):
         thresholded_table_mutations = len(splitted) - 1
 
     print(
-    f"Percentage of mutations kept: {thresholded_table_mutations/original_table_mutations * 100:.2f}%")
+        f"Percentage of mutations kept: {thresholded_table_mutations/original_table_mutations * 100:.2f}%")
 
-    print(f"Thresholded binary table is created. Can be found in: {os.path.abspath(created_output_file)}")
+    print(
+        f"Thresholded binary table is created. Can be found in: {os.path.abspath(created_output_file)}")
 
     end_time = time.time()
 
@@ -1371,8 +1396,8 @@ def phylogenetic_tree_pipeline(args):
         os.mkdir(args.output)
 
     # Check if output folder empty
-    if os.path.exists(args.output) and os.path.isdir(args.output):
-        if not args.overwrite:
+    if os.path.exists(os.path.join(args.output, "phylogeny")) and os.path.isdir(os.path.join(args.output, "phylogeny")):
+        if os.listdir(os.path.join(args.output, "phylogeny")) > 0 and not args.overwrite:
             print("Error: Output folder is not empty.")
             sys.exit(1)
 
@@ -1413,6 +1438,7 @@ def phylogenetic_tree_pipeline(args):
 
     print(time_function(start_time, end_time))
 
+
 def fully_automated_pipeline(args):
 
     start_time = time.time()
@@ -1426,7 +1452,7 @@ def fully_automated_pipeline(args):
     else:
         print("Error: Input folder path does not exist.")
         sys.exit(1)
-    
+
     if os.path.exists(args.output) and os.path.isdir(args.output):
         if len(os.listdir(args.output)) > 0 and not args.overwrite:
             print("Error: Output folder is not empty.")
@@ -1438,6 +1464,44 @@ def fully_automated_pipeline(args):
     end_time = time.time()
 
     print(time_function(start_time, end_time))
+
+
+def structman_pipeline(args):
+
+    if args.input is None:
+        print("Error: Input file or folder path is required.")
+        sys.exit(1)
+
+    if args.output is None:
+        print("Error: Output folder path is required.")
+        sys.exit(1)
+
+    if not os.path.exists(args.output):
+        os.mkdir(args.output)
+
+    # Check if output folder empty
+    if os.path.exists(os.path.join(args.output, "structman")) and os.path.isdir(os.path.join(args.output, "structman")):
+        if not args.overwrite:
+            print("Error: Output folder is not empty.")
+            sys.exit(1)
+
+    if args.temp is None:
+        args.temp = os.path.join(args.output, "temp")
+
+    # Check if temp folder exists and create if not
+    if not os.path.exists(args.temp):
+        os.mkdir(args.temp)
+
+    # Check if temp folder empty
+    if os.path.exists(os.path.join(args.temp, "structman")) and os.path.isdir(os.path.join(args.temp, "structman")):
+        if not args.overwrite:
+            print("Error: Temp folder is not empty.")
+            sys.exit(1)
+    else:
+        os.mkdir(os.path.join(args.temp, "structman"))
+
+    structman_input_creator(args)
+                                            
 
 if __name__ == "__main__":
     main()

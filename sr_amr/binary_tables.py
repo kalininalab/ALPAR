@@ -10,7 +10,6 @@ import pandas as pd
 from joblib import Parallel, delayed
 import copy
 import logging
-from Bio import SeqIO
 
 
 def check_contigs(input):
@@ -400,127 +399,6 @@ def snippy_processed_file_creator(snippy_output_folder, snippy_processed_text_fi
         for strain in processed_by_snippy:
             ofile.write(f"{strain}\n")
 
-def annotation_file_creator(reference_genome, output_folder):
-
-    class Records:
-        """
-        Subclass for store the record information
-        """
-        def __init__(self):
-            self.gene = None
-            self.start = None
-            self.end = None
-            self.translation = None
-            self.protein_id = None
-            self.organism = None
-            self.locus_tag = None
-            self.EC_Number = None
-            self.interface = None
-            self.codon_start = None
-            self.transl_table = None
-            self.product = None
-            self.db_xref = None
-            self.record_id = None
-            self.feature_type = None
-            self.mol_type = None
-
-
-    recs = [rec for rec in SeqIO.parse(reference_genome, "genbank")]
-
-    all_the_records = []
-
-    for rec in recs:
-
-        feats = [feat for feat in rec.features]
-
-        for feat in feats:
-
-            temp = Records()
-
-            if 'gene' in feat.qualifiers.keys():
-                temp.gene = feat.qualifiers['gene'][0]
-
-            temp.start = int(feat.location.start)
-            
-            temp.end = int(feat.location.end)
-
-            temp.record_id = rec.id
-            
-            temp.feature_type = feat.type
-
-            if 'feature_type' in feat.qualifiers.keys():
-                temp.translation = feat.qualifiers['translation'][0]
-
-            if 'protein_id' in feat.qualifiers.keys():
-                temp.protein_id = feat.qualifiers['protein_id'][0]
-            
-            if 'organism' in feat.qualifiers.keys():
-                temp.organism = feat.qualifiers['organism'][0]
-            
-            if 'locus_tag' in feat.qualifiers.keys():
-                temp.locus_tag = feat.qualifiers['locus_tag'][0]
-
-            if 'EC_Number' in feat.qualifiers.keys():
-                temp.EC_Number = feat.qualifiers['EC_Number'][0]
-
-            if 'interface' in feat.qualifiers.keys():
-                temp.interface = feat.qualifiers['interface'][0]
-
-            if 'codon_start' in feat.qualifiers.keys():
-                temp.codon_start = feat.qualifiers['codon_start'][0]
-
-            if 'transl_table' in feat.qualifiers.keys():
-                temp.transl_table = feat.qualifiers['transl_table'][0]
-
-            if 'product' in feat.qualifiers.keys():
-                temp.product = feat.qualifiers['product'][0]
-
-            if 'db_xref' in feat.qualifiers.keys():
-                temp.db_xref = feat.qualifiers['db_xref'][0]
-
-            if 'mol_type' in feat.qualifiers.keys():
-                temp.mol_type = feat.qualifiers['mol_type'][0]
-
-            all_the_records.append(temp)
-
-    all_the_records = sorted(all_the_records, key=lambda record: record.start)
-
-    with open(os.path.join(output_folder, "annotation_file.tsv"), "w") as ofile:
-        ofile.write("record_id\tgene\tstart\tend\ttranslation\tprotein_id\torganism\tlocus_tag\tEC_Number\tinterface\tcodon_start\ttransl_table\tproduct\tdb_xref\tfeature_type\tmol_type\n")
-        for record in all_the_records:
-            ofile.write(f"{record.record_id}\t{record.gene}\t{record.start}\t{record.end}\t{record.translation}\t{record.protein_id}\t{record.organism}\t{record.locus_tag}\t{record.EC_Number}\t{record.interface}\t{record.codon_start}\t{record.transl_table}\t{record.product}\t{record.db_xref}\t{record.feature_type}\t{record.mol_type}\n")
-
-    return all_the_records
-
-# mutations_annotation function should transfer to the snippy output check annotation_file_from_snippy function
-def mutations_annotation_adder(binary_mutation_table ,output_folder, all_the_records):
-
-    mutations_position_dict = {}
-
-    with open(binary_mutation_table, "r") as infile:
-        header_line =  infile.readline().strip()
-        header_line_splitted = header_line.split("\t")
-        mutations = header_line_splitted[1:]
-        for mutation in mutations:
-            position = mutation.split(",")[0].strip()[1:-1].strip()
-            mutations_position_dict[mutation] = position
-    
-    # Sort mutations_position_dict by values
-    mutations_position_dict = {k: v for k, v in sorted(mutations_position_dict.items(), key=lambda item: item[1])}
-
-    with open(os.path.join(output_folder, "mutations_annotations.tsv"), "w") as ofile:
-        for mutation in mutations_position_dict.keys():
-            for record in all_the_records:
-                position = mutations_position_dict[mutation]
-                if int(record.start) <= int(position) <= int(record.end):
-                    ofile.write(f"{mutation}\t{record.start}\t{record.end}\t{record.gene}\t{record.product}\t{record.protein_id}\t{record.db_xref}\n")
-                    break
-
-def annotation_function(binary_mutation_table, output_folder, reference_genome):
-
-    all_the_records = annotation_file_creator(reference_genome, output_folder)
-
-    mutations_annotation_adder(binary_mutation_table, output_folder, all_the_records)
 
 def annotation_file_from_snippy(snippy_output_folder, output_folder):
 
