@@ -205,6 +205,10 @@ def main():
     parser_ml.add_argument('--prps_percentage', type=int,
                            help='percentage of the top scores of prps to be used, should be used with --prps option, default=30', default=30)
     parser_ml.add_argument('--sail', type=str, help='split against information leakage, requires txt file that contains path of each strain per line or input folder path, can be found create_binary_tables output path as strains.txt, default=None')
+    parser_ml.add_argument('--sail_epsilon', type=str, help='epsilon value for datasail, default=0.1',
+                           default=0.1)
+    parser_ml.add_argument('--sail_delta', type=str, help='delta value for datasail, default=0.1')
+    parser_ml.add_argument('--sail_solver', type=str, help='solver for datasail, available selections: [SCIP, MOSEK, GUROBI, CPLEX], check https://datasail.readthedocs.io/en/latest/workflow/solvers.html for more information default=SCIP')
     parser_ml.add_argument('--overwrite', action='store_true',
                            help='overwrite the output folder if exists, default=False')
     parser_ml.add_argument(
@@ -1043,7 +1047,7 @@ def ml_pipeline(args):
                 datasail_output, "distance_matrix.tsv")
 
             datasail_runner(distance_matrix, datasail_output,
-                            splits=train_test, cpus=args.threads)
+                            splits=train_test, cpus=args.threads, epsilon=args.sail_epsilon, delta=args.sail_delta, solver=args.sail_solver)
 
             if not args.keep_temp_files:
                 print(f"Removing temp folder {datasail_temp}...")

@@ -4,7 +4,7 @@ Pipeline for generating binary matrices suitable for machine learning from genom
 
 ![Pipeline](./flowcharts/SR-AMR_Flowchart.jpg?raw=true "Pipeline")
 
-(Orange parts does not exist in lite version)
+(Orange parts are not available in lite version)
 
 ## Installation
 
