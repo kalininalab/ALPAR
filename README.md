@@ -31,18 +31,7 @@ Single-Reference AMR Lite is installable from [conda](https://anaconda.org/kalin
 
 Lite version of the tool, missing; DataSAIL (Split Against Information Leakage), Pyseer (GWAS), PanACoTA (Alignment-Based Phylogenetic Tree Creation), MashTree (Alignment-Free Phylogenetic Tree Creation), PRPS (Phylogeny Related Parallelism Score), AutoSklearn (Machine Learning Parameter Optimization)
 
-To install it into the new environment:
-
-`````shell
-mamba create -n sr_amr-lite -c conda-forge -c kalininalab -c bioconda -c etetoolkit sr-amr-lite
-conda activate sr_amr-lite
-`````
-
-Or to install it into the already existing environment:
-
-`````shell
-mamba install -c conda-forge -c kalininalab -c bioconda -c etetoolkit sr-amr-lite
-`````
+For more information : [SR-AMR-Lite](https://github.com/kalininalab/SR-AMR-Lite)
 
 ## Example Files
 
@@ -52,7 +41,7 @@ Example files can be downloaded from:
 
 ## Automatic Pipeline
 
-From genomic files, creates binary mutation and phenotype tables, applies thresholds, creates phylogenetic tree, conducts GWAS analysis, calculates PRPS score and trains machine learning models with conducting feature importance analysis and splitting data aginst information leakage with [DataSAIL](https://github.com/kalininalab/DataSAIL) 
+From genomic files, creates binary mutation and phenotype tables, applies thresholds, creates phylogenetic tree, conducts GWAS analysis, calculates PRPS score and trains machine learning models with conducting feature importance analysis and splitting data aginst information leakage with [DataSAIL](https://github.com/kalininalab/DataSAIL) against all the given antibiotics.
 
 - Input, `-i`: Path of folder that have structure: input_folder -> antibiotic -> [Resistant, Susceptible]
 
