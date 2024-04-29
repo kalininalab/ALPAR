@@ -716,7 +716,7 @@ def gb_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, 
 
         with open(os.path.join(output_folder, f"{output_file_template}_FIA"), "w") as ofile:
             for i in r.importances_mean.argsort()[::-1]:
-                if r.importances_mean[i] - 2 * r.importances_std[i] > 0:
+                if r.importances_mean[i] - r.importances_std[i] > 0:
                     ofile.write(
                         f"{genotype_df.columns[i]:<8};{r.importances_mean[i]:.3f};+/-{r.importances_std[i]:.3f}\n")
 

@@ -49,12 +49,13 @@ def main():
                                   help='creates and uses custom database for prokka, require path of the fasta file, default=None')
     parser_automatix.add_argument('--just_mutations', action='store_true',
                                   help='only creates binary mutation table with mutations, without gene presence absence information, default=False')
+    parser_automatix.add_argument('--no_feature_importance_analysis', action='store_true',help='do not run feature importance analysis on ML step, default=False')
     parser_automatix.add_argument(
         '--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
     parser_automatix.add_argument(
         '--threads', type=int, help='number of threads to use, default=1', default=1)
     parser_automatix.add_argument(
-        '--ram', type=int, help='amount of ram to use in GB, default=4', default=4)
+        '--ram', type=int, help='amount of ram to use in GB, default=8', default=8)
     parser_automatix.add_argument(
         '--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
     parser_automatix.add_argument('--overwrite', action='store_true',
@@ -1189,7 +1190,7 @@ def ml_pipeline(args):
     if args.feature_importance_analysis:
         if os.path.exists(fia_file):
             print(f"Annotating feature importance analysis file {fia_file}...")
-            fia_file_annotation(fia_file)
+            fia_file_annotation(fia_file, args.annotation)
             print(
                 f"Annotated feature importance analysis file is created, can be found in {fia_file}")
 

@@ -17,7 +17,7 @@ def fia_file_annotation(fia_file, annotation_file):
         annotation_dict[splitted[0].strip()] = [splitted[1].strip(), splitted[2].strip(), splitted[3].strip()]
 
     with open(os.path.join(parent_dir, f"Annotated_{filename}"), "w") as ofile:
-        ofile.write("Gene;ImportanceValue;Effect;Gene;Product\n")
+        ofile.write("Mutation;ImportanceValue;Effect;Gene;Product\n")
         for line in lines:
             splitted = line.split(";")
             mutation = splitted[0].strip()

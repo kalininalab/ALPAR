@@ -411,7 +411,7 @@ def annotation_file_from_snippy(snippy_output_folder, output_folder):
             with open(os.path.join(snippy_output_folder, strain, "snps.tab")) as infile:
                 lines = infile.readlines()
             
-            for line in lines:
+            for line in lines[1:]:
                 splitted = line.split("\t")
                 mutation = f"'{splitted[1]}','{splitted[3]}:{splitted[4]}','{splitted[2]}'"
                 if not mutation in annotation_dict.keys():
@@ -420,7 +420,7 @@ def annotation_file_from_snippy(snippy_output_folder, output_folder):
     with open(os.path.join(output_folder, "mutations_annotations.tsv"), "w") as ofile:
         ofile.write(f"Mutation\tEFFECT\tGENE\tPRODUCT\n")
         for key in annotation_dict.keys():
-            ofile.write(f"{key}\t{annotation_dict[key][0]}\t{annotation_dict[key][1]}\t{annotation_dict[key][2]}\n")
+            ofile.write(f"{key}\t{annotation_dict[key][0]}\t{annotation_dict[key][1]}\t{annotation_dict[key][2]}")
 
 # After addition of gene presence absence with panaroo, some values become "0.0" or "1.0" instead of "0" or "1". This function changes them to "0" or "1"
 def table_binary_maker(binary_mutation_table):
