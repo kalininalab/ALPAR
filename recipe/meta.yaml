@@ -1,5 +1,5 @@
 package:
-  name: "sr-amr"
+  name: "alpar"
   version: '0.4.0'
 
 source:
@@ -7,7 +7,7 @@ source:
 
 build:
   entry_points:
-    - sr-amr = sr_amr.amr:main
+    - alpar = sr_amr.amr:main
   script: python setup.py install
 
 requirements:
@@ -31,7 +31,7 @@ requirements:
     - pyseer
 
 about:
-  home: https://github.com/kalininalab/SR-AMR
+  home: https://github.com/kalininalab/ALPAR
   license: MIT
   license_file: LICENSE
-  summary: SR-AMR is a tool for generating binary matrices suitable for machine learning from genomic fasta data
+  summary: Automated Learning Pipeline for Antimicrobial Resistance

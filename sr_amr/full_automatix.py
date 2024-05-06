@@ -7,7 +7,7 @@ def automatix_runner(args):
     if args.temp == None:
         args.temp = f"{args.output}/temp"
     
-    create_binary_tables_script = f"sr-amr create_binary_tables -i '{args.input}' -o '{args.output}' --reference '{args.reference}' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --create_phenotype_from_folder {args.input}"
+    create_binary_tables_script = f"alpar create_binary_tables -i '{args.input}' -o '{args.output}' --reference '{args.reference}' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --create_phenotype_from_folder {args.input}"
 
     if args.custom_database != None:
         create_binary_tables_script += f" --custom_database '{args.custom_database}' WIBI"
@@ -19,41 +19,41 @@ def automatix_runner(args):
         create_binary_tables_script += " --no_gene_presence_absence"
 
     if args.just_mutations:
-        binary_table_threshold_script = f"sr-amr binary_table_threshold -i '{args.output}/binary_mutation_table.tsv' -o '{args.output}'"
+        binary_table_threshold_script = f"alpar binary_table_threshold -i '{args.output}/binary_mutation_table.tsv' -o '{args.output}'"
         if args.keep_temp_files:
             binary_table_threshold_script += " --keep_temp_files"
 
     else:
-        binary_table_threshold_script = f"sr-amr binary_table_threshold -i '{args.output}/binary_mutation_table_with_gene_presence_absence.tsv' -o '{args.output}'"
+        binary_table_threshold_script = f"alpar binary_table_threshold -i '{args.output}/binary_mutation_table_with_gene_presence_absence.tsv' -o '{args.output}'"
         if args.keep_temp_files:
             binary_table_threshold_script += " --keep_temp_files"
 
-    panacota_script = f"sr-amr panacota -i '{args.output}/strains.txt' -o '{args.output}' --temp '{args.temp}' --threads {args.threads} --random_names_dict '{args.output}/random_names.txt'"
+    panacota_script = f"alpar panacota -i '{args.output}/strains.txt' -o '{args.output}' --temp '{args.temp}' --threads {args.threads} --random_names_dict '{args.output}/random_names.txt'"
 
     if args.keep_temp_files:
         panacota_script += " --keep_temp_files"
 
-    phylogenetic_tree_script = f"sr-amr phylogenetic_tree -i '{args.output}/strains.txt' -o '{args.output}' --temp '{args.temp}' --random_names_dict '{args.output}/random_names.txt'"
+    phylogenetic_tree_script = f"alpar phylogenetic_tree -i '{args.output}/strains.txt' -o '{args.output}' --temp '{args.temp}' --random_names_dict '{args.output}/random_names.txt'"
     
     if args.keep_temp_files:
         phylogenetic_tree_script += " --keep_temp_files"
 
     if args.just_mutations:
-        prps_script = f"sr-amr prps -i '{args.output}/binary_table_threshold/binary_mutation_table_threshold_0.2_percent.tsv' -o '{args.output}' --temp '{args.temp}' --threads {args.threads}"
+        prps_script = f"alpar prps -i '{args.output}/binary_table_threshold/binary_mutation_table_threshold_0.2_percent.tsv' -o '{args.output}' --temp '{args.temp}' --threads {args.threads}"
 
         if args.keep_temp_files:
             prps_script += " --keep_temp_files"
 
     else:
-        prps_script = f"sr-amr prps -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{args.output}' --temp '{args.temp}' --threads {args.threads}"
+        prps_script = f"alpar prps -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{args.output}' --temp '{args.temp}' --threads {args.threads}"
         
         if args.keep_temp_files:
             prps_script += " --keep_temp_files"
 
     if args.just_mutations:
-        gwas_script = f"sr-amr gwas -i '{args.output}/binary_table_threshold/binary_mutation_table_threshold_0.2_percent.tsv' -o '{args.output}' -p '{args.output}/phenotype_table.tsv'"
+        gwas_script = f"alpar gwas -i '{args.output}/binary_table_threshold/binary_mutation_table_threshold_0.2_percent.tsv' -o '{args.output}' -p '{args.output}/phenotype_table.tsv'"
     else:
-        gwas_script = f"sr-amr gwas -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{args.output}' -p '{args.output}/phenotype_table.tsv'"
+        gwas_script = f"alpar gwas -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{args.output}' -p '{args.output}/phenotype_table.tsv'"
 
     if args.overwrite:
         create_binary_tables_script += " --overwrite"
@@ -168,64 +168,66 @@ def automatix_runner(args):
 
     # ML calculations starts here:
 
-    rf_output_path = os.path.join(args.output, "rf_output")
-    svm_output_path = os.path.join(args.output, "svm_output")
-    gb_output_path = os.path.join(args.output, "gb_output")
+    if not args.no_ml:
 
-    os.makedirs(rf_output_path, exist_ok=True)
-    os.makedirs(svm_output_path, exist_ok=True)
-    os.makedirs(gb_output_path, exist_ok=True)
+        rf_output_path = os.path.join(args.output, "rf_output")
+        svm_output_path = os.path.join(args.output, "svm_output")
+        gb_output_path = os.path.join(args.output, "gb_output")
 
-    antibiotics_list = []
+        os.makedirs(rf_output_path, exist_ok=True)
+        os.makedirs(svm_output_path, exist_ok=True)
+        os.makedirs(gb_output_path, exist_ok=True)
 
-    with open(f"{args.output}/phenotype_table.tsv", "r") as phenotype_file:
-        header_line = phenotype_file.readline()
-        splitted = header_line.split("\t")
-        for i in splitted[1:]:
-            if not i.startswith("."):
-                antibiotics_list.append(i.strip())
+        antibiotics_list = []
 
-    for abiotic in antibiotics_list:
-        abiotic_rf_output_path = os.path.join(rf_output_path, f"{abiotic}")
-        abiotic_svm_output_path = os.path.join(svm_output_path, f"{abiotic}")
-        abiotic_gb_output_path = os.path.join(gb_output_path, f"{abiotic}")
+        with open(f"{args.output}/phenotype_table.tsv", "r") as phenotype_file:
+            header_line = phenotype_file.readline()
+            splitted = header_line.split("\t")
+            for i in splitted[1:]:
+                if not i.startswith("."):
+                    antibiotics_list.append(i.strip())
 
-        os.makedirs(abiotic_rf_output_path, exist_ok=True)
-        os.makedirs(abiotic_svm_output_path, exist_ok=True)
-        os.makedirs(abiotic_gb_output_path, exist_ok=True)
+        for abiotic in antibiotics_list:
+            abiotic_rf_output_path = os.path.join(rf_output_path, f"{abiotic}")
+            abiotic_svm_output_path = os.path.join(svm_output_path, f"{abiotic}")
+            abiotic_gb_output_path = os.path.join(gb_output_path, f"{abiotic}")
 
-        if args.no_feature_importance_analysis:
+            os.makedirs(abiotic_rf_output_path, exist_ok=True)
+            os.makedirs(abiotic_svm_output_path, exist_ok=True)
+            os.makedirs(abiotic_gb_output_path, exist_ok=True)
 
-            ml_script_rf = f"sr-amr ml -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{abiotic_rf_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --prps '{args.output}/prps/prps_score.tsv' --parameter_optimization --ml_algorithm 'rf'"
+            if args.no_feature_importance_analysis:
 
-            ml_script_svm = f"sr-amr ml -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{abiotic_svm_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --prps '{args.output}/prps/prps_score.tsv' --parameter_optimization --ml_algorithm 'svm'"
+                ml_script_rf = f"alpar ml -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{abiotic_rf_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --prps '{args.output}/prps/prps_score.tsv' --parameter_optimization --annotation '{args.output}/mutations_annotations.tsv' --ml_algorithm 'rf'"
 
-            ml_script_gb = f"sr-amr ml -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{abiotic_gb_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --prps '{args.output}/prps/prps_score.tsv' --parameter_optimization --ml_algorithm 'gb'"
+                ml_script_svm = f"alpar ml -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{abiotic_svm_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --prps '{args.output}/prps/prps_score.tsv' --parameter_optimization --annotation '{args.output}/mutations_annotations.tsv' --ml_algorithm 'svm'"
 
-        else:
+                ml_script_gb = f"alpar ml -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{abiotic_gb_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --prps '{args.output}/prps/prps_score.tsv' --parameter_optimization --annotation '{args.output}/mutations_annotations.tsv' --ml_algorithm 'gb'"
 
-            ml_script_rf = f"sr-amr ml -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{abiotic_rf_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --feature_importance_analysis --prps '{args.output}/prps/prps_score.tsv' --parameter_optimization --ml_algorithm 'rf'"
+            else:
 
-            ml_script_svm = f"sr-amr ml -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{abiotic_svm_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --feature_importance_analysis --prps '{args.output}/prps/prps_score.tsv' --parameter_optimization --ml_algorithm 'svm'"
+                ml_script_rf = f"alpar ml -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{abiotic_rf_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --feature_importance_analysis --prps '{args.output}/prps/prps_score.tsv' --parameter_optimization --annotation '{args.output}/mutations_annotations.tsv' --ml_algorithm 'rf'"
 
-            ml_script_gb = f"sr-amr ml -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{abiotic_gb_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --feature_importance_analysis --prps '{args.output}/prps/prps_score.tsv' --parameter_optimization --ml_algorithm 'gb'"
+                ml_script_svm = f"alpar ml -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{abiotic_svm_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --feature_importance_analysis --prps '{args.output}/prps/prps_score.tsv' --parameter_optimization --annotation '{args.output}/mutations_annotations.tsv' --ml_algorithm 'svm'"
+
+                ml_script_gb = f"alpar ml -i '{args.output}/binary_table_threshold/binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv' -o '{abiotic_gb_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --feature_importance_analysis --prps '{args.output}/prps/prps_score.tsv' --parameter_optimization --annotation '{args.output}/mutations_annotations.tsv' --ml_algorithm 'gb'"
 
 
-        print(f"Running Random Forest for {abiotic}...")
-        os.system(ml_script_rf)
+            print(f"Running Random Forest for {abiotic}...")
+            os.system(ml_script_rf)
 
-        run_status_writer(f"{args.output}/status.txt", f"RF done for {abiotic}")
+            run_status_writer(f"{args.output}/status.txt", f"RF done for {abiotic}")
 
-        print(f"Running Support Vector Machine for {abiotic}...")
-        os.system(ml_script_svm)
+            print(f"Running Support Vector Machine for {abiotic}...")
+            os.system(ml_script_svm)
 
-        run_status_writer(f"{args.output}/status.txt", f"SVM done for {abiotic}")
+            run_status_writer(f"{args.output}/status.txt", f"SVM done for {abiotic}")
 
-        print(f"Running Gradient Boosting for {abiotic}...")
-        os.system(ml_script_gb)
+            print(f"Running Gradient Boosting for {abiotic}...")
+            os.system(ml_script_gb)
 
-        run_status_writer(f"{args.output}/status.txt", f"GB done for {abiotic}")
-    
+            run_status_writer(f"{args.output}/status.txt", f"GB done for {abiotic}")
+        
     run_status_writer(f"{args.output}/status.txt", "Full automatix pipeline is done!")
     print("Full automatix pipeline is done!")
 
@@ -238,4 +240,4 @@ def files_to_be_checked(files_list, output_folder):
 
 def run_status_writer(status_file, status):
     with open(status_file, "a") as status_file:
-        status_file.write(f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\t{status}")
+        status_file.write(f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\t{status}\n")

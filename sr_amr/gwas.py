@@ -126,15 +126,15 @@ def pyseer_post_processor(pyseer_output_folder, output_folder):
     # For each result file
     for gwas_result_file in gwas_results_files:
         # Construct the command to sort the file based on the fourth column
-        script_command = f"sort -g -k4,4 {pyseer_output_folder}/{gwas_result_file} > {output_folder}/sorted/{gwas_result_file[:-4]}_sorted.tsv"
+        script_command = f"sort -g -k4,4 {os.path.join(pyseer_output_folder, gwas_result_file)}" + " > " + os.path.join(output_folder,'sorted', f"{gwas_result_file[:-4]}_sorted.tsv")
 
         # Run the command
         os.system(script_command)
 
         # Open a new file to write the cleaned version
-        with open(f"{output_folder}/sorted_cleaned/{gwas_result_file[:-4]}_sorted.tsv", "w") as ofile:
+        with open(os.path.join(output_folder, 'sorted_cleaned', f"{gwas_result_file[:-4]}_sorted.tsv"), "w") as ofile:
             # Open the sorted file to read
-            with open(f"{output_folder}/sorted/{gwas_result_file[:-4]}_sorted.tsv", "r") as infile:
+            with open(os.path.join(output_folder,'sorted', f"{gwas_result_file[:-4]}_sorted.tsv"), "r") as infile:
                 # Read all lines
                 lines = infile.readlines()
                 # For each line

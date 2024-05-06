@@ -5,9 +5,9 @@ with open("README.md", "r") as desc_file:
     long_description = desc_file.read()
 
 setup(
-    name="SR-AMR",
+    name="ALPAR",
     version=__version__,
-    description="Pipeline for generating binary matrices, from single reference, suitable for machine learning from genomic fasta data.",
+    description="Automated Learning Pipeline for Antimicrobial Resistance",
     long_description=long_description,
     long_description_content_type="text/markdown",
     license='MIT',

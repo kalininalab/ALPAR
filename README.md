@@ -1,19 +1,19 @@
-# SR-AMR
+# ALPAR - Automated Learning Pipeline for Antimicrobial Resistance
 
-Pipeline for generating binary matrices suitable for machine learning from genomic fasta data.
+Automated Learning Pipeline for Antimicrobial Resistance
 
-![Pipeline](./flowcharts/SR-AMR_Flowchart.jpg?raw=true "Pipeline")
+![Pipeline](./flowcharts/ALPAR_Flowchart.jpg?raw=true "Pipeline")
 
 (Orange parts are not available in lite version)
 
 ## Installation
 
-Single-Reference AMR is installable from [conda](https://anaconda.org/kalininalab/sr-amr) using [mamba](https://mamba.readthedocs.io/en/latest/installation.html#existing-conda-install>):
+Single-Reference AMR is installable from [conda](https://anaconda.org/kalininalab/ALPAR) using [mamba](https://mamba.readthedocs.io/en/latest/installation.html#existing-conda-install>):
 
 To install it into the new environment:
 
 `````shell
-mamba create -n sr_amr -c conda-forge -c kalininalab -c bioconda -c etetoolkit sr-amr
+mamba create -n sr_amr -c conda-forge -c kalininalab -c bioconda -c etetoolkit alpar
 conda activate sr_amr
 pip install panacota
 `````
@@ -21,23 +21,23 @@ pip install panacota
 Or to install it into the already existing environment:
 
 `````shell
-mamba install -c conda-forge -c kalininalab -c bioconda -c etetoolkit sr-amr
+mamba install -c conda-forge -c kalininalab -c bioconda -c etetoolkit alpar
 pip install panacota
 `````
 
 ## Lite Version
 
-Single-Reference AMR Lite is installable from [conda](https://anaconda.org/kalininalab/sr-amr-lite) using [mamba](https://mamba.readthedocs.io/en/latest/installation.html#existing-conda-install>):
+Single-Reference AMR Lite is installable from [conda](https://anaconda.org/kalininalab/ALPAR-lite) using [mamba](https://mamba.readthedocs.io/en/latest/installation.html#existing-conda-install>):
 
 Lite version of the tool, missing; DataSAIL (Split Against Information Leakage), Pyseer (GWAS), PanACoTA (Alignment-Based Phylogenetic Tree Creation), MashTree (Alignment-Free Phylogenetic Tree Creation), PRPS (Phylogeny Related Parallelism Score), AutoSklearn (Machine Learning Parameter Optimization)
 
-For more information : [SR-AMR-Lite](https://github.com/kalininalab/SR-AMR-Lite)
+For more information : [ALPAR-Lite](https://github.com/kalininalab/ALPAR-Lite)
 
 ## Example Files
 
 Example files can be downloaded from:
 
-[Example files](https://github.com/kalininalab/SR-AMR-Example/blob/main/example.zip)
+[Example files](https://github.com/kalininalab/ALPAR-Example/blob/main/example.zip)
 
 ## Automatic Pipeline
 
@@ -76,7 +76,7 @@ From genomic files, creates binary mutation and phenotype tables, applies thresh
 
 Basic usage:
 `````shell
-sr-amr automatix -i example/example_files/ -o example/example_output/ --reference example/reference.gbff
+alpar automatix -i example/example_files/ -o example/example_output/ --reference example/reference.gbff
 `````
 
 ## Create Binary Tables
@@ -143,7 +143,7 @@ From genomic files, creates binary mutation and phenotype tables
 
 Basic usage:
 `````shell
-sr-amr create_binary_tables -i example/example_files/ -o example/example_output/ --reference example/reference.gbff
+alpar create_binary_tables -i example/example_files/ -o example/example_output/ --reference example/reference.gbff
 `````
 
 ## Binary Table Threshold
@@ -158,7 +158,7 @@ Applies threshold to binary mutation table, and drops columns that has less than
 
 Basic usage:
 `````shell
-sr-amr binary_tables_threshold -i example/example_output/binary_mutation_table.tsv -o example/example_output/ 
+alpar binary_tables_threshold -i example/example_output/binary_mutation_table.tsv -o example/example_output/ 
 `````
 
 ## Phylogenetic Tree
@@ -173,7 +173,7 @@ Runs Phylogeny pipeline to create phylogenetic tree. (Alignment free)
 
 Basic usage:
 `````shell
-sr-amr phylogenetic_tree -i example/example_output/strains.txt -o example/example_output/ --random_names_dict example/example_output/random_names.txt 
+alpar phylogenetic_tree -i example/example_output/strains.txt -o example/example_output/ --random_names_dict example/example_output/random_names.txt 
 `````
 
 ## Panacota
@@ -188,7 +188,7 @@ Runs PanACoTA pipeline to create phylogenetic tree. (Alignment based)
 
 Basic usage:
 `````shell
-sr-amr panacota -i example/example_output/strains.txt -o example/example_output/
+alpar panacota -i example/example_output/strains.txt -o example/example_output/
 `````
 
 ## GWAS
@@ -205,7 +205,7 @@ Runs GWAS analysis to detect important mutations in the data.
 
 Basic usage:
 `````shell
-sr-amr gwas -i example/example_output/binary_mutation_table_with_gene_presence_absence.tsv -p example/example_output/phenotype_table.tsv -t example/example_output/phylogeny/phylogenetic_tree.tree -o example_output/
+alpar gwas -i example/example_output/binary_mutation_table_with_gene_presence_absence.tsv -p example/example_output/phenotype_table.tsv -t example/example_output/phylogeny/phylogenetic_tree.tree -o example_output/
 `````
 
 ## PRPS
@@ -220,7 +220,7 @@ Runs PRPS (Phylogeny-Related Parallelism Score) to detect the mutations are more
 
 Basic usage:
 `````shell
-sr-amr prps -i example/example_output/binary_mutation_table.tsv -t example/example_output/phylogeny/phylogenetic_tree.tree -o example_output/
+alpar prps -i example/example_output/binary_mutation_table.tsv -t example/example_output/phylogeny/phylogenetic_tree.tree -o example_output/
 `````
 
 
@@ -248,10 +248,10 @@ Available Classification algorithms: Random Forest, Support Vector Machine and G
 
     More optional arguments can be found in help page: 
     `````shell
-    python sr-amr/sr_amr.py ml -h
+    python alpar/sr_amr.py ml -h
     `````
 
 Basic usage:
 `````shell
-sr-amr ml -i example/example_output/binary_mutation_table.tsv -p example/example_output/phenotype_table.tsv -o example_output/ -a amikacin
+alpar ml -i example/example_output/binary_mutation_table.tsv -p example/example_output/phenotype_table.tsv -o example_output/ -a amikacin
 `````

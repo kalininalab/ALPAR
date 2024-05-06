@@ -35,7 +35,7 @@ def main():
                         version='%(prog)s ' + __version__)
 
     subparsers = parser.add_subparsers(
-        help='For suggested pipeline, check out our github page: https://github.com/kalininalab/SR-AMR')
+        help='For suggested pipeline, check out our github page: https://github.com/kalininalab/SR-')
 
     parser_automatix = subparsers.add_parser(
         'automatix', help='run automated pipeline')
@@ -60,6 +60,7 @@ def main():
         '--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
     parser_automatix.add_argument('--overwrite', action='store_true',
                                   help='overwrite the output and temp folder if exists, default=False')
+    parser_automatix.add_argument('--no_ml', action='store_true', help='do not run machine learning analysis, default=False')
     parser_automatix.set_defaults(func=fully_automated_pipeline)
 
     parser_main_pipeline = subparsers.add_parser(
@@ -202,6 +203,7 @@ def main():
                            help='phenotype table path', required=True)
     parser_ml.add_argument('-a', '--antibiotic', type=str,
                            help='antibiotic name', required=True)
+    parser_ml.add_argument('--annotation', type=str, help='annotation file path')
     parser_ml.add_argument('--prps', type=str, help='prps score file path')
     parser_ml.add_argument('--prps_percentage', type=int,
                            help='percentage of the top scores of prps to be used, should be used with --prps option, default=30', default=30)
@@ -1046,6 +1048,13 @@ def ml_pipeline(args):
 
             distance_matrix = os.path.join(
                 datasail_output, "distance_matrix.tsv")
+            
+            if not args.sail_epsilon:
+                args.sail_epsilon = 0.1
+            if not args.sail_delta:
+                args.sail_delta = 0.1
+            if not args.sail_solver:
+                args.sail_solver = "SCIP"
 
             datasail_runner(distance_matrix, datasail_output,
                             splits=train_test, cpus=args.threads, epsilon=args.sail_epsilon, delta=args.sail_delta, solver=args.sail_solver)
@@ -1188,11 +1197,22 @@ def ml_pipeline(args):
                                   custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains)
 
     if args.feature_importance_analysis:
-        if os.path.exists(fia_file):
+        if args.annotation:
+            if os.path.exists(fia_file):
+                print(f"Annotating feature importance analysis file {fia_file}...")
+                fia_file_annotation(fia_file, args.annotation)
+                print(
+                    f"Annotated feature importance analysis file is created, can be found in {fia_file}")
+        elif os.path.exists(os.path.join(args.output, "mutations_annotations.tsv")):
             print(f"Annotating feature importance analysis file {fia_file}...")
-            fia_file_annotation(fia_file, args.annotation)
+            fia_file_annotation(fia_file, os.path.join(args.output, "mutations_annotations.tsv"))
             print(
                 f"Annotated feature importance analysis file is created, can be found in {fia_file}")
+                
+        else:
+            print("Warning: Annotations file does not exist.")
+            print(
+                "Feature importance analysis file will not be annotated.")
 
     if not args.keep_temp_files:
         print(f"Removing temp folder {ml_temp}...")
