@@ -60,8 +60,8 @@ def main():
         '--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
     parser_automatix.add_argument('--overwrite', action='store_true',
                                   help='overwrite the output and temp folder if exists, default=False')
-    parser_automatix.add_argument('--ml_algorithm', type=list, nargs='+',
-                                  help='classification algorithm to be used, available selections: [rf, svm, gb], default=[rf, svm, gb]', default=["rf", "svm", "gb"])
+    parser_automatix.add_argument('--ml_algorithm', nargs='+',
+                              help='classification algorithm to be used, available selections: [rf, svm, gb], default=[rf, svm, gb]', default=["rf", "svm", "gb"])
     parser_automatix.add_argument('--no_ml', action='store_true', help='do not run machine learning analysis, default=False')
     parser_automatix.set_defaults(func=fully_automated_pipeline)
 
