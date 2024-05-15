@@ -29,13 +29,13 @@ from sr_amr.structman import structman_input_creator, annotation_function
 def main():
     # Create the parser
     parser = argparse.ArgumentParser(
-        description="Single reference AMR is a tool to get mutation and gene presence absence information from genome sequences.")
+        description="Automated Learning Pipeline for Antimicrobial Resistance (ALPAR)")
 
     parser.add_argument('--version', action='version',
                         version='%(prog)s ' + __version__)
 
     subparsers = parser.add_subparsers(
-        help='For suggested pipeline, check out our github page: https://github.com/kalininalab/SR-')
+        help='For suggested pipeline, check out our github page: https://github.com/kalininalab/ALPAR')
 
     parser_automatix = subparsers.add_parser(
         'automatix', help='run automated pipeline')
@@ -60,6 +60,8 @@ def main():
         '--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
     parser_automatix.add_argument('--overwrite', action='store_true',
                                   help='overwrite the output and temp folder if exists, default=False')
+    parser_automatix.add_argument('--ml_algorithm', type=list, nargs='+',
+                                  help='classification algorithm to be used, available selections: [rf, svm, gb], default=[rf, svm, gb]', default=["rf", "svm", "gb"])
     parser_automatix.add_argument('--no_ml', action='store_true', help='do not run machine learning analysis, default=False')
     parser_automatix.set_defaults(func=fully_automated_pipeline)
 
@@ -172,6 +174,8 @@ def main():
         '-p', '--phenotype', type=str, help='phenotype table path', required=True)
     parser_gwas.add_argument('-t', '--tree', type=str,
                              help='phylogenetic tree path', required=True)
+    parser_gwas.add_argument('--threads', type=int,
+                             help='number of threads to use, default=1', default=1)
     parser_gwas.add_argument('--overwrite', action='store_true',
                              help='overwrite the output folder if exists, default=False')
     parser_gwas.set_defaults(func=gwas_pipeline)
@@ -293,9 +297,13 @@ def main():
 def run_snippy_and_prokka(strain, random_names, snippy_output, prokka_output, args, snippy_flag, prokka_flag, custom_db=None):
     if args.ram / args.threads < 8:
         print("Warning: Not enough ram for the processes. Minimum 8 GB of ram per thread is recommended.")
+    
+    print(f"Given ram limit is: {args.ram}")
+    print(f"Given threads: {args.threads}")
 
     # Snippy creates issue with high memory usage, so it is limited to 100 GB
     if args.ram > 100:
+        print(f"Warning: Due to restrictions of snippy, ram is limited to 100 GB for snippy run only.")
         args.ram = 100
 
     if snippy_flag:
@@ -708,6 +716,7 @@ def panacota_pipeline(args):
     for tool in tool_list:
         if not is_tool_installed(tool):
             print(f"Error: {tool} is not installed.")
+            print("Please install the tool via `pip install panacota` and try again.")
             sys.exit(1)
 
     temp_folder_created = False
@@ -826,7 +835,7 @@ def gwas_pipeline(args):
         args.tree, os.path.join(gwas_output, "similarity_matrix.tsv"))
     # pyseer_runner(genotype_file_path, phenotype_file_path, similarity_matrix, output_file_directory, threads):
     pyseer_runner(os.path.join(gwas_output, "genotype_matrix.tsv"), os.path.join(gwas_output, "pyseer_phenotypes"),
-                  os.path.join(gwas_output, "similarity_matrix.tsv"), os.path.join(gwas_output, "gwas_results"))
+                  os.path.join(gwas_output, "similarity_matrix.tsv"), os.path.join(gwas_output, "gwas_results"), args.threads)
 
     if not os.path.exists(os.path.join(gwas_output, "sorted")):
         os.mkdir(os.path.join(gwas_output, "sorted"))
@@ -1468,6 +1477,13 @@ def fully_automated_pipeline(args):
 
     start_time = time.time()
 
+    tool_list = ["PanACoTA", "snippy", "prokka", "panaroo", "pyseer"]
+
+    for tool in tool_list:
+        if not is_tool_installed(tool):
+            print(f"Error: {tool} is not installed.")
+            sys.exit(1)
+
     # Sanity checks
 
     if os.path.exists(args.input):
@@ -1482,6 +1498,11 @@ def fully_automated_pipeline(args):
         if len(os.listdir(args.output)) > 0 and not args.overwrite:
             print("Error: Output folder is not empty.")
             print("Please provide an empty output folder or use the --overwrite option.")
+            sys.exit(1)
+    
+    if args.ml_algorithm:
+        if args.ml_algorithm not in ["rf", "svm", "gb"]:
+            print("Error: ML algorithm is not accepted.")
             sys.exit(1)
 
     automatix_runner(args)

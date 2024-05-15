@@ -53,6 +53,15 @@ def pyseer_phenotype_file_creator(phenotype_file, output_file_directory):
         # Write the DataFrame to a file
         df_column.to_csv(output_file, sep="\t")
 
+    for antibiotic in phenotype_df.columns:
+        with open(f"{output_file_directory}/{antibiotic}.pheno", "r") as infile:
+            lines = infile.readlines()
+            with open(f"{output_file_directory}/{antibiotic}.pheno", "w") as ofile:
+                ofile.write(lines[0])
+                for line in lines[1:]:
+                    if line.split("\t")[1].strip() == "1" or line.split("\t")[1].strip() == "0":
+                        ofile.write(line)
+
 
 def pyseer_individual_genotype_creator(pyseer_genotype_matrix, pyseer_phenotype_matrix, output_folder):
 
@@ -96,7 +105,7 @@ def pyseer_similarity_matrix_creator(phylogenetic_tree, output_file):
 # This function runs the pyseer tool for each phenotype in the phenotype file path.
 # It constructs a command to run pyseer with the appropriate arguments for each phenotype,
 # checks if the output directory exists and creates it if not, then runs the command.
-def pyseer_runner(genotype_file_path, phenotype_file_path, similarity_matrix, output_file_directory):
+def pyseer_runner(genotype_file_path, phenotype_file_path, similarity_matrix, output_file_directory, threads):
 
     # Get a list of phenotypes
     phenotypes = os.listdir(f"{phenotype_file_path}")
@@ -105,7 +114,7 @@ def pyseer_runner(genotype_file_path, phenotype_file_path, similarity_matrix, ou
     for phenotype in phenotypes:
 
         # Construct the command to run pyseer
-        script_command = f"pyseer --lmm --phenotypes {phenotype_file_path}/{phenotype} --pres {genotype_file_path} --similarity {similarity_matrix} > {output_file_directory}/{phenotype}.tsv"
+        script_command = f"pyseer --lmm --phenotypes {phenotype_file_path}/{phenotype} --pres {genotype_file_path} --similarity {similarity_matrix} --cpu {threads} > {output_file_directory}/{phenotype}.tsv"
 
         # If the output directory doesn't exist, create it
         if not os.path.exists(f"{output_file_directory}"):
@@ -161,7 +170,7 @@ def pyseer_plot_file_creator(input_file, output_file):
                     splitted[0].strip().split(",")[0].strip("'"))
 
             except:
-                mut_position = int(999999)
+                mut_position = int(0)
 
             lrt_p_val = float(splitted[3].strip())
 

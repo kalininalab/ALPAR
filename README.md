@@ -13,8 +13,8 @@ Single-Reference AMR is installable from [conda](https://anaconda.org/kalininala
 To install it into the new environment:
 
 `````shell
-mamba create -n sr_amr -c conda-forge -c kalininalab -c bioconda -c etetoolkit alpar
-conda activate sr_amr
+mamba create -n alpar -c conda-forge -c kalininalab -c bioconda -c etetoolkit alpar
+conda activate alpar
 pip install panacota
 `````
 
@@ -27,7 +27,7 @@ pip install panacota
 
 ## Lite Version
 
-Single-Reference AMR Lite is installable from [conda](https://anaconda.org/kalininalab/ALPAR-lite) using [mamba](https://mamba.readthedocs.io/en/latest/installation.html#existing-conda-install>):
+ALPAR Lite is installable from [conda](https://anaconda.org/kalininalab/ALPAR-lite) using [mamba](https://mamba.readthedocs.io/en/latest/installation.html#existing-conda-install>):
 
 Lite version of the tool, missing; DataSAIL (Split Against Information Leakage), Pyseer (GWAS), PanACoTA (Alignment-Based Phylogenetic Tree Creation), MashTree (Alignment-Free Phylogenetic Tree Creation), PRPS (Phylogeny Related Parallelism Score), AutoSklearn (Machine Learning Parameter Optimization)
 

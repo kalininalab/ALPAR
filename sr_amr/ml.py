@@ -795,8 +795,7 @@ def gb(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split
         X_test = np.array(X_test)
         y_test = np.array(y_test)
 
-    gb_cls = GradientBoostingClassifier(class_weight={0: sum(y_train), 1: len(
-        y_train) - sum(y_train)}, n_estimators=n_estimators, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split)
+    gb_cls = GradientBoostingClassifier(n_estimators=n_estimators, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split)
 
     param_grid = {
         'n_estimators': [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100],

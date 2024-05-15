@@ -22,7 +22,10 @@ def fia_file_annotation(fia_file, annotation_file):
             splitted = line.split(";")
             mutation = splitted[0].strip()
             importance = splitted[1].strip()
-            effect = annotation_dict[mutation][0].strip()
-            gene = annotation_dict[mutation][1].strip()
-            product = annotation_dict[mutation][2].strip()
-            ofile.write(f"{mutation};{importance};{effect};{gene};{product}\n")
+            try:
+                effect = annotation_dict[mutation][0].strip()
+                gene = annotation_dict[mutation][1].strip()
+                product = annotation_dict[mutation][2].strip()
+                ofile.write(f"{mutation};{importance};{effect};{gene};{product}\n")
+            except:
+                continue
