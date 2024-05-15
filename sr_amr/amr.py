@@ -1501,9 +1501,10 @@ def fully_automated_pipeline(args):
             sys.exit(1)
     
     if args.ml_algorithm:
-        if args.ml_algorithm not in ["rf", "svm", "gb"]:
-            print("Error: ML algorithm is not accepted.")
-            sys.exit(1)
+        for algorithm in args.ml_algorithm:
+            if algorithm not in ["rf", "svm", "gb"]:
+                print("Error: ML algorithm is not accepted.")
+                sys.exit(1)
 
     automatix_runner(args)
 
