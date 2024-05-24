@@ -63,6 +63,7 @@ def main():
     parser_automatix.add_argument('--ml_algorithm', nargs='+',
                               help='classification algorithm to be used, available selections: [rf, svm, gb], default=[rf, svm, gb]', default=["rf", "svm", "gb"])
     parser_automatix.add_argument('--no_ml', action='store_true', help='do not run machine learning analysis, default=False')
+    parser_automatix.add_argument('--fast', action='store_true', help='fast mode, does not run PanACoTA pipeline for phylogenetic tree analysis, default=False')
     parser_automatix.set_defaults(func=fully_automated_pipeline)
 
     parser_main_pipeline = subparsers.add_parser(
@@ -295,15 +296,12 @@ def main():
 
 
 def run_snippy_and_prokka(strain, random_names, snippy_output, prokka_output, args, snippy_flag, prokka_flag, custom_db=None):
-    if args.ram / args.threads < 8:
-        print("Warning: Not enough ram for the processes. Minimum 8 GB of ram per thread is recommended.")
-    
-    print(f"Given ram limit is: {args.ram}")
-    print(f"Given threads: {args.threads}")
+    # if args.ram / args.threads < 8:
+    #     print("Warning: Not enough ram for the processes. Minimum 8 GB of ram per thread is recommended.")
 
     # Snippy creates issue with high memory usage, so it is limited to 100 GB
     if args.ram > 100:
-        print(f"Warning: Due to restrictions of snippy, ram is limited to 100 GB for snippy run only.")
+        #print(f"Warning: Due to restrictions of snippy, ram is limited to 100 GB for snippy run only.")
         args.ram = 100
 
     if snippy_flag:

@@ -102,19 +102,19 @@ def automatix_runner(args):
 
     print("Thresholding binary tables done!")
 
-    print("Running PanACoTA...")
-    os.system(panacota_script)
+    if not args.fast:
+        print("Running PanACoTA...")
+        os.system(panacota_script)
 
-    files_to_be_checked_list = ["phylogenetic_tree.newick"]
+        files_to_be_checked_list = ["phylogenetic_tree.newick"]
 
-    if not files_to_be_checked(files_to_be_checked_list, os.path.join(args.output, "panacota")):
-        print("Phylogenetic tree has not been created by PanACoTA!")
-        print("Phylogenetic tree will be created with MashTree...")
-    else:
+        if not files_to_be_checked(files_to_be_checked_list, os.path.join(args.output, "panacota")):
+            print("Phylogenetic tree has not been created by PanACoTA!")
+            print("Phylogenetic tree will be created with MashTree...")
+        else:
+            run_status_writer(f"{args.output}/status.txt", "PanACoTA done")
 
-        run_status_writer(f"{args.output}/status.txt", "PanACoTA done")
-
-        print("PanACoTA done!")
+            print("PanACoTA done!")
 
     print("Running phylogenetic tree...")
 

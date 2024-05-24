@@ -183,15 +183,15 @@ def pyseer_plot_file_creator(input_file, output_file):
 def pyseer_gwas_graph_creator(pyseer_output_folder, output_folder):
 
     gwas_sorted_files = os.listdir(
-        os.path.join(pyseer_output_folder, "sorted"))
+        os.path.join(pyseer_output_folder, "sorted_cleaned"))
 
-    sorted_files_path = os.path.join(pyseer_output_folder, "sorted")
+    sorted_cleaned_files_path = os.path.join(pyseer_output_folder, "sorted_cleaned")
 
     raw_gwas_output_path = os.path.join(pyseer_output_folder, "gwas_results")
 
     for gwas_sorted_file in gwas_sorted_files:
 
-        pyseer_plot_file_creator(os.path.join(sorted_files_path, gwas_sorted_file), os.path.join(
+        pyseer_plot_file_creator(os.path.join(sorted_cleaned_files_path, gwas_sorted_file), os.path.join(
             output_folder, f"{gwas_sorted_file[:-4]}.plot"))
 
         with open(os.path.join(raw_gwas_output_path, f"{gwas_sorted_file.split('_')[0]}.tsv")) as raw_gwas_file:
