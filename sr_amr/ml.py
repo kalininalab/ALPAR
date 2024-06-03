@@ -15,6 +15,7 @@ import os
 from sklearn.svm import SVC
 from sklearn.model_selection import GridSearchCV
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn import tree
 
 mcc_scorer = autosklearn.metrics.make_scorer(
     "mcc",
@@ -846,3 +847,56 @@ def gb(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split
         fia_file_path = os.path.join(output_folder, f"{output_file_template}_FIA")
 
         return fia_file_path
+
+
+def decision_tree(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_size, output_folder):
+
+    output_file_template = f"{output_folder}/{antibiotic}_decision_tree"
+
+    genotype_df = pd.read_csv(binary_mutation_table,
+                              sep="\t", index_col=0, header=0)
+    phenotype_df = pd.read_csv(
+        phenotype_table, sep="\t", index_col=0, header=0)
+
+    strains_to_be_skipped_phenotype = []
+    for strain in phenotype_df.index.to_list():
+        if strain not in genotype_df.index.to_list():
+            strains_to_be_skipped_phenotype.append(strain)
+
+    phenotype_df = phenotype_df.drop(strains_to_be_skipped_phenotype, axis=0)
+
+    # Make sure rows are matching
+    phenotype_df = phenotype_df.reindex(genotype_df.index)
+
+    index_of_antibiotic = phenotype_df.columns.get_loc(antibiotic)
+
+    # Get rid of uninformative strains for given antibiotic
+    strains_to_be_skipped = []
+
+    for strain in phenotype_df.index.to_list():
+        if phenotype_df.loc[strain, antibiotic] == "2" or phenotype_df.loc[strain, antibiotic] == 2:
+            strains_to_be_skipped.append(strain)
+
+    genotype_df = genotype_df.drop(strains_to_be_skipped, axis=0)
+    phenotype_df = phenotype_df.drop(strains_to_be_skipped, axis=0)
+
+    genotype_array = genotype_df.to_numpy()
+    phenotype_array = phenotype_df.to_numpy()
+
+    X = genotype_array[:, :].astype(int)
+    y = phenotype_array[:, index_of_antibiotic].astype(float)
+    X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+        X, y, random_state=random_seed, test_size=float(test_size))
+    
+    clf = tree.DecisionTreeClassifier(random_state=random_seed)
+    clf = clf.fit(X_train, y_train)
+
+    y_hat = clf.predict(X_test)
+
+    outfile = os.path.join(output_folder, f"{output_file_template}_Result")
+
+    output_file_writer(outfile, y_test, y_hat, clf)
+
+    model_file = os.path.join(
+        output_folder, f"{output_file_template}_model.sav")
+    pickle.dump(clf, open(model_file, 'wb'))

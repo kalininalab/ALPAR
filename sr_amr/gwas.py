@@ -6,6 +6,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import math
 import pathlib
+from ml import decision_tree
 
 # Get the path of the script
 PATH_OF_SCRIPT = pathlib.Path(__file__).parent.resolve()
@@ -215,3 +216,50 @@ def pyseer_gwas_graph_creator(pyseer_output_folder, output_folder):
             f"{os.path.join(output_folder, gwas_sorted_file[:-4])}.jpg", dpi=1200)
 
         os.remove(os.path.join(output_folder, f"{gwas_sorted_file[:-4]}.plot"))
+
+
+def decision_tree_input_creator(binary_table, phenotype_file_path, pyseer_output_folder, output_folder):
+    
+    gwas_sorted_files = os.listdir(
+        os.path.join(pyseer_output_folder, "sorted_cleaned"))
+
+    sorted_cleaned_files_path = os.path.join(pyseer_output_folder, "sorted_cleaned")
+
+    raw_gwas_output_path = os.path.join(pyseer_output_folder, "gwas_results")
+
+    for gwas_sorted_file in gwas_sorted_files:
+
+        pyseer_plot_file_creator(os.path.join(sorted_cleaned_files_path, gwas_sorted_file), os.path.join(
+            output_folder, f"{gwas_sorted_file[:-4]}.plot"))
+
+        with open(os.path.join(raw_gwas_output_path, f"{gwas_sorted_file.split('_')[0]}.tsv")) as raw_gwas_file:
+            lines = raw_gwas_file.readlines()
+            threshold_denominator = len(lines)-1
+
+        df = pd.read_csv(
+            f"{os.path.join(binary_table)}", sep='\t', index_col=0)
+
+        bonferini_adjusted_threshold = 0.05 / threshold_denominator
+
+        threshold = -(math.log(bonferini_adjusted_threshold))
+
+        top_gwas_results = []
+        
+        with open(f"{os.path.join(output_folder, gwas_sorted_file[:-4])}.plot", "r") as plot_file:
+            lines = plot_file.readlines()
+            for line in lines[1:]:
+                splitted = line.split("\t")
+                if float(splitted[3].strip()) > threshold:
+                    top_gwas_results.append(splitted[1].strip())
+
+        # We need at least 2 features for decision trees
+        if len(top_gwas_results) < 2:
+            print(f"No significant SNPs found for {gwas_sorted_file.split('.')[0]}")
+            print("Decision tree will not be generated for this antibiotic")
+            os.remove(os.path.join(output_folder, f"{gwas_sorted_file[:-4]}.plot"))
+           
+        else:
+            df_subset = df[top_gwas_results]
+            df_subset.to_csv(f"{os.path.join(output_folder, 'gwas_top_results.tsv')}", sep="\t")
+            os.makedirs(f"{os.path.join(output_folder, 'decision_tree')}", exist_ok=True)
+            decision_tree(f"{os.path.join(output_folder, 'gwas_top_results.tsv')}", phenotype_file_path, gwas_sorted_file.split('.')[0], 42, 0.2, f"{os.path.join(output_folder, 'decision_tree')}")

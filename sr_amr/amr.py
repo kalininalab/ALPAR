@@ -14,7 +14,7 @@ from sr_amr.version import __version__
 
 
 from sr_amr.panacota import panacota_pre_processor, panacota_post_processor, panacota_pipeline_runner
-from sr_amr.gwas import pyseer_runner, pyseer_similarity_matrix_creator, pyseer_phenotype_file_creator, pyseer_genotype_matrix_creator, pyseer_post_processor, pyseer_gwas_graph_creator
+from sr_amr.gwas import pyseer_runner, pyseer_similarity_matrix_creator, pyseer_phenotype_file_creator, pyseer_genotype_matrix_creator, pyseer_post_processor, pyseer_gwas_graph_creator, decision_tree_input_creator
 from sr_amr.binary_tables import snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, phenotype_dataframe_creator_post_processor, prokka_create_database, snippy_processed_file_creator, annotation_file_from_snippy
 from sr_amr.binary_table_threshold import binary_table_threshold_with_percentage
 from sr_amr.phylogeny_tree import mash_preprocessor, mash_distance_runner
@@ -845,6 +845,9 @@ def gwas_pipeline(args):
         gwas_output, "gwas_results"), gwas_output)
 
     pyseer_gwas_graph_creator(gwas_output, os.path.join(gwas_output, "graphs"))
+
+    #def decision_tree_input_creator(binary_table, phenotype_file_path, pyseer_output_folder, output_folder):
+    decision_tree_input_creator(args.input, args.phenotype, gwas_output, gwas_output)
 
     end_time = time.time()
 
