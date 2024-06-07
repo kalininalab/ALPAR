@@ -97,7 +97,7 @@ def output_file_writer(outfile, y_test, y_hat, cls=None, best_c=None):
                     str(sklearn.metrics.matthews_corrcoef(y_test, y_hat)))
 
 
-def rf_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, temp_folder, ram, optimization_time_limit, feature_importance_analysis=False, save_model=False, resampling_strategy="holdout", custom_scorer="MCC", fia_repeats=5, train=[], test=[], same_setup_run_count=1):
+def rf_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, temp_folder, ram, optimization_time_limit, feature_importance_analysis=False, save_model=False, resampling_strategy="holdout", custom_scorer="MCC", fia_repeats=5, train=[], test=[], same_setup_run_count=1, stratify=True):
 
     output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_RF_AutoML"
 
@@ -134,8 +134,12 @@ def rf_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, 
     if len(train) == 0 and len(test) == 0:
         X = genotype_array[:, :].astype(int)
         y = phenotype_array[:, index_of_antibiotic].astype(int)
-        X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
-            X, y, random_state=random_seed, test_size=float(test_size))
+        if stratify:
+            X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+                X, y, random_state=random_seed, test_size=float(test_size), stratify=y)
+        else:
+            X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+                X, y, random_state=random_seed, test_size=float(test_size))
 
     else:
         X_train = []
@@ -220,7 +224,7 @@ def rf_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, 
         return fia_file_path
 
     
-def rf(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, feature_importance_analysis = False, save_model = False, resampling_strategy="holdout", fia_repeats=5, custom_scorer="MCC", n_estimators=100, max_depth=2, min_samples_leaf=1, min_samples_split=2, train=[], test=[], same_setup_run_count=1):
+def rf(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, feature_importance_analysis = False, save_model = False, resampling_strategy="holdout", fia_repeats=5, custom_scorer="MCC", n_estimators=100, max_depth=2, min_samples_leaf=1, min_samples_split=2, train=[], test=[], same_setup_run_count=1, stratify=True):
     
     output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_RF"
 
@@ -257,8 +261,12 @@ def rf(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split
     if len(train) == 0 and len(test) == 0:
         X = genotype_array[:, :].astype(int)
         y = phenotype_array[:, index_of_antibiotic].astype(int)
-        X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
-            X, y, random_state=random_seed, test_size=float(test_size))
+        if stratify:
+            X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+                X, y, random_state=random_seed, test_size=float(test_size), stratify=y)
+        else:
+            X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+                X, y, random_state=random_seed, test_size=float(test_size), stratify=y)
 
     else:
         X_train = []
@@ -336,7 +344,7 @@ def rf(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split
         return fia_file_path
 
 
-def svm(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_size, output_folder, n_jobs, feature_importance_analysis=False, save_model=False, resampling_strategy="holdout", fia_repeats=5, optimization=False, kernel="linear", train=[], test=[]):
+def svm(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_size, output_folder, n_jobs, feature_importance_analysis=False, save_model=False, resampling_strategy="holdout", fia_repeats=5, optimization=False, kernel="linear", train=[], test=[], stratify=True):
 
     output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_SVM"
 
@@ -373,8 +381,12 @@ def svm(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_si
     if len(train) == 0 and len(test) == 0:
         X = genotype_array[:, :].astype(int)
         y = phenotype_array[:, index_of_antibiotic].astype(int)
-        X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
-            X, y, random_state=random_seed, test_size=float(test_size))
+        if stratify:
+            X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+                X, y, random_state=random_seed, test_size=float(test_size), stratify=y)
+        else:
+            X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+                X, y, random_state=random_seed, test_size=float(test_size))
 
     else:
         X_train = []
@@ -448,7 +460,7 @@ def svm(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_si
         return fia_file_path
 
 
-def svm_cv(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_size, output_folder, n_jobs, cv_split, feature_importance_analysis=False, save_model=False, resampling_strategy="cv", fia_repeats=5, optimization=False, custom_scorer="MCC", kernel="linear", train=[], test=[]):
+def svm_cv(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_size, output_folder, n_jobs, cv_split, feature_importance_analysis=False, save_model=False, resampling_strategy="cv", fia_repeats=5, optimization=False, custom_scorer="MCC", kernel="linear", train=[], test=[], stratify=True):
 
     output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_SVM"
 
@@ -485,8 +497,12 @@ def svm_cv(binary_mutation_table, phenotype_table, antibiotic, random_seed, test
     if len(train) == 0 and len(test) == 0:
         X = genotype_array[:, :].astype(int)
         y = phenotype_array[:, index_of_antibiotic].astype(int)
-        X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
-            X, y, random_state=random_seed, test_size=float(test_size))
+        if stratify:
+            X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+                X, y, random_state=random_seed, test_size=float(test_size), stratify=y)
+        else:
+            X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+                X, y, random_state=random_seed, test_size=float(test_size))
 
     else:
         X_train = []
@@ -614,7 +630,7 @@ def prps_ml_preprecessor(binary_mutation_table, prps_score_file, prps_percentage
         temp_path, "prps_filtered_table.tsv"), sep="\t", index=False)
 
 
-def gb_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, temp_folder, ram, optimization_time_limit, feature_importance_analysis=False, save_model=False, resampling_strategy="holdout", custom_scorer="MCC", fia_repeats=5, train=[], test=[], same_setup_run_count=1):
+def gb_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, temp_folder, ram, optimization_time_limit, feature_importance_analysis=False, save_model=False, resampling_strategy="holdout", custom_scorer="MCC", fia_repeats=5, train=[], test=[], same_setup_run_count=1, stratify=True):
 
     output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_GB_AutoML"
 
@@ -651,8 +667,12 @@ def gb_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, 
     if len(train) == 0 and len(test) == 0:
         X = genotype_array[:, :].astype(int)
         y = phenotype_array[:, index_of_antibiotic].astype(int)
-        X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
-            X, y, random_state=random_seed, test_size=float(test_size))
+        if stratify:
+            X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+                X, y, random_state=random_seed, test_size=float(test_size), stratify=y)
+        else:
+            X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+                X, y, random_state=random_seed, test_size=float(test_size))
 
     else:
         X_train = []
@@ -734,7 +754,7 @@ def gb_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, 
         return fia_file_path
 
 
-def gb(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, feature_importance_analysis=False, save_model=False, resampling_strategy="holdout", fia_repeats=5, custom_scorer="MCC", n_estimators=100, max_depth=2, min_samples_leaf=1, min_samples_split=2, train=[], test=[], same_setup_run_count=1):
+def gb(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, feature_importance_analysis=False, save_model=False, resampling_strategy="holdout", fia_repeats=5, custom_scorer="MCC", n_estimators=100, max_depth=2, min_samples_leaf=1, min_samples_split=2, train=[], test=[], same_setup_run_count=1, stratify=True):
 
     output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_GB"
 
@@ -771,8 +791,12 @@ def gb(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split
     if len(train) == 0 and len(test) == 0:
         X = genotype_array[:, :].astype(int)
         y = phenotype_array[:, index_of_antibiotic].astype(int)
-        X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
-            X, y, random_state=random_seed, test_size=float(test_size))
+        if stratify:
+            X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+                X, y, random_state=random_seed, test_size=float(test_size), stratify=y)
+        else:
+            X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+                X, y, random_state=random_seed, test_size=float(test_size))
 
     else:
         X_train = []
@@ -849,7 +873,7 @@ def gb(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split
         return fia_file_path
 
 
-def decision_tree(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_size, output_folder):
+def decision_tree(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_size, output_folder, stratify=True):
 
     output_file_template = f"{output_folder}/{antibiotic}_decision_tree"
 
@@ -885,8 +909,12 @@ def decision_tree(binary_mutation_table, phenotype_table, antibiotic, random_see
 
     X = genotype_array[:, :].astype(int)
     y = phenotype_array[:, index_of_antibiotic].astype(float)
-    X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
-        X, y, random_state=random_seed, test_size=float(test_size))
+    if stratify:
+        X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+            X, y, random_state=random_seed, test_size=float(test_size), stratify=y)
+    else:
+        X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+            X, y, random_state=random_seed, test_size=float(test_size))
     
     clf = tree.DecisionTreeClassifier(random_state=random_seed)
     clf = clf.fit(X_train, y_train)

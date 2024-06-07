@@ -261,6 +261,8 @@ def main():
                            help='time limit for parameter optimization with AutoML, default=3600', default=3600)
     parser_ml.add_argument('--svm_kernel', type=str,
                            help='kernel for svm, available selections: [linear, poly, rbf, sigmoid], default=linear', default="linear")
+    parser_ml.add_argument('--no_stratify_split', type=str,
+                           help='if given, does not uses stratify in random split', default="False")
 
     parser_ml.set_defaults(func=ml_pipeline)
 
@@ -1087,6 +1089,11 @@ def ml_pipeline(args):
                 elif splitted[1].strip() == "test":
                     test_strains.append(splitted[0].strip())
 
+    if args.no_stratify_split:
+        stratiy_random_split = False
+    else:
+        stratiy_random_split = True
+
     if args.ml_algorithm == "rf":
 
         if os.path.exists(rf_output):
@@ -1126,13 +1133,13 @@ def ml_pipeline(args):
             with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
                     fia_file = rf_auto_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, args.optimization_time_limit,
-                                          args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, train=train_strains, test=test_strains, same_setup_run_count=same_setup_run_count)
+                                          args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, train=train_strains, test=test_strains, same_setup_run_count=same_setup_run_count, stratify=stratiy_random_split)
 
         else:
             with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
                     fia_file = rf(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy,
-                                  custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains)
+                                  custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, stratify=stratiy_random_split)
 
     elif args.ml_algorithm == "svm":
 
@@ -1155,12 +1162,12 @@ def ml_pipeline(args):
             with open(os.path.join(ml_output, f"{ml_log_name}_log_file.txt"), "w") as log_file:
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
                     fia_file = svm_cv(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.test_train_split, ml_output, args.threads,
-                                      args.feature_importance_analysis, args.save_model, resampling_strategy="cv", fia_repeats=5, optimization=False, train=train_strains, test=test_strains)
+                                      args.feature_importance_analysis, args.save_model, resampling_strategy="cv", fia_repeats=5, optimization=False, train=train_strains, test=test_strains, stratify=stratiy_random_split)
         elif args.resampling_strategy == "holdout":
             with open(os.path.join(ml_output, f"{ml_log_name}_log_file.txt"), "w") as log_file:
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
                     fia_file = svm(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.test_train_split, ml_output, args.threads,
-                                   args.feature_importance_analysis, args.save_model, resampling_strategy="holdout", fia_repeats=5, optimization=False, train=train_strains, test=test_strains)
+                                   args.feature_importance_analysis, args.save_model, resampling_strategy="holdout", fia_repeats=5, optimization=False, train=train_strains, test=test_strains, stratify=stratiy_random_split)
 
     elif args.ml_algorithm == "gb":
 
@@ -1199,12 +1206,12 @@ def ml_pipeline(args):
             with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
                     fia_file = gb_auto_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, args.optimization_time_limit,
-                                          args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, train=train_strains, test=test_strains)
+                                          args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, train=train_strains, test=test_strains, stratify=stratiy_random_split)
         else:
             with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
                     fia_file = gb(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy,
-                                  custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains)
+                                  custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, stratify=stratiy_random_split)
 
     if args.feature_importance_analysis:
         if args.annotation:
