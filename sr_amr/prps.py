@@ -2,6 +2,7 @@ import pandas as pd
 from tqdm import tqdm
 import ete3
 import os
+import csv
 
 
 def load_tree(newick):
@@ -127,26 +128,20 @@ def PRPS_runner(tree_file, binary_mutation_file, output_folder, temp_folder):
     dist_matrix = pd.read_csv(os.path.join(
         temp_folder, "dist_matrix_all_incl_internal.csv"), index_col="Unnamed: 0")
     dist_matrix = dist_matrix.fillna(0)
-
-    # id_match=load_renaming_and_features(list_file, binary_mutation_file, origformat=True)
-
-    id_match = pd.read_csv(binary_mutation_file, sep="\t", index_col=0)
-    id_match.index.name = 'panacota_renamed'
-    id_match.reset_index(inplace=True)
-
-    id_match = id_match.replace("?", 2)
-    id_match = id_match.fillna(0)
-    # convert to numbers, since "?" made it be imported as str
-    id_match.iloc[:, 2:] = id_match.iloc[:, 2:].apply(pd.to_numeric)
+    
+    id_match = []
+    with open(binary_mutation_file, "r") as f:
+        reader = csv.reader(f, delimiter="\t")
+        headers = next(reader)
+        for row in reader:
+            id_match.append([row[0]] + [2 if val == "?" else (float(val) if val else 0) for val in row[1:]])
 
     feature_score_dict = {}
     empty_f = []
 
-    feature_score_dict = {}
-
-    for feature in tqdm(id_match.columns):
-        # select those who have the feature
-        samples = id_match.loc[id_match[feature] == 1, "panacota_renamed"]
+    for feature_index in range(1, len(headers)):
+        feature = headers[feature_index]
+        samples = [row[0] for row in id_match if row[feature_index] == 1]
 
         if len(samples) == 0:
             empty_f.append(feature)
@@ -155,5 +150,6 @@ def PRPS_runner(tree_file, binary_mutation_file, output_folder, temp_folder):
                 samples, t, dist_matrix)
 
     with open(os.path.join(output_folder, "prps_score.tsv"), "w") as f:
+        writer = csv.writer(f, delimiter="\t")
         for k, v in feature_score_dict.items():
-            f.write(f"{k}\t{v}\n")
+            writer.writerow([k, v])

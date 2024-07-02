@@ -64,6 +64,10 @@ def main():
                               help='classification algorithm to be used, available selections: [rf, svm, gb], default=[rf, svm, gb]', default=["rf", "svm", "gb"])
     parser_automatix.add_argument('--no_ml', action='store_true', help='do not run machine learning analysis, default=False')
     parser_automatix.add_argument('--fast', action='store_true', help='fast mode, does not run PanACoTA pipeline for phylogenetic tree analysis, default=False')
+    parser_automatix.add_argument('--checkpoint', action='store_true',
+                                  help='continues run from the checkpoint, default=False')
+    parser_automatix.add_argument('--verbosity', type=int,
+                                  help='verbosity level, default=1', default=1)
     parser_automatix.set_defaults(func=fully_automated_pipeline)
 
     parser_main_pipeline = subparsers.add_parser(
@@ -94,6 +98,8 @@ def main():
         '--no_gene_annotation', action='store_true', help='do not run gene annotation, default=False')
     parser_main_pipeline.add_argument('--checkpoint', action='store_true',
                                       help='continues run from the checkpoint, default=False')
+    parser_main_pipeline.add_argument('--verbosity', type=int,
+                                      help='verbosity level, default=1', default=1)
     parser_main_pipeline.set_defaults(func=binary_table_pipeline)
 
     parser_phenotype_table = subparsers.add_parser(
@@ -106,6 +112,8 @@ def main():
         '--random_names_dict', type=str, help='random names dictionary path')
     parser_phenotype_table.add_argument(
         '--overwrite', action='store_true', help='overwrite the output and temp folder if exists, default=False')
+    parser_phenotype_table.add_argument('--verbosity', type=int,
+                                        help='verbosity level, default=1', default=1)
     parser_phenotype_table.set_defaults(func=phenotype_table_pipeline)
 
     parser_binary_tables_threshold = subparsers.add_parser(
@@ -120,6 +128,8 @@ def main():
         '--overwrite', action='store_true', help='overwrite the output folder if exists, default=False')
     parser_binary_tables_threshold.add_argument(
         '--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
+    parser_binary_tables_threshold.add_argument('--verbosity', type=int,
+                                                help='verbosity level, default=1', default=1)
     parser_binary_tables_threshold.set_defaults(func=binary_table_threshold)
 
     parser_panacota = subparsers.add_parser(
@@ -148,6 +158,8 @@ def main():
         '--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
     parser_panacota.add_argument(
         '--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
+    parser_panacota.add_argument('--verbosity', type=int,
+                                 help='verbosity level, default=1', default=1)
     parser_panacota.set_defaults(func=panacota_pipeline)
 
     parser_phylogenetic_tree = subparsers.add_parser(
@@ -164,6 +176,8 @@ def main():
         '--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
     parser_phylogenetic_tree.add_argument(
         '--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
+    parser_phylogenetic_tree.add_argument('--verbosity', type=int,
+                                          help='verbosity level, default=1', default=1)
     parser_phylogenetic_tree.set_defaults(func=phylogenetic_tree_pipeline)
 
     parser_gwas = subparsers.add_parser('gwas', help='run gwas analysis')
@@ -179,6 +193,8 @@ def main():
                              help='number of threads to use, default=1', default=1)
     parser_gwas.add_argument('--overwrite', action='store_true',
                              help='overwrite the output folder if exists, default=False')
+    parser_gwas.add_argument('--verbosity', type=int,
+                             help='verbosity level, default=1', default=1)
     parser_gwas.set_defaults(func=gwas_pipeline)
 
     parser_prps = subparsers.add_parser('prps', help='run prps analysis')
@@ -196,6 +212,8 @@ def main():
         '--threads', type=int, help='number of threads to use, default=1', default=1)
     parser_prps.add_argument('--keep_temp_files', action='store_true',
                              help='keep the temporary files, default=False')
+    parser_prps.add_argument('--verbosity', type=int,
+                             help='verbosity level, default=1', default=1)
     parser_prps.set_defaults(func=prps_pipeline)
 
     parser_ml = subparsers.add_parser(
@@ -263,7 +281,8 @@ def main():
                            help='kernel for svm, available selections: [linear, poly, rbf, sigmoid], default=linear', default="linear")
     parser_ml.add_argument('--no_stratify_split', type=str,
                            help='if given, does not uses stratify in random split', default="False")
-
+    parser_ml.add_argument('--verbosity', type=int,
+                           help='verbosity level, default=1', default=1)
     parser_ml.set_defaults(func=ml_pipeline)
 
     parser_structman = subparsers.add_parser(
@@ -284,7 +303,8 @@ def main():
         '--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
     parser_structman.add_argument(
         '--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
-
+    parser_structman.add_argument('--verbosity', type=int,
+                                  help='verbosity level, default=1', default=1)
     parser_structman.set_defaults(func=structman_pipeline)
 
     # Parse the arguments
@@ -377,11 +397,22 @@ def binary_table_pipeline(args):
                 print(
                     "Warning: Temp folder is not given. Checking output folder for temp folder.")
                 temp_folder = os.path.join(args.output, "temp")
-                if os.path.exists(temp_folder):
-                    if os.path.exists(os.path.join(temp_folder, "status.txt")):
-                        with open(os.path.join(temp_folder, "status.txt"), "r") as infile:
-                            line = infile.readline()
-                            status = int(line.strip())
+            else:
+                temp_folder = args.temp
+            if os.path.exists(temp_folder):
+                if os.path.exists(os.path.join(temp_folder, "status.txt")):
+                    with open(os.path.join(temp_folder, "status.txt"), "r") as infile:
+                        line = infile.readline()
+                        status = int(line.strip())
+                        print(f"Previous run found. Continuing from step {status}")
+                        with open(os.path.join(args.output, "random_names.txt")) as random_names_file:
+                            random_names = {}
+                            for random_names_file_line in random_names_file.readlines():
+                                random_names[random_names_file_line.split(
+                                    "\t")[0].strip()] = random_names_file_line.split("\t")[1].strip()
+                        
+                        if args.verbosity > 4:
+                            print(f"Length of random names: {len(random_names)}")
 
         elif len(os.listdir(args.output)) > 0 and not args.overwrite:
             print("Error: Output folder is not empty.")
@@ -403,6 +434,7 @@ def binary_table_pipeline(args):
             temp_folder_created = True
         else:
             print("Warning: Temp folder already exists. Will be used for the run.")
+            temp_folder_created = True
 
     else:
         if not os.path.exists(args.temp):
@@ -410,6 +442,7 @@ def binary_table_pipeline(args):
             temp_folder_created = True
         else:
             print("Warning: Temp folder already exists. Will be used for the run.")
+            temp_folder_created = True
 
     if not temp_folder_created:
         # Check if temp folder empty
@@ -607,6 +640,7 @@ def binary_table_pipeline(args):
 
         with open(os.path.join(args.temp, "status.txt"), "w") as outfile:
             outfile.write(f"2")
+            status = 2
 
     if status < 3:
 
@@ -640,34 +674,42 @@ def binary_table_pipeline(args):
 
         with open(os.path.join(args.temp, "status.txt"), "w") as outfile:
             outfile.write(f"3")
+            status = 3
 
     if status < 4:
 
         if panaroo_flag:
 
-            print("Creating panaroo input...")
-            # Create the panaroo input
-            panaroo_input_creator(os.path.join(args.output, "random_names.txt"), prokka_output, os.path.join(
-                args.temp, "panaroo"), strains_to_be_processed)
+            try:
 
-            print("Running panaroo...")
-            # Run panaroo
-            panaroo_runner(os.path.join(args.temp, "panaroo"), panaroo_output, os.path.join(
-                args.temp, "panaroo_log.txt"), args.threads)
+                print("Creating panaroo input...")
+                # Create the panaroo input
+                panaroo_input_creator(os.path.join(args.output, "random_names.txt"), prokka_output, os.path.join(
+                    args.temp, "panaroo"), strains_to_be_processed)
 
-            print("Adding gene presence absence information to the binary table...")
-            # Add gene presence absence information to the binary table
+                print("Running panaroo...")
+                # Run panaroo
+                panaroo_runner(os.path.join(args.temp, "panaroo"), panaroo_output, os.path.join(
+                    args.temp, "panaroo_log.txt"), args.threads)
 
-            if not os.path.exists(os.path.join(panaroo_output, "gene_presence_absence.csv")):
-                print("Warning: Gene presence absence file does not exist.")
-                print(
-                    "Gene presence absence information will not be added to the binary table.")
+                print("Adding gene presence absence information to the binary table...")
+                # Add gene presence absence information to the binary table
+
+                if not os.path.exists(os.path.join(panaroo_output, "gene_presence_absence.csv")):
+                    print("Warning: Gene presence absence file does not exist.")
+                    print(
+                        "Gene presence absence information will not be added to the binary table.")
+                    do_not_remove_temp = True
+
+                else:
+                    binary_mutation_table_gpa_information_adder(os.path.join(args.output, "binary_mutation_table.tsv"), os.path.join(
+                        panaroo_output, "gene_presence_absence.csv"), os.path.join(args.output, "binary_mutation_table_with_gene_presence_absence.tsv"))
+                    do_not_remove_temp = False
+
+            except Exception as e:
+                print("Error: Panaroo could not be run.")
+                print(e)
                 do_not_remove_temp = True
-
-            else:
-                binary_mutation_table_gpa_information_adder(os.path.join(args.output, "binary_mutation_table.tsv"), os.path.join(
-                    panaroo_output, "gene_presence_absence.csv"), os.path.join(args.output, "binary_mutation_table_with_gene_presence_absence.tsv"))
-                do_not_remove_temp = False
 
         if args.create_phenotype_from_folder:
             print("Creating phenotype dataframe...")
@@ -680,6 +722,7 @@ def binary_table_pipeline(args):
 
         with open(os.path.join(args.temp, "status.txt"), "w") as outfile:
             outfile.write(f"4")
+            status = 4
 
     if args.keep_temp_files:
         print("Warning, temp files will be kept this might take up space.")
@@ -756,27 +799,33 @@ def panacota_pipeline(args):
 
     panacota_log_file = os.path.join(panacota_output, "panacota_log.txt")
 
-    print(f"Running PanACoTA pipeline pre-precessor...")
+    try:
 
-    panacota_pre_processor(args.input, panacota_temp,
-                           panacota_output, args.random_names_dict)
+        print(f"Running PanACoTA pipeline pre-precessor...")
 
-    print(f"Running PanACoTA pipeline with {args.threads} cores...")
+        panacota_pre_processor(args.input, panacota_temp,
+                            panacota_output, args.random_names_dict)
 
-    panacota_pipeline_runner(os.path.join(panacota_output, "panacota_input.lst"), panacota_temp, panacota_output, args.name, args.threads, panacota_log_file,
-                             type=args.data_type, min_seq_id=args.min_seq_id, mode=args.clustering_mode, core_genome_percentage=args.core_genome_percentage)
+        print(f"Running PanACoTA pipeline with {args.threads} cores...")
 
-    print(f"Running PanACoTA pipeline post-precessor...")
+        panacota_pipeline_runner(os.path.join(panacota_output, "panacota_input.lst"), panacota_temp, panacota_output, args.name, args.threads, panacota_log_file,
+                                type=args.data_type, min_seq_id=args.min_seq_id, mode=args.clustering_mode, core_genome_percentage=args.core_genome_percentage)
 
-    panacota_post_processor(panacota_output, args.name,
-                            args.output, args.data_type)
+        print(f"Running PanACoTA pipeline post-precessor...")
 
-    if not args.keep_temp_files:
-        print("Removing temp folder...")
-        temp_folder_remover(panacota_temp)
+        panacota_post_processor(panacota_output, args.name,
+                                args.output, args.data_type)
 
-    print(
-        f"PanACoTA pipeline is finished, results can be found in the {panacota_output}")
+        if not args.keep_temp_files:
+            print("Removing temp folder...")
+            temp_folder_remover(panacota_temp)
+
+        print(
+            f"PanACoTA pipeline is finished, results can be found in the {panacota_output}")
+        
+    except Exception as e:
+        print("Error: PanACoTA pipeline could not be run.")
+        print(e)
 
     end_time = time.time()
 
@@ -824,32 +873,38 @@ def gwas_pipeline(args):
     if not os.path.exists(os.path.join(gwas_output, "graphs")):
         os.mkdir(os.path.join(gwas_output, "graphs"))
 
-    # pyseer_genotype_matrix_creator(binary_mutation_table, output_file):
-    pyseer_genotype_matrix_creator(
-        args.input, os.path.join(gwas_output, "genotype_matrix.tsv"))
-    # pyseer_phenotype_file_creator(phenotype_file, output_file_directory):
-    pyseer_phenotype_file_creator(
-        args.phenotype, os.path.join(gwas_output, "pyseer_phenotypes"))
-    # pyseer_similarity_matrix_creator(phylogenetic_tree, output_file):
-    pyseer_similarity_matrix_creator(
-        args.tree, os.path.join(gwas_output, "similarity_matrix.tsv"))
-    # pyseer_runner(genotype_file_path, phenotype_file_path, similarity_matrix, output_file_directory, threads):
-    pyseer_runner(os.path.join(gwas_output, "genotype_matrix.tsv"), os.path.join(gwas_output, "pyseer_phenotypes"),
-                  os.path.join(gwas_output, "similarity_matrix.tsv"), os.path.join(gwas_output, "gwas_results"), args.threads)
+    try:
 
-    if not os.path.exists(os.path.join(gwas_output, "sorted")):
-        os.mkdir(os.path.join(gwas_output, "sorted"))
+        # pyseer_genotype_matrix_creator(binary_mutation_table, output_file):
+        pyseer_genotype_matrix_creator(
+            args.input, os.path.join(gwas_output, "genotype_matrix.tsv"))
+        # pyseer_phenotype_file_creator(phenotype_file, output_file_directory):
+        pyseer_phenotype_file_creator(
+            args.phenotype, os.path.join(gwas_output, "pyseer_phenotypes"))
+        # pyseer_similarity_matrix_creator(phylogenetic_tree, output_file):
+        pyseer_similarity_matrix_creator(
+            args.tree, os.path.join(gwas_output, "similarity_matrix.tsv"))
+        # pyseer_runner(genotype_file_path, phenotype_file_path, similarity_matrix, output_file_directory, threads):
+        pyseer_runner(os.path.join(gwas_output, "genotype_matrix.tsv"), os.path.join(gwas_output, "pyseer_phenotypes"),
+                    os.path.join(gwas_output, "similarity_matrix.tsv"), os.path.join(gwas_output, "gwas_results"), args.threads)
 
-    if not os.path.exists(os.path.join(gwas_output, "sorted_cleaned")):
-        os.mkdir(os.path.join(gwas_output, "sorted_cleaned"))
+        if not os.path.exists(os.path.join(gwas_output, "sorted")):
+            os.mkdir(os.path.join(gwas_output, "sorted"))
 
-    pyseer_post_processor(os.path.join(
-        gwas_output, "gwas_results"), gwas_output)
+        if not os.path.exists(os.path.join(gwas_output, "sorted_cleaned")):
+            os.mkdir(os.path.join(gwas_output, "sorted_cleaned"))
 
-    pyseer_gwas_graph_creator(gwas_output, os.path.join(gwas_output, "graphs"))
+        pyseer_post_processor(os.path.join(
+            gwas_output, "gwas_results"), gwas_output)
 
-    #def decision_tree_input_creator(binary_table, phenotype_file_path, pyseer_output_folder, output_folder):
-    decision_tree_input_creator(args.input, args.phenotype, gwas_output, gwas_output)
+        pyseer_gwas_graph_creator(gwas_output, os.path.join(gwas_output, "graphs"))
+
+        #def decision_tree_input_creator(binary_table, phenotype_file_path, pyseer_output_folder, output_folder):
+        decision_tree_input_creator(args.input, args.phenotype, gwas_output, gwas_output)
+    
+    except Exception as e:
+        print("Error: GWAS pipeline could not be run.")
+        print(e)
 
     end_time = time.time()
 
@@ -892,16 +947,21 @@ def prps_pipeline(args):
             temp_folder_remover(prps_temp)
             os.makedirs(prps_temp, exist_ok=True)
 
-    print("Running PRPS...")
+    try:
+        print("Running PRPS...")
 
-    PRPS_runner(args.tree, args.input, prps_output, prps_temp)
+        PRPS_runner(args.tree, args.input, prps_output, prps_temp)
 
-    if not args.keep_temp_files:
-        print("Removing temp folder...")
-        temp_folder_remover(prps_temp)
+        if not args.keep_temp_files:
+            print("Removing temp folder...")
+            temp_folder_remover(prps_temp)
 
-    print(
-        f"PRPS is finished, results can be found in the {os.path.abspath(prps_output)}")
+        print(
+            f"PRPS is finished, results can be found in the {os.path.abspath(prps_output)}")
+    
+    except Exception as e:
+        print("Error: PRPS could not be run.")
+        print(e)
 
     end_time = time.time()
 
@@ -1503,7 +1563,9 @@ def fully_automated_pipeline(args):
         sys.exit(1)
 
     if os.path.exists(args.output) and os.path.isdir(args.output):
-        if len(os.listdir(args.output)) > 0 and not args.overwrite:
+        if len(os.listdir(args.output)) > 0 and args.checkpoint:
+            pass
+        elif len(os.listdir(args.output)) > 0 and not args.overwrite:
             print("Error: Output folder is not empty.")
             print("Please provide an empty output folder or use the --overwrite option.")
             sys.exit(1)

@@ -17,6 +17,12 @@ def automatix_runner(args):
 
     if args.just_mutations:
         create_binary_tables_script += " --no_gene_presence_absence"
+    
+    if args.checkpoint:
+        create_binary_tables_script += " --checkpoint"
+
+    if args.verbosity:
+        create_binary_tables_script += f" --verbosity {args.verbosity}"
 
     if args.just_mutations:
         binary_table_threshold_script = f"alpar binary_table_threshold -i '{args.output}/binary_mutation_table.tsv' -o '{args.output}'"
@@ -74,16 +80,23 @@ def automatix_runner(args):
     else:
         files_to_be_checked_list = ["binary_mutation_table.tsv", "binary_mutation_table_with_gene_presence_absence.tsv", "mutations_annotations.tsv"]
 
-    if not files_to_be_checked(files_to_be_checked_list, args.output):
-        print("Error in creating binary tables!")
-        print("Please check the logs and try again!")
-        sys.exit(1)
+    # if not files_to_be_checked(files_to_be_checked_list, args.output):
+    #     print("Error in creating binary tables!")
+    #     print("Please check the logs and try again!")
+    #     sys.exit(1)
 
     run_status_writer(f"{args.output}/status.txt", "Binary tables created")
 
     print("Creating binary tables done!") 
 
     print("Thresholding binary tables...")
+
+    if "binary_mutation_table_with_gene_presence_absence.tsv" not in os.listdir(args.output):
+        if "binary_mutation_table.tsv" in os.listdir(args.output):
+            binary_table_threshold_script = f"alpar binary_table_threshold -i '{args.output}/binary_mutation_table.tsv' -o '{args.output}'"
+            if args.keep_temp_files:
+                binary_table_threshold_script += " --keep_temp_files"
+
     os.system(binary_table_threshold_script)
     
 

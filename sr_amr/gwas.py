@@ -6,7 +6,8 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import math
 import pathlib
-from ml import decision_tree
+import csv
+from sr_amr.ml import decision_tree
 
 # Get the path of the script
 PATH_OF_SCRIPT = pathlib.Path(__file__).parent.resolve()
@@ -14,22 +15,28 @@ PATH_OF_SCRIPT = pathlib.Path(__file__).parent.resolve()
 # This function creates a genotype matrix from a binary mutation table.
 # It reads the table into a pandas DataFrame, fills any missing values with "0",
 # transposes the DataFrame, and then writes it to a file.
+
 def pyseer_genotype_matrix_creator(binary_mutation_table, output_file):
 
-    # Read the binary mutation table into a DataFrame
-    genotype_df = pd.read_csv(binary_mutation_table, sep="\t", index_col=0, dtype=str)
+    # Read the binary mutation table into a list of lists
+    with open(binary_mutation_table, 'r') as f:
+        reader = csv.reader(f, delimiter='\t')
+        data = list(reader)
 
     # Fill any missing values with "0"
-    genotype_df.fillna("0", inplace=True)
+    for row in data:
+        row += ["0"] * (len(data[0]) - len(row))
 
-    # Transpose the DataFrame
-    genotype_df_transposed = genotype_df.transpose().astype(str)
+    # Transpose the list of lists
+    data_transposed = list(map(list, zip(*data)))
 
     # Set the index name to "Gene"
-    genotype_df_transposed.index.name = "Gene"
+    data_transposed[0][0] = "Gene"
 
-    # Write the DataFrame to a file
-    genotype_df_transposed.to_csv(output_file, sep="\t")
+    # Write the list of lists to a file
+    with open(output_file, 'w', newline='') as f:
+        writer = csv.writer(f, delimiter='\t')
+        writer.writerows(data_transposed)
 
 # This function creates a phenotype file for each antibiotic in the phenotype file.
 # It reads the phenotype file into a pandas DataFrame, then for each column (antibiotic),
@@ -63,12 +70,19 @@ def pyseer_phenotype_file_creator(phenotype_file, output_file_directory):
                     if line.split("\t")[1].strip() == "1" or line.split("\t")[1].strip() == "0":
                         ofile.write(line)
 
-
 def pyseer_individual_genotype_creator(pyseer_genotype_matrix, pyseer_phenotype_matrix, output_folder):
 
-    genotype_df = pd.read_csv(pyseer_genotype_matrix, sep="\t", index_col=0)
+    # Read the genotype matrix into a dictionary
+    with open(pyseer_genotype_matrix, 'r') as f:
+        reader = csv.reader(f, delimiter='\t')
+        genotype_header = next(reader)
+        genotype_dict = {rows[0]: rows[1:] for rows in reader}
 
-    phenotype_df = pd.read_csv(pyseer_phenotype_matrix, sep="\t", index_col=0)
+    # Read the phenotype matrix into a dictionary
+    with open(pyseer_phenotype_matrix, 'r') as f:
+        reader = csv.reader(f, delimiter='\t')
+        phenotype_header = next(reader)
+        phenotype_dict = {rows[0]: rows[1:] for rows in reader}
 
     strains_to_be_dropped = []
 
@@ -79,19 +93,26 @@ def pyseer_individual_genotype_creator(pyseer_genotype_matrix, pyseer_phenotype_
             if int(splitted[1].strip()) == 2:
                 strains_to_be_dropped.append(splitted[0].strip())
 
-    genotype_df_dropped = genotype_df.drop(strains_to_be_dropped, axis=1)
-
-    phenotype_df_dropped = phenotype_df.drop(strains_to_be_dropped, axis=0)
+    # Drop the strains from the genotype and phenotype data
+    for strain in strains_to_be_dropped:
+        del genotype_dict[strain]
+        del phenotype_dict[strain]
 
     os.mkdir(os.path.join(output_folder, "genotype_files_individual"))
-
     os.mkdir(os.path.join(output_folder, "phenotype_files_individual"))
 
-    genotype_df_dropped.to_csv(
-        f"{output_folder}/genotype_files_individual/{pyseer_phenotype_matrix.split('/')[-1][:-6]}.tsv", sep="\t")
+    # Write the genotype and phenotype data back to files
+    with open(f"{output_folder}/genotype_files_individual/{os.path.basename(pyseer_phenotype_matrix)[:-6]}.tsv", 'w', newline='') as f:
+        writer = csv.writer(f, delimiter='\t')
+        writer.writerow(genotype_header)
+        for key, value in genotype_dict.items():
+            writer.writerow([key] + value)
 
-    phenotype_df_dropped.to_csv(
-        f"{output_folder}/phenotype_files_individual/{pyseer_phenotype_matrix.split('/')[-1][:-6]}.pheno", sep="\t")
+    with open(f"{output_folder}/phenotype_files_individual/{os.path.basename(pyseer_phenotype_matrix)[:-6]}.pheno", 'w', newline='') as f:
+        writer = csv.writer(f, delimiter='\t')
+        writer.writerow(phenotype_header)
+        for key, value in phenotype_dict.items():
+            writer.writerow([key] + value)
 
 # This function creates a similarity matrix from a phylogenetic tree.
 # It runs a script with the phylogenetic tree as an argument and writes the output to a file.
@@ -217,7 +238,6 @@ def pyseer_gwas_graph_creator(pyseer_output_folder, output_folder):
 
         os.remove(os.path.join(output_folder, f"{gwas_sorted_file[:-4]}.plot"))
 
-
 def decision_tree_input_creator(binary_table, phenotype_file_path, pyseer_output_folder, output_folder):
     
     gwas_sorted_files = os.listdir(
@@ -235,9 +255,6 @@ def decision_tree_input_creator(binary_table, phenotype_file_path, pyseer_output
         with open(os.path.join(raw_gwas_output_path, f"{gwas_sorted_file.split('_')[0]}.tsv")) as raw_gwas_file:
             lines = raw_gwas_file.readlines()
             threshold_denominator = len(lines)-1
-
-        df = pd.read_csv(
-            f"{os.path.join(binary_table)}", sep='\t', index_col=0)
 
         bonferini_adjusted_threshold = 0.05 / threshold_denominator
 
@@ -259,7 +276,21 @@ def decision_tree_input_creator(binary_table, phenotype_file_path, pyseer_output
             os.remove(os.path.join(output_folder, f"{gwas_sorted_file[:-4]}.plot"))
            
         else:
-            df_subset = df[top_gwas_results]
-            df_subset.to_csv(f"{os.path.join(output_folder, 'gwas_top_results.tsv')}", sep="\t")
-            os.makedirs(f"{os.path.join(output_folder, 'decision_tree')}", exist_ok=True)
-            decision_tree(f"{os.path.join(output_folder, 'gwas_top_results.tsv')}", phenotype_file_path, gwas_sorted_file.split('.')[0], 42, 0.2, f"{os.path.join(output_folder, 'decision_tree')}")
+            # Read the binary table into a dictionary
+            with open(binary_table, 'r') as f:
+                reader = csv.reader(f, delimiter='\t')
+                binary_table_header = next(reader)
+                binary_table_dict = {rows[0]: rows[1:] for rows in reader}
+
+            # Create a subset of the dictionary with only the top GWAS results
+            df_subset = {k: v for k, v in binary_table_dict.items() if k in top_gwas_results}
+
+            # Write the subset dictionary to a file
+            with open(os.path.join(output_folder, 'gwas_top_results.tsv'), 'w', newline='') as f:
+                writer = csv.writer(f, delimiter='\t')
+                writer.writerow(binary_table_header)
+                for key, value in df_subset.items():
+                    writer.writerow([key] + value)
+
+            os.makedirs(os.path.join(output_folder, 'decision_tree'), exist_ok=True)
+            decision_tree(os.path.join(output_folder, 'gwas_top_results.tsv'), phenotype_file_path, gwas_sorted_file.split('.')[0], 42, 0.2, os.path.join(output_folder, 'decision_tree'))

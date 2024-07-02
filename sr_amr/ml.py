@@ -16,6 +16,7 @@ from sklearn.svm import SVC
 from sklearn.model_selection import GridSearchCV
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn import tree
+import csv
 
 mcc_scorer = autosklearn.metrics.make_scorer(
     "mcc",
@@ -101,45 +102,47 @@ def rf_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, 
 
     output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_RF_AutoML"
 
-    genotype_df = pd.read_csv(binary_mutation_table,
-                              sep="\t", index_col=0, header=0)
-    phenotype_df = pd.read_csv(
-        phenotype_table, sep="\t", index_col=0, header=0)
+    # Load genotype data
+    with open(binary_mutation_table, 'r') as file:
+        reader = csv.reader(file, delimiter='\t')
+        headers = next(reader)
+        genotype_data = {rows[0]: rows[1:] for rows in reader}
+        feature_names = headers[1:] 
 
-    strains_to_be_skipped_phenotype = []
-    for strain in phenotype_df.index.to_list():
-        if strain not in genotype_df.index.to_list():
-            strains_to_be_skipped_phenotype.append(strain)
+    # Load phenotype data
+    with open(phenotype_table, 'r') as file:
+        reader = csv.reader(file, delimiter='\t')
+        headers = next(reader)
+        phenotype_data = {rows[0]: rows[1:] for rows in reader}
 
-    phenotype_df = phenotype_df.drop(strains_to_be_skipped_phenotype, axis=0)
+    phenotype_data = {strain: phenotypes for strain, phenotypes in phenotype_data.items() if strain in genotype_data}
 
-    # Make sure rows are matching
-    phenotype_df = phenotype_df.reindex(genotype_df.index)
+    # Filter strains based on antibiotic resistance
+    antibiotic_index = headers.index(antibiotic)-1
+    strains_to_be_skipped = [strain for strain, phenotypes in phenotype_data.items() if len(phenotypes) > antibiotic_index and phenotypes[antibiotic_index] == "2"]
+    genotype_data = {strain: genotypes for strain, genotypes in genotype_data.items() if strain not in strains_to_be_skipped}
+    phenotype_data = {strain: phenotypes for strain, phenotypes in phenotype_data.items() if strain not in strains_to_be_skipped}
 
-    index_of_antibiotic = phenotype_df.columns.get_loc(antibiotic)
+    # Reorder phenotype_data according to the order of keys in genotype_data
+    ordered_phenotype_data = {strain: phenotype_data[strain] for strain in genotype_data if strain in phenotype_data}
 
-    # Get rid of uninformative strains for given antibiotic
-    strains_to_be_skipped = []
+    phenotype_data = ordered_phenotype_data
 
-    for strain in phenotype_df.index.to_list():
-        if phenotype_df.loc[strain, antibiotic] == "2" or phenotype_df.loc[strain, antibiotic] == 2:
-            strains_to_be_skipped.append(strain)
+    # Convert data to numpy arrays for machine learning
+    genotype_array = np.array([list(map(int, genotypes)) for genotypes in genotype_data.values()])
+    phenotype_array = np.array([int(phenotypes[antibiotic_index]) for phenotypes in phenotype_data.values()])
 
-    genotype_df = genotype_df.drop(strains_to_be_skipped, axis=0)
-    phenotype_df = phenotype_df.drop(strains_to_be_skipped, axis=0)
-
-    genotype_array = genotype_df.to_numpy()
-    phenotype_array = phenotype_df.to_numpy()
 
     if len(train) == 0 and len(test) == 0:
         X = genotype_array[:, :].astype(int)
-        y = phenotype_array[:, index_of_antibiotic].astype(int)
+        y = phenotype_array[:].astype(int)
+
         if stratify:
             X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
-                X, y, random_state=random_seed, test_size=float(test_size), stratify=y)
+            genotype_array, phenotype_array, random_state=random_seed, test_size=float(test_size), stratify=phenotype_array)
         else:
             X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
-                X, y, random_state=random_seed, test_size=float(test_size))
+            genotype_array, phenotype_array, random_state=random_seed, test_size=float(test_size))
 
     else:
         X_train = []
@@ -148,20 +151,20 @@ def rf_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, 
         y_test = []
 
         for train_strain in train:
-            if train_strain in genotype_df.index.to_list():
-                X_train.append(genotype_df[:].loc[train_strain].astype(int))
-                y_train.append(
-                    phenotype_df[antibiotic].loc[train_strain].astype(int))
-        for test_strain in test:
-            if test_strain in genotype_df.index.to_list():
-                X_test.append(genotype_df[:].loc[test_strain].astype(int))
-                y_test.append(
-                    phenotype_df[antibiotic].loc[test_strain].astype(int))
+            if train_strain in genotype_data:
+                X_train.append(genotype_data[train_strain])  # Directly append the list of genotypes
+                y_train.append(phenotype_data[train_strain])  # Append the phenotype value
 
-        X_train = np.array(X_train)
-        y_train = np.array(y_train)
-        X_test = np.array(X_test)
-        y_test = np.array(y_test)
+        for test_strain in test:
+            if test_strain in genotype_data:
+                X_test.append(genotype_data[test_strain])  # Directly append the list of genotypes
+                y_test.append(phenotype_data[test_strain])  # Append the phenotype value
+
+        # Convert lists to numpy arrays
+        X_train = np.array(X_train, dtype=int)
+        y_train = np.array(y_train, dtype=int)
+        X_test = np.array(X_test, dtype=int)
+        y_test = np.array(y_test, dtype=int)
 
     if custom_scorer == "MCC":
         scorer = mcc_scorer
@@ -198,8 +201,6 @@ def rf_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, 
 
     output_file_writer(outfile, y_test, y_hat, cls)
 
-    output_file_writer(outfile, y_test, y_hat, cls)
-
     if feature_importance_analysis:
 
         r = permutation_importance(
@@ -209,7 +210,7 @@ def rf_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, 
             for i in r.importances_mean.argsort()[::-1]:
                 if r.importances_mean[i] - 2 * r.importances_std[i] > 0:
                     ofile.write(
-                        f"{genotype_df.columns[i]:<8};{r.importances_mean[i]:.3f};+/-{r.importances_std[i]:.3f}\n")
+                        f"{feature_names[i]:<8};{r.importances_mean[i]:.3f};+/-{r.importances_std[i]:.3f}\n")
 
     if save_model:
 
@@ -228,45 +229,47 @@ def rf(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split
     
     output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_RF"
 
-    genotype_df = pd.read_csv(binary_mutation_table,
-                              sep="\t", index_col=0, header=0)
-    phenotype_df = pd.read_csv(
-        phenotype_table, sep="\t", index_col=0, header=0)
+    # Load genotype data
+    with open(binary_mutation_table, 'r') as file:
+        reader = csv.reader(file, delimiter='\t')
+        headers = next(reader)
+        genotype_data = {rows[0]: rows[1:] for rows in reader}
+        feature_names = headers[1:] 
 
-    strains_to_be_skipped_phenotype = []
-    for strain in phenotype_df.index.to_list():
-        if strain not in genotype_df.index.to_list():
-            strains_to_be_skipped_phenotype.append(strain)
+    # Load phenotype data
+    with open(phenotype_table, 'r') as file:
+        reader = csv.reader(file, delimiter='\t')
+        headers = next(reader)
+        phenotype_data = {rows[0]: rows[1:] for rows in reader}
 
-    phenotype_df = phenotype_df.drop(strains_to_be_skipped_phenotype, axis=0)
+    phenotype_data = {strain: phenotypes for strain, phenotypes in phenotype_data.items() if strain in genotype_data}
 
-    # Make sure rows are matching
-    phenotype_df = phenotype_df.reindex(genotype_df.index)
+    # Filter strains based on antibiotic resistance
+    antibiotic_index = headers.index(antibiotic)-1
+    strains_to_be_skipped = [strain for strain, phenotypes in phenotype_data.items() if len(phenotypes) > antibiotic_index and phenotypes[antibiotic_index] == "2"]
+    genotype_data = {strain: genotypes for strain, genotypes in genotype_data.items() if strain not in strains_to_be_skipped}
+    phenotype_data = {strain: phenotypes for strain, phenotypes in phenotype_data.items() if strain not in strains_to_be_skipped}
 
-    index_of_antibiotic = phenotype_df.columns.get_loc(antibiotic)
+    # Reorder phenotype_data according to the order of keys in genotype_data
+    ordered_phenotype_data = {strain: phenotype_data[strain] for strain in genotype_data if strain in phenotype_data}
 
-    # Get rid of uninformative strains for given antibiotic
-    strains_to_be_skipped = []
+    phenotype_data = ordered_phenotype_data
 
-    for strain in phenotype_df.index.to_list():
-        if phenotype_df.loc[strain, antibiotic] == "2" or phenotype_df.loc[strain, antibiotic] == 2:
-            strains_to_be_skipped.append(strain)
+    # Convert data to numpy arrays for machine learning
+    genotype_array = np.array([list(map(int, genotypes)) for genotypes in genotype_data.values()])
+    phenotype_array = np.array([int(phenotypes[antibiotic_index]) for phenotypes in phenotype_data.values()])
 
-    genotype_df = genotype_df.drop(strains_to_be_skipped, axis=0)
-    phenotype_df = phenotype_df.drop(strains_to_be_skipped, axis=0)
-
-    genotype_array = genotype_df.to_numpy()
-    phenotype_array = phenotype_df.to_numpy()
 
     if len(train) == 0 and len(test) == 0:
         X = genotype_array[:, :].astype(int)
-        y = phenotype_array[:, index_of_antibiotic].astype(int)
+        y = phenotype_array[:].astype(int)
+
         if stratify:
             X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
-                X, y, random_state=random_seed, test_size=float(test_size), stratify=y)
+            genotype_array, phenotype_array, random_state=random_seed, test_size=float(test_size), stratify=phenotype_array)
         else:
             X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
-                X, y, random_state=random_seed, test_size=float(test_size), stratify=y)
+            genotype_array, phenotype_array, random_state=random_seed, test_size=float(test_size))
 
     else:
         X_train = []
@@ -275,20 +278,20 @@ def rf(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split
         y_test = []
 
         for train_strain in train:
-            if train_strain in genotype_df.index.to_list():
-                X_train.append(genotype_df[:].loc[train_strain].astype(int))
-                y_train.append(
-                    phenotype_df[antibiotic].loc[train_strain].astype(int))
-        for test_strain in test:
-            if test_strain in genotype_df.index.to_list():
-                X_test.append(genotype_df[:].loc[test_strain].astype(int))
-                y_test.append(
-                    phenotype_df[antibiotic].loc[test_strain].astype(int))
+            if train_strain in genotype_data:
+                X_train.append(genotype_data[train_strain])  # Directly append the list of genotypes
+                y_train.append(phenotype_data[train_strain])  # Append the phenotype value
 
-        X_train = np.array(X_train)
-        y_train = np.array(y_train)
-        X_test = np.array(X_test)
-        y_test = np.array(y_test)
+        for test_strain in test:
+            if test_strain in genotype_data:
+                X_test.append(genotype_data[test_strain])  # Directly append the list of genotypes
+                y_test.append(phenotype_data[test_strain])  # Append the phenotype value
+
+        # Convert lists to numpy arrays
+        X_train = np.array(X_train, dtype=int)
+        y_train = np.array(y_train, dtype=int)
+        X_test = np.array(X_test, dtype=int)
+        y_test = np.array(y_test, dtype=int)
 
     rf_cls = RandomForestClassifier(class_weight={0: sum(y_train), 1: len(
         y_train) - sum(y_train)}, n_estimators=n_estimators, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split)
@@ -329,7 +332,7 @@ def rf(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split
             for i in r.importances_mean.argsort()[::-1]:
                 if r.importances_mean[i] - 2 * r.importances_std[i] > 0:
                     ofile.write(
-                        f"{genotype_df.columns[i]:<8};{r.importances_mean[i]:.3f};+/-{r.importances_std[i]:.3f}\n")
+                        f"{feature_names[i]:<8};{r.importances_mean[i]:.3f};+/-{r.importances_std[i]:.3f}\n")
 
     if save_model:
 
@@ -348,45 +351,47 @@ def svm(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_si
 
     output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_SVM"
 
-    genotype_df = pd.read_csv(binary_mutation_table,
-                              sep="\t", index_col=0, header=0)
-    phenotype_df = pd.read_csv(
-        phenotype_table, sep="\t", index_col=0, header=0)
+    # Load genotype data
+    with open(binary_mutation_table, 'r') as file:
+        reader = csv.reader(file, delimiter='\t')
+        headers = next(reader)
+        genotype_data = {rows[0]: rows[1:] for rows in reader}
+        feature_names = headers[1:] 
 
-    strains_to_be_skipped_phenotype = []
-    for strain in phenotype_df.index.to_list():
-        if strain not in genotype_df.index.to_list():
-            strains_to_be_skipped_phenotype.append(strain)
+    # Load phenotype data
+    with open(phenotype_table, 'r') as file:
+        reader = csv.reader(file, delimiter='\t')
+        headers = next(reader)
+        phenotype_data = {rows[0]: rows[1:] for rows in reader}
 
-    phenotype_df = phenotype_df.drop(strains_to_be_skipped_phenotype, axis=0)
+    phenotype_data = {strain: phenotypes for strain, phenotypes in phenotype_data.items() if strain in genotype_data}
 
-    # Make sure rows are matching
-    phenotype_df = phenotype_df.reindex(genotype_df.index)
+    # Filter strains based on antibiotic resistance
+    antibiotic_index = headers.index(antibiotic)-1
+    strains_to_be_skipped = [strain for strain, phenotypes in phenotype_data.items() if len(phenotypes) > antibiotic_index and phenotypes[antibiotic_index] == "2"]
+    genotype_data = {strain: genotypes for strain, genotypes in genotype_data.items() if strain not in strains_to_be_skipped}
+    phenotype_data = {strain: phenotypes for strain, phenotypes in phenotype_data.items() if strain not in strains_to_be_skipped}
 
-    index_of_antibiotic = phenotype_df.columns.get_loc(antibiotic)
+    # Reorder phenotype_data according to the order of keys in genotype_data
+    ordered_phenotype_data = {strain: phenotype_data[strain] for strain in genotype_data if strain in phenotype_data}
 
-    # Get rid of uninformative strains for given antibiotic
-    strains_to_be_skipped = []
+    phenotype_data = ordered_phenotype_data
 
-    for strain in phenotype_df.index.to_list():
-        if phenotype_df.loc[strain, antibiotic] == "2" or phenotype_df.loc[strain, antibiotic] == 2:
-            strains_to_be_skipped.append(strain)
+    # Convert data to numpy arrays for machine learning
+    genotype_array = np.array([list(map(int, genotypes)) for genotypes in genotype_data.values()])
+    phenotype_array = np.array([int(phenotypes[antibiotic_index]) for phenotypes in phenotype_data.values()])
 
-    genotype_df = genotype_df.drop(strains_to_be_skipped, axis=0)
-    phenotype_df = phenotype_df.drop(strains_to_be_skipped, axis=0)
-
-    genotype_array = genotype_df.to_numpy()
-    phenotype_array = phenotype_df.to_numpy()
 
     if len(train) == 0 and len(test) == 0:
         X = genotype_array[:, :].astype(int)
-        y = phenotype_array[:, index_of_antibiotic].astype(int)
+        y = phenotype_array[:].astype(int)
+
         if stratify:
             X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
-                X, y, random_state=random_seed, test_size=float(test_size), stratify=y)
+            genotype_array, phenotype_array, random_state=random_seed, test_size=float(test_size), stratify=phenotype_array)
         else:
             X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
-                X, y, random_state=random_seed, test_size=float(test_size))
+            genotype_array, phenotype_array, random_state=random_seed, test_size=float(test_size))
 
     else:
         X_train = []
@@ -395,20 +400,20 @@ def svm(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_si
         y_test = []
 
         for train_strain in train:
-            if train_strain in genotype_df.index.to_list():
-                X_train.append(genotype_df[:].loc[train_strain].astype(int))
-                y_train.append(
-                    phenotype_df[antibiotic].loc[train_strain].astype(int))
-        for test_strain in test:
-            if test_strain in genotype_df.index.to_list():
-                X_test.append(genotype_df[:].loc[test_strain].astype(int))
-                y_test.append(
-                    phenotype_df[antibiotic].loc[test_strain].astype(int))
+            if train_strain in genotype_data:
+                X_train.append(genotype_data[train_strain])  # Directly append the list of genotypes
+                y_train.append(phenotype_data[train_strain])  # Append the phenotype value
 
-        X_train = np.array(X_train)
-        y_train = np.array(y_train)
-        X_test = np.array(X_test)
-        y_test = np.array(y_test)
+        for test_strain in test:
+            if test_strain in genotype_data:
+                X_test.append(genotype_data[test_strain])  # Directly append the list of genotypes
+                y_test.append(phenotype_data[test_strain])  # Append the phenotype value
+
+        # Convert lists to numpy arrays
+        X_train = np.array(X_train, dtype=int)
+        y_train = np.array(y_train, dtype=int)
+        X_test = np.array(X_test, dtype=int)
+        y_test = np.array(y_test, dtype=int)
 
     best_model_mcc = -1.0
     bm_c = 0
@@ -445,7 +450,7 @@ def svm(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_si
             for i in r.importances_mean.argsort()[::-1]:
                 if r.importances_mean[i] - 2 * r.importances_std[i] > 0:
                     ofile.write(
-                        f"{genotype_df.columns[i]:<8};{r.importances_mean[i]:.3f};+/-{r.importances_std[i]:.3f}\n")
+                        f"{feature_names[i]:<8};{r.importances_mean[i]:.3f};+/-{r.importances_std[i]:.3f}\n")
 
     if save_model:
 
@@ -464,45 +469,47 @@ def svm_cv(binary_mutation_table, phenotype_table, antibiotic, random_seed, test
 
     output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_SVM"
 
-    genotype_df = pd.read_csv(binary_mutation_table,
-                              sep="\t", index_col=0, header=0)
-    phenotype_df = pd.read_csv(
-        phenotype_table, sep="\t", index_col=0, header=0)
+    # Load genotype data
+    with open(binary_mutation_table, 'r') as file:
+        reader = csv.reader(file, delimiter='\t')
+        headers = next(reader)
+        genotype_data = {rows[0]: rows[1:] for rows in reader}
+        feature_names = headers[1:] 
 
-    strains_to_be_skipped_phenotype = []
-    for strain in phenotype_df.index.to_list():
-        if strain not in genotype_df.index.to_list():
-            strains_to_be_skipped_phenotype.append(strain)
+    # Load phenotype data
+    with open(phenotype_table, 'r') as file:
+        reader = csv.reader(file, delimiter='\t')
+        headers = next(reader)
+        phenotype_data = {rows[0]: rows[1:] for rows in reader}
 
-    phenotype_df = phenotype_df.drop(strains_to_be_skipped_phenotype, axis=0)
+    phenotype_data = {strain: phenotypes for strain, phenotypes in phenotype_data.items() if strain in genotype_data}
 
-    # Make sure rows are matching
-    phenotype_df = phenotype_df.reindex(genotype_df.index)
+    # Filter strains based on antibiotic resistance
+    antibiotic_index = headers.index(antibiotic)-1
+    strains_to_be_skipped = [strain for strain, phenotypes in phenotype_data.items() if len(phenotypes) > antibiotic_index and phenotypes[antibiotic_index] == "2"]
+    genotype_data = {strain: genotypes for strain, genotypes in genotype_data.items() if strain not in strains_to_be_skipped}
+    phenotype_data = {strain: phenotypes for strain, phenotypes in phenotype_data.items() if strain not in strains_to_be_skipped}
 
-    index_of_antibiotic = phenotype_df.columns.get_loc(antibiotic)
+    # Reorder phenotype_data according to the order of keys in genotype_data
+    ordered_phenotype_data = {strain: phenotype_data[strain] for strain in genotype_data if strain in phenotype_data}
 
-    # Get rid of uninformative strains for given antibiotic
-    strains_to_be_skipped = []
+    phenotype_data = ordered_phenotype_data
 
-    for strain in phenotype_df.index.to_list():
-        if phenotype_df.loc[strain, antibiotic] == "2" or phenotype_df.loc[strain, antibiotic] == 2:
-            strains_to_be_skipped.append(strain)
+    # Convert data to numpy arrays for machine learning
+    genotype_array = np.array([list(map(int, genotypes)) for genotypes in genotype_data.values()])
+    phenotype_array = np.array([int(phenotypes[antibiotic_index]) for phenotypes in phenotype_data.values()])
 
-    genotype_df = genotype_df.drop(strains_to_be_skipped, axis=0)
-    phenotype_df = phenotype_df.drop(strains_to_be_skipped, axis=0)
-
-    genotype_array = genotype_df.to_numpy()
-    phenotype_array = phenotype_df.to_numpy()
 
     if len(train) == 0 and len(test) == 0:
         X = genotype_array[:, :].astype(int)
-        y = phenotype_array[:, index_of_antibiotic].astype(int)
+        y = phenotype_array[:].astype(int)
+
         if stratify:
             X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
-                X, y, random_state=random_seed, test_size=float(test_size), stratify=y)
+            genotype_array, phenotype_array, random_state=random_seed, test_size=float(test_size), stratify=phenotype_array)
         else:
             X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
-                X, y, random_state=random_seed, test_size=float(test_size))
+            genotype_array, phenotype_array, random_state=random_seed, test_size=float(test_size))
 
     else:
         X_train = []
@@ -511,20 +518,20 @@ def svm_cv(binary_mutation_table, phenotype_table, antibiotic, random_seed, test
         y_test = []
 
         for train_strain in train:
-            if train_strain in genotype_df.index.to_list():
-                X_train.append(genotype_df[:].loc[train_strain].astype(int))
-                y_train.append(
-                    phenotype_df[antibiotic].loc[train_strain].astype(int))
-        for test_strain in test:
-            if test_strain in genotype_df.index.to_list():
-                X_test.append(genotype_df[:].loc[test_strain].astype(int))
-                y_test.append(
-                    phenotype_df[antibiotic].loc[test_strain].astype(int))
+            if train_strain in genotype_data:
+                X_train.append(genotype_data[train_strain])  # Directly append the list of genotypes
+                y_train.append(phenotype_data[train_strain])  # Append the phenotype value
 
-        X_train = np.array(X_train)
-        y_train = np.array(y_train)
-        X_test = np.array(X_test)
-        y_test = np.array(y_test)
+        for test_strain in test:
+            if test_strain in genotype_data:
+                X_test.append(genotype_data[test_strain])  # Directly append the list of genotypes
+                y_test.append(phenotype_data[test_strain])  # Append the phenotype value
+
+        # Convert lists to numpy arrays
+        X_train = np.array(X_train, dtype=int)
+        y_train = np.array(y_train, dtype=int)
+        X_test = np.array(X_test, dtype=int)
+        y_test = np.array(y_test, dtype=int)
 
     # Define the hyperparameter grid to search for the best 'C' value
     param_grid = {'C': [1, 10, 100]}
@@ -566,7 +573,7 @@ def svm_cv(binary_mutation_table, phenotype_table, antibiotic, random_seed, test
             for i in r.importances_mean.argsort()[::-1]:
                 if r.importances_mean[i] - 2 * r.importances_std[i] > 0:
                     ofile.write(
-                        f"{genotype_df.columns[i]:<8};{r.importances_mean[i]:.3f};+/-{r.importances_std[i]:.3f}\n")
+                        f"{feature_names[i]:<8};{r.importances_mean[i]:.3f};+/-{r.importances_std[i]:.3f}\n")
 
     if save_model:
 
@@ -580,10 +587,13 @@ def svm_cv(binary_mutation_table, phenotype_table, antibiotic, random_seed, test
 
         return fia_file_path
 
-
 def prps_ml_preprecessor(binary_mutation_table, prps_score_file, prps_percentage, temp_path):
 
-    genotype_df = pd.read_csv(binary_mutation_table, sep="\t")
+    # Read the binary mutation table into a dictionary
+    with open(binary_mutation_table, 'r') as f:
+        reader = csv.reader(f, delimiter='\t')
+        genotype_header = next(reader)
+        genotype_dict = {rows[0]: rows[1:] for rows in reader}
 
     prps_scores = {}
 
@@ -594,7 +604,7 @@ def prps_ml_preprecessor(binary_mutation_table, prps_score_file, prps_percentage
         print("Error: PRPS score file is empty.")
         sys.exit(1)
     
-    if len(prps_score_lines) != len(genotype_df.columns) -1:
+    if len(prps_score_lines) != len(genotype_dict) -1:
         print("Warning: PRPS score file and genotype table do not have the same number of columns.")
 
     for line in prps_score_lines:
@@ -612,67 +622,73 @@ def prps_ml_preprecessor(binary_mutation_table, prps_score_file, prps_percentage
 
     cols_to_be_dropped = []
 
-    genotype_df_columns = genotype_df.columns
-
     count = amount_of_cols_to_be_kept
     for key in sorted_prps_scores.keys():
         if count < 0:
-            if key in genotype_df_columns:
+            if key in genotype_dict:
                 cols_to_be_dropped.append(key)
             else:
                 print(
                     f"Warning: {key} is not found in the genotype table. It will be ignored.")
         count -= 1
 
-    genotype_df_dropped = genotype_df.drop(columns=cols_to_be_dropped, axis=1)
+    # Drop the columns from the dictionary
+    for strain in genotype_dict:
+        for col in cols_to_be_dropped:
+            del genotype_dict[strain][genotype_header.index(col)-1]
 
-    genotype_df_dropped.to_csv(os.path.join(
-        temp_path, "prps_filtered_table.tsv"), sep="\t", index=False)
-
+    # Write the dictionary back to a file
+    with open(os.path.join(temp_path, "prps_filtered_table.tsv"), 'w', newline='') as f:
+        writer = csv.writer(f, delimiter='\t')
+        writer.writerow(genotype_header)
+        for key, value in genotype_dict.items():
+            writer.writerow([key] + value)
 
 def gb_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, temp_folder, ram, optimization_time_limit, feature_importance_analysis=False, save_model=False, resampling_strategy="holdout", custom_scorer="MCC", fia_repeats=5, train=[], test=[], same_setup_run_count=1, stratify=True):
 
     output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_GB_AutoML"
 
-    genotype_df = pd.read_csv(binary_mutation_table,
-                              sep="\t", index_col=0, header=0)
-    phenotype_df = pd.read_csv(
-        phenotype_table, sep="\t", index_col=0, header=0)
+        # Load genotype data
+    with open(binary_mutation_table, 'r') as file:
+        reader = csv.reader(file, delimiter='\t')
+        headers = next(reader)
+        genotype_data = {rows[0]: rows[1:] for rows in reader}
+        feature_names = headers[1:] 
 
-    strains_to_be_skipped_phenotype = []
-    for strain in phenotype_df.index.to_list():
-        if strain not in genotype_df.index.to_list():
-            strains_to_be_skipped_phenotype.append(strain)
+    # Load phenotype data
+    with open(phenotype_table, 'r') as file:
+        reader = csv.reader(file, delimiter='\t')
+        headers = next(reader)
+        phenotype_data = {rows[0]: rows[1:] for rows in reader}
 
-    phenotype_df = phenotype_df.drop(strains_to_be_skipped_phenotype, axis=0)
+    phenotype_data = {strain: phenotypes for strain, phenotypes in phenotype_data.items() if strain in genotype_data}
 
-    # Make sure rows are matching
-    phenotype_df = phenotype_df.reindex(genotype_df.index)
+    # Filter strains based on antibiotic resistance
+    antibiotic_index = headers.index(antibiotic)-1
+    strains_to_be_skipped = [strain for strain, phenotypes in phenotype_data.items() if len(phenotypes) > antibiotic_index and phenotypes[antibiotic_index] == "2"]
+    genotype_data = {strain: genotypes for strain, genotypes in genotype_data.items() if strain not in strains_to_be_skipped}
+    phenotype_data = {strain: phenotypes for strain, phenotypes in phenotype_data.items() if strain not in strains_to_be_skipped}
 
-    index_of_antibiotic = phenotype_df.columns.get_loc(antibiotic)
+    # Reorder phenotype_data according to the order of keys in genotype_data
+    ordered_phenotype_data = {strain: phenotype_data[strain] for strain in genotype_data if strain in phenotype_data}
 
-    # Get rid of uninformative strains for given antibiotic
-    strains_to_be_skipped = []
+    phenotype_data = ordered_phenotype_data
 
-    for strain in phenotype_df.index.to_list():
-        if phenotype_df.loc[strain, antibiotic] == "2" or phenotype_df.loc[strain, antibiotic] == 2:
-            strains_to_be_skipped.append(strain)
+    # Convert data to numpy arrays for machine learning
+    genotype_array = np.array([list(map(int, genotypes)) for genotypes in genotype_data.values()])
+    phenotype_array = np.array([int(phenotypes[antibiotic_index]) for phenotypes in phenotype_data.values()])
 
-    genotype_df = genotype_df.drop(strains_to_be_skipped, axis=0)
-    phenotype_df = phenotype_df.drop(strains_to_be_skipped, axis=0)
-
-    genotype_array = genotype_df.to_numpy()
-    phenotype_array = phenotype_df.to_numpy()
 
     if len(train) == 0 and len(test) == 0:
         X = genotype_array[:, :].astype(int)
-        y = phenotype_array[:, index_of_antibiotic].astype(int)
+        y = phenotype_array[:].astype(int)
+
         if stratify:
             X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
-                X, y, random_state=random_seed, test_size=float(test_size), stratify=y)
+            genotype_array, phenotype_array, random_state=random_seed, test_size=float(test_size), stratify=phenotype_array)
         else:
             X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
-                X, y, random_state=random_seed, test_size=float(test_size))
+            genotype_array, phenotype_array, random_state=random_seed, test_size=float(test_size))
 
     else:
         X_train = []
@@ -681,20 +697,20 @@ def gb_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, 
         y_test = []
 
         for train_strain in train:
-            if train_strain in genotype_df.index.to_list():
-                X_train.append(genotype_df[:].loc[train_strain].astype(int))
-                y_train.append(
-                    phenotype_df[antibiotic].loc[train_strain].astype(int))
-        for test_strain in test:
-            if test_strain in genotype_df.index.to_list():
-                X_test.append(genotype_df[:].loc[test_strain].astype(int))
-                y_test.append(
-                    phenotype_df[antibiotic].loc[test_strain].astype(int))
+            if train_strain in genotype_data:
+                X_train.append(genotype_data[train_strain])  # Directly append the list of genotypes
+                y_train.append(phenotype_data[train_strain])  # Append the phenotype value
 
-        X_train = np.array(X_train)
-        y_train = np.array(y_train)
-        X_test = np.array(X_test)
-        y_test = np.array(y_test)
+        for test_strain in test:
+            if test_strain in genotype_data:
+                X_test.append(genotype_data[test_strain])  # Directly append the list of genotypes
+                y_test.append(phenotype_data[test_strain])  # Append the phenotype value
+
+        # Convert lists to numpy arrays
+        X_train = np.array(X_train, dtype=int)
+        y_train = np.array(y_train, dtype=int)
+        X_test = np.array(X_test, dtype=int)
+        y_test = np.array(y_test, dtype=int)
 
     if custom_scorer == "MCC":
         scorer = mcc_scorer
@@ -739,7 +755,7 @@ def gb_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, 
             for i in r.importances_mean.argsort()[::-1]:
                 if r.importances_mean[i] - r.importances_std[i] > 0:
                     ofile.write(
-                        f"{genotype_df.columns[i]:<8};{r.importances_mean[i]:.3f};+/-{r.importances_std[i]:.3f}\n")
+                        f"{feature_names[i]:<8};{r.importances_mean[i]:.3f};+/-{r.importances_std[i]:.3f}\n")
 
     if save_model:
 
@@ -758,45 +774,47 @@ def gb(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split
 
     output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_GB"
 
-    genotype_df = pd.read_csv(binary_mutation_table,
-                              sep="\t", index_col=0, header=0)
-    phenotype_df = pd.read_csv(
-        phenotype_table, sep="\t", index_col=0, header=0)
+    # Load genotype data
+    with open(binary_mutation_table, 'r') as file:
+        reader = csv.reader(file, delimiter='\t')
+        headers = next(reader)
+        genotype_data = {rows[0]: rows[1:] for rows in reader}
+        feature_names = headers[1:] 
 
-    strains_to_be_skipped_phenotype = []
-    for strain in phenotype_df.index.to_list():
-        if strain not in genotype_df.index.to_list():
-            strains_to_be_skipped_phenotype.append(strain)
+    # Load phenotype data
+    with open(phenotype_table, 'r') as file:
+        reader = csv.reader(file, delimiter='\t')
+        headers = next(reader)
+        phenotype_data = {rows[0]: rows[1:] for rows in reader}
 
-    phenotype_df = phenotype_df.drop(strains_to_be_skipped_phenotype, axis=0)
+    phenotype_data = {strain: phenotypes for strain, phenotypes in phenotype_data.items() if strain in genotype_data}
 
-    # Make sure rows are matching
-    phenotype_df = phenotype_df.reindex(genotype_df.index)
+    # Filter strains based on antibiotic resistance
+    antibiotic_index = headers.index(antibiotic)-1
+    strains_to_be_skipped = [strain for strain, phenotypes in phenotype_data.items() if len(phenotypes) > antibiotic_index and phenotypes[antibiotic_index] == "2"]
+    genotype_data = {strain: genotypes for strain, genotypes in genotype_data.items() if strain not in strains_to_be_skipped}
+    phenotype_data = {strain: phenotypes for strain, phenotypes in phenotype_data.items() if strain not in strains_to_be_skipped}
 
-    index_of_antibiotic = phenotype_df.columns.get_loc(antibiotic)
+    # Reorder phenotype_data according to the order of keys in genotype_data
+    ordered_phenotype_data = {strain: phenotype_data[strain] for strain in genotype_data if strain in phenotype_data}
 
-    # Get rid of uninformative strains for given antibiotic
-    strains_to_be_skipped = []
+    phenotype_data = ordered_phenotype_data
 
-    for strain in phenotype_df.index.to_list():
-        if phenotype_df.loc[strain, antibiotic] == "2" or phenotype_df.loc[strain, antibiotic] == 2:
-            strains_to_be_skipped.append(strain)
+    # Convert data to numpy arrays for machine learning
+    genotype_array = np.array([list(map(int, genotypes)) for genotypes in genotype_data.values()])
+    phenotype_array = np.array([int(phenotypes[antibiotic_index]) for phenotypes in phenotype_data.values()])
 
-    genotype_df = genotype_df.drop(strains_to_be_skipped, axis=0)
-    phenotype_df = phenotype_df.drop(strains_to_be_skipped, axis=0)
-
-    genotype_array = genotype_df.to_numpy()
-    phenotype_array = phenotype_df.to_numpy()
 
     if len(train) == 0 and len(test) == 0:
         X = genotype_array[:, :].astype(int)
-        y = phenotype_array[:, index_of_antibiotic].astype(int)
+        y = phenotype_array[:].astype(int)
+
         if stratify:
             X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
-                X, y, random_state=random_seed, test_size=float(test_size), stratify=y)
+            genotype_array, phenotype_array, random_state=random_seed, test_size=float(test_size), stratify=phenotype_array)
         else:
             X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
-                X, y, random_state=random_seed, test_size=float(test_size))
+            genotype_array, phenotype_array, random_state=random_seed, test_size=float(test_size))
 
     else:
         X_train = []
@@ -805,20 +823,21 @@ def gb(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split
         y_test = []
 
         for train_strain in train:
-            if train_strain in genotype_df.index.to_list():
-                X_train.append(genotype_df[:].loc[train_strain].astype(int))
-                y_train.append(
-                    phenotype_df[antibiotic].loc[train_strain].astype(int))
-        for test_strain in test:
-            if test_strain in genotype_df.index.to_list():
-                X_test.append(genotype_df[:].loc[test_strain].astype(int))
-                y_test.append(
-                    phenotype_df[antibiotic].loc[test_strain].astype(int))
+            if train_strain in genotype_data:
+                X_train.append(genotype_data[train_strain])  # Directly append the list of genotypes
+                y_train.append(phenotype_data[train_strain])  # Append the phenotype value
 
-        X_train = np.array(X_train)
-        y_train = np.array(y_train)
-        X_test = np.array(X_test)
-        y_test = np.array(y_test)
+        for test_strain in test:
+            if test_strain in genotype_data:
+                X_test.append(genotype_data[test_strain])  # Directly append the list of genotypes
+                y_test.append(phenotype_data[test_strain])  # Append the phenotype value
+
+        # Convert lists to numpy arrays
+        X_train = np.array(X_train, dtype=int)
+        y_train = np.array(y_train, dtype=int)
+        X_test = np.array(X_test, dtype=int)
+        y_test = np.array(y_test, dtype=int)
+
 
     gb_cls = GradientBoostingClassifier(n_estimators=n_estimators, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split)
 
@@ -858,7 +877,7 @@ def gb(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split
             for i in r.importances_mean.argsort()[::-1]:
                 if r.importances_mean[i] - 2 * r.importances_std[i] > 0:
                     ofile.write(
-                        f"{genotype_df.columns[i]:<8};{r.importances_mean[i]:.3f};+/-{r.importances_std[i]:.3f}\n")
+                        f"{feature_names[i]:<8};{r.importances_mean[i]:.3f};+/-{r.importances_std[i]:.3f}\n")
 
     if save_model:
 

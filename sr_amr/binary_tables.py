@@ -10,6 +10,7 @@ import pandas as pd
 from joblib import Parallel, delayed
 import copy
 import logging
+import csv
 
 
 def check_contigs(input):
@@ -284,21 +285,21 @@ def binary_table_creator(input_folder, output_file, number_of_cores, strains_to_
     mutation_presence_absence_dict = mutation_presence_absence_dict_creator(
         mut_dict, temp_dict, number_of_cores)
 
-    df = pd.DataFrame.from_dict(mutation_presence_absence_dict, orient='index')
+    data = [list(item) for item in mutation_presence_absence_dict.items()]
 
-    df.to_csv(f"{output_file}", sep="\t")
+    with open(f"{output_file}", "w", newline="") as file:
+        writer = csv.writer(file, delimiter="\t")
+        writer.writerows(data)
 
 
 def binary_mutation_table_gpa_information_adder(binary_mutation_table, panaroo_output_gpa, binary_mutation_table_with_gpa_information):
 
-    binary_mutation_table_df = pd.read_csv(
-        binary_mutation_table, sep="\t", index_col=0)
+    with open(binary_mutation_table, 'r') as f:
+        reader = csv.reader(f, delimiter='\t')
+        headers = next(reader)
+        binary_mutation_table_df_dict = {rows[0]: rows[1:] for rows in reader}
 
-    binary_mutation_table_df_dict = binary_mutation_table_df.to_dict(
-        orient='index')
-
-    binary_mutation_table_gpa_dict = copy.deepcopy(
-        binary_mutation_table_df_dict)
+    binary_mutation_table_gpa_dict = copy.deepcopy(binary_mutation_table_df_dict)
 
     strain_index_dict = {}
 
@@ -328,14 +329,12 @@ def binary_mutation_table_gpa_information_adder(binary_mutation_table, panaroo_o
                     except:
                         cnt += 1
 
-    binary_mutation_table_gpa_df = pd.DataFrame.from_dict(
-        binary_mutation_table_gpa_dict, orient='index')
-    
-    binary_mutation_table_gpa_df.fillna("0", inplace=True)
-    
-    binary_mutation_table_gpa_df.to_csv(
-        binary_mutation_table_with_gpa_information, sep="\t")
-    
+    with open(binary_mutation_table_with_gpa_information, 'w') as f:
+        writer = csv.writer(f, delimiter='\t')
+        writer.writerow(headers)
+        for key, value in binary_mutation_table_gpa_dict.items():
+            writer.writerow([key] + value)
+
     table_binary_maker(binary_mutation_table_with_gpa_information)
     
 
@@ -374,21 +373,30 @@ def phenotype_dataframe_creator(data_folder_path, output_file, random_names_dict
     df.to_csv(output_file, sep="\t")
 
 
+import csv
+
 def phenotype_dataframe_creator_post_processor(genotype_data, phenotype_data):
 
-    genotype_df = pd.read_csv(genotype_data, sep="\t", index_col=0, header=0)
-    phenotype_df = pd.read_csv(phenotype_data, sep="\t", index_col=0, header=0)
+    with open(genotype_data, 'r') as f:
+        reader = csv.reader(f, delimiter='\t')
+        genotype_header = next(reader)
+        genotype_dict = {rows[0]: rows[1:] for rows in reader}
 
-    strains_to_be_dropped = []
-    phenotype_strains = phenotype_df.index.to_list()
-    genotype_strains = genotype_df.index.to_list()
+    with open(phenotype_data, 'r') as f:
+        reader = csv.reader(f, delimiter='\t')
+        phenotype_header = next(reader)
+        phenotype_dict = {rows[0]: rows[1:] for rows in reader}
 
-    for strain in phenotype_strains:
-        if not strain in genotype_strains:
-            strains_to_be_dropped.append(strain)
+    strains_to_be_dropped = [strain for strain in phenotype_dict if strain not in genotype_dict]
 
-    phenotype_df_dropped = phenotype_df.drop(strains_to_be_dropped, axis=0)
-    phenotype_df_dropped.to_csv(phenotype_data, sep="\t")
+    for strain in strains_to_be_dropped:
+        del phenotype_dict[strain]
+
+    with open(phenotype_data, 'w', newline='') as f:
+        writer = csv.writer(f, delimiter='\t')
+        writer.writerow(phenotype_header)
+        for key, value in phenotype_dict.items():
+            writer.writerow([key] + value)
 
 
 def snippy_processed_file_creator(snippy_output_folder, snippy_processed_text_file):

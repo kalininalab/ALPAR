@@ -1,0 +1,9 @@
+name: alpar
+channels:
+  - conda-forge 
+  - kalininalab 
+  - bioconda 
+  - etetoolkit
+dependencies:
+  - python=3.9
+  - alpar
