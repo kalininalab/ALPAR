@@ -1,6 +1,11 @@
 import os
 import sys
 from datetime import datetime
+import random
+import string
+
+def generate_random_key():
+    return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(4))
 
 def automatix_runner(args):    
 
@@ -10,7 +15,8 @@ def automatix_runner(args):
     create_binary_tables_script = f"alpar create_binary_tables -i '{args.input}' -o '{args.output}' --reference '{args.reference}' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --create_phenotype_from_folder {args.input}"
 
     if args.custom_database != None:
-        create_binary_tables_script += f" --custom_database '{args.custom_database}' WIBI"
+        custom_db_name = generate_random_key()
+        create_binary_tables_script += f" --custom_database '{args.custom_database}' {custom_db_name}"
     
     if args.keep_temp_files:
         create_binary_tables_script += " --keep_temp_files"
