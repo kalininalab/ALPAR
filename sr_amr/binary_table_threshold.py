@@ -2,6 +2,9 @@
 
 import csv
 import os
+import sys
+
+csv.field_size_limit(sys.maxsize)
 
 def binary_table_threshold_with_percentage(binary_table, output_folder, threshold_percentage):
 
@@ -18,8 +21,14 @@ def binary_table_threshold_with_percentage(binary_table, output_folder, threshol
 
     threshold_value = (threshold_percentage / 100) * amount_of_strains
 
+    col_indices = {col: idx for idx, col in enumerate(headers)}
+
+    cols_to_be_dropped = []
+
     for col in headers[1:]:
-        if sum(int(binary_table_dict[strain][headers.index(col)-1] == '1') for strain in binary_table_dict) <= threshold_value:
+        col_index = col_indices[col] - 1
+        count_ones = sum(binary_table_dict[strain][col_index] == '1' for strain in binary_table_dict)
+        if count_ones <= threshold_value:
             cols_to_be_dropped.append(col)
 
     print(f"Number of mutations to be dropped: {len(cols_to_be_dropped)}")

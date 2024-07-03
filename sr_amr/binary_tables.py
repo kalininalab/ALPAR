@@ -12,6 +12,7 @@ import copy
 import logging
 import csv
 
+csv.field_size_limit(sys.maxsize)
 
 def check_contigs(input):
     """
@@ -274,7 +275,6 @@ def strain_presence_absence(list_of_mutations, temp_dict):
 
 
 def binary_table_creator(input_folder, output_file, number_of_cores, strains_to_be_processed):
-
     number_of_cores = int(number_of_cores)
 
     mut_dict, snp_combined_set = read_vcf_files_and_store_data(
@@ -285,11 +285,17 @@ def binary_table_creator(input_folder, output_file, number_of_cores, strains_to_
     mutation_presence_absence_dict = mutation_presence_absence_dict_creator(
         mut_dict, temp_dict, number_of_cores)
 
-    data = [list(item) for item in mutation_presence_absence_dict.items()]
+    headers = ['Strain'] + list(snp_combined_set) 
+
+    data_rows = []
+    for strain, mutations in mutation_presence_absence_dict.items():
+        row = [strain] + [mutations.get(mutation, 0) for mutation in snp_combined_set]
+        data_rows.append(row)
 
     with open(f"{output_file}", "w", newline="") as file:
         writer = csv.writer(file, delimiter="\t")
-        writer.writerows(data)
+        writer.writerow(headers)
+        writer.writerows(data_rows)
 
 
 def binary_mutation_table_gpa_information_adder(binary_mutation_table, panaroo_output_gpa, binary_mutation_table_with_gpa_information):

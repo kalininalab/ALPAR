@@ -8,6 +8,9 @@ import math
 import pathlib
 import csv
 from sr_amr.ml import decision_tree
+import sys
+
+csv.field_size_limit(sys.maxsize)
 
 # Get the path of the script
 PATH_OF_SCRIPT = pathlib.Path(__file__).parent.resolve()

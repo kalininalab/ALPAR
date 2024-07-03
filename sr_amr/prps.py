@@ -3,6 +3,9 @@ from tqdm import tqdm
 import ete3
 import os
 import csv
+import sys
+
+csv.field_size_limit(sys.maxsize)
 
 
 def load_tree(newick):
