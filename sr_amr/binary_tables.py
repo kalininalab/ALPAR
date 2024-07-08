@@ -303,9 +303,15 @@ def binary_mutation_table_gpa_information_adder(binary_mutation_table, panaroo_o
     with open(binary_mutation_table, 'r') as f:
         reader = csv.reader(f, delimiter='\t')
         headers = next(reader)
-        binary_mutation_table_df_dict = {rows[0]: rows[1:] for rows in reader}
+        # Create a mapping of header names to their indices
+        header_indices = {name: index for index, name in enumerate(headers[1:], start=1)}
+        binary_table_dict = {}
+        for row in reader:
+            strain = row[0]
+            mutations = row[1:]
+            binary_table_dict[strain] = {mutation_name: mutations[header_indices[mutation_name]-1] for mutation_name in headers[1:]}
 
-    binary_mutation_table_gpa_dict = copy.deepcopy(binary_mutation_table_df_dict)
+    binary_mutation_table_gpa_dict = copy.deepcopy(binary_table_dict)
 
     strain_index_dict = {}
 
@@ -335,11 +341,13 @@ def binary_mutation_table_gpa_information_adder(binary_mutation_table, panaroo_o
                     except:
                         cnt += 1
 
-    with open(binary_mutation_table_with_gpa_information, 'w') as f:
-        writer = csv.writer(f, delimiter='\t')
-        writer.writerow(headers)
-        for key, value in binary_mutation_table_gpa_dict.items():
-            writer.writerow([key] + value)
+    with open(binary_mutation_table_with_gpa_information, 'w') as ofile:
+        headers = ['Strain'] + list(next(iter(binary_mutation_table_gpa_dict.values())).keys())
+        ofile.write('\t'.join(headers) + '\n') 
+        
+        for strain, mutations in binary_mutation_table_gpa_dict.items():
+            row = [strain] + [mutations[mutation] for mutation in headers[1:]] 
+            ofile.write('\t'.join(row) + '\n')
 
     table_binary_maker(binary_mutation_table_with_gpa_information)
     

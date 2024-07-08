@@ -596,13 +596,13 @@ def prps_ml_preprecessor(binary_mutation_table, prps_score_file, prps_percentage
         headers = next(reader)
         # Create a mapping of header names to their indices
         header_indices = {name: index for index, name in enumerate(headers[1:], start=1)}
-        binary_table_dict2 = {}
+        binary_table_dict = {}
         for row in reader:
             strain = row[0]
             mutations = row[1:]
-            binary_table_dict2[strain] = {mutation_name: mutations[header_indices[mutation_name]-1] for mutation_name in headers[1:]}
+            binary_table_dict[strain] = {mutation_name: mutations[header_indices[mutation_name]-1] for mutation_name in headers[1:]}
 
-        prps_scores = {}
+    prps_scores = {}
 
     with open(prps_score_file, "r") as prps_file:
         prps_score_lines = prps_file.readlines()
@@ -646,23 +646,19 @@ def prps_ml_preprecessor(binary_mutation_table, prps_score_file, prps_percentage
     cols_to_be_dropped_set = set(cols_to_be_dropped)
 
     for col in cols_to_be_dropped:
-        for strain in binary_table_dict2.keys():
-            del binary_table_dict2[strain][col]
+        for strain in binary_table_dict.keys():
+            del binary_table_dict[strain][col]
 
-    # Directly filter headers to exclude those to be dropped
     headers = [header for header in headers if header not in cols_to_be_dropped_set]
 
-    # The rest of the code remains the same
     print(f"PRPS: Number of mutations in the table after dropping: {len(headers) - 1}")
 
     with open(f"{os.path.join(temp_path, 'prps_filtered_table.tsv')}", 'w') as file:
-        # Assuming all strains have the same mutations, get headers from the first strain
-        headers = ['Strain'] + list(next(iter(binary_table_dict2.values())).keys())
-        file.write('\t'.join(headers) + '\n')  # Write the headers
+        headers = ['Strain'] + list(next(iter(binary_table_dict.values())).keys())
+        file.write('\t'.join(headers) + '\n')
         
-        # Write each strain's mutations and their values
-        for strain, mutations in binary_table_dict2.items():
-            row = [strain] + [mutations[mutation] for mutation in headers[1:]]  # Organize values in the order of headers
+        for strain, mutations in binary_table_dict.items():
+            row = [strain] + [mutations[mutation] for mutation in headers[1:]]
             file.write('\t'.join(row) + '\n')
 
 def gb_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, temp_folder, ram, optimization_time_limit, feature_importance_analysis=False, save_model=False, resampling_strategy="holdout", custom_scorer="MCC", fia_repeats=5, train=[], test=[], same_setup_run_count=1, stratify=True):
