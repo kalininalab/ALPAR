@@ -320,7 +320,7 @@ def main():
 def run_snippy_and_prokka(strain, random_names, snippy_output, prokka_output, args, snippy_flag, prokka_flag, custom_db=None):
     # if args.ram / args.threads < 8:
     #     print("Warning: Not enough ram for the processes. Minimum 8 GB of ram per thread is recommended.")
-
+    
     # Snippy creates issue with high memory usage, so it is limited to 100 GB
     if args.ram > 100:
         #print(f"Warning: Due to restrictions of snippy, ram is limited to 100 GB for snippy run only.")
@@ -342,6 +342,8 @@ def binary_table_pipeline(args):
 
     status = -1
 
+    if args.verbosity > 3:
+        print("Checking the installed tools...")
     # Check if the tools are installed
     tool_list = ["snippy", "prokka", "panaroo"]
 
@@ -350,6 +352,8 @@ def binary_table_pipeline(args):
             print(f"Error: {tool} is not installed.")
             sys.exit(1)
 
+    if args.verbosity > 3:
+        print("Checking the input...")
     # Check the arguments
     if args.input is None:
         print("Error: Input file is required.")
@@ -489,6 +493,11 @@ def binary_table_pipeline(args):
     if args.no_gene_annotation:
         prokka_flag = False
 
+    if args.verbosity > 3:
+        print("Will run snippy: ", snippy_flag)
+        print("Will run prokka: ", prokka_flag)
+        print("Will run panaroo: ", panaroo_flag)
+
     # Create the output folder
     if not os.path.exists(args.output):
         os.mkdir(args.output)
@@ -503,6 +512,12 @@ def binary_table_pipeline(args):
     snippy_output = os.path.join(args.output, "snippy")
     prokka_output = os.path.join(args.output, "prokka")
     panaroo_output = os.path.join(args.output, "panaroo")
+
+    if args.verbosity > 3:
+        print(f"Output folder created: {args.output}")
+        print(f"Snippy output folder created: {snippy_output}")
+        print(f"Prokka output folder created: {prokka_output}")
+        print(f"Panaroo output folder created: {panaroo_output}")
 
     # Create the temp folder for the panaroo input
     if not os.path.exists(os.path.join(args.temp, "panaroo")):
@@ -545,6 +560,13 @@ def binary_table_pipeline(args):
                 files_in_resistant_path = os.listdir(resistant_path)
                 files_in_susceptible_path = os.listdir(susceptible_path)
 
+                if args.verbosity > 3:
+                    print(f"Checking {antibiotic} folder...")
+                    print(f"Resistant folder: {resistant_path}")
+                    print(f"Amount of files in resistant folder: {len(files_in_resistant_path)}")
+                    print(f"Susceptible folder: {susceptible_path}")
+                    print(f"Amount of files in susceptible folder: {len(files_in_susceptible_path)}")
+
                 resistant_strains = []
                 susceptible_strains = []
 
@@ -571,9 +593,14 @@ def binary_table_pipeline(args):
 
             input_file = os.path.join(args.output, "strains.txt")
 
+            if args.verbosity > 3:
+                print(f"Strains.txt file created: {input_file}")
+
         if input_file is not None:
             random_names = random_name_giver(
                 input_file, os.path.join(args.output, "random_names.txt"))
+            if args.verbosity > 3:
+                print(f"Random names file created: {os.path.join(args.output, 'random_names.txt')}")
 
         with open(os.path.join(args.temp, "status.txt"), "w") as outfile:
             outfile.write(f"0")
@@ -668,7 +695,7 @@ def binary_table_pipeline(args):
         binary_table_creator(snippy_output, os.path.join(
             args.output, "binary_mutation_table.tsv"), args.threads, strains_to_be_processed)
 
-        print("Creating annotation tables...")
+        print("Creating annotation table...")
 
         annotation_file_from_snippy(snippy_output, args.output)
 

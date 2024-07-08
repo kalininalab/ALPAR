@@ -591,13 +591,18 @@ def svm_cv(binary_mutation_table, phenotype_table, antibiotic, random_seed, test
 
 def prps_ml_preprecessor(binary_mutation_table, prps_score_file, prps_percentage, temp_path):
 
-    # Read the binary mutation table into a dictionary
     with open(binary_mutation_table, 'r') as f:
         reader = csv.reader(f, delimiter='\t')
-        genotype_header = next(reader)
-        genotype_dict = {rows[0]: rows[1:] for rows in reader}
+        headers = next(reader)
+        # Create a mapping of header names to their indices
+        header_indices = {name: index for index, name in enumerate(headers[1:], start=1)}
+        binary_table_dict2 = {}
+        for row in reader:
+            strain = row[0]
+            mutations = row[1:]
+            binary_table_dict2[strain] = {mutation_name: mutations[header_indices[mutation_name]-1] for mutation_name in headers[1:]}
 
-    prps_scores = {}
+        prps_scores = {}
 
     with open(prps_score_file, "r") as prps_file:
         prps_score_lines = prps_file.readlines()
@@ -606,7 +611,7 @@ def prps_ml_preprecessor(binary_mutation_table, prps_score_file, prps_percentage
         print("Error: PRPS score file is empty.")
         sys.exit(1)
     
-    if len(prps_score_lines) != len(genotype_dict) -1:
+    if len(prps_score_lines) != len(headers[1:]):
         print("Warning: PRPS score file and genotype table do not have the same number of columns.")
 
     for line in prps_score_lines:
@@ -624,27 +629,41 @@ def prps_ml_preprecessor(binary_mutation_table, prps_score_file, prps_percentage
 
     cols_to_be_dropped = []
 
+    genotype_df_columns = headers[1:]
+
     count = amount_of_cols_to_be_kept
     for key in sorted_prps_scores.keys():
         if count < 0:
-            if key in genotype_dict:
+            if key in genotype_df_columns:
                 cols_to_be_dropped.append(key)
             else:
                 print(
                     f"Warning: {key} is not found in the genotype table. It will be ignored.")
         count -= 1
 
-    # Drop the columns from the dictionary
-    for strain in genotype_dict:
-        for col in cols_to_be_dropped:
-            del genotype_dict[strain][genotype_header.index(col)-1]
+    print(f"PRPS: Number of mutations to be dropped: {len(cols_to_be_dropped)}")
 
-    # Write the dictionary back to a file
-    with open(os.path.join(temp_path, "prps_filtered_table.tsv"), 'w', newline='') as f:
-        writer = csv.writer(f, delimiter='\t')
-        writer.writerow(genotype_header)
-        for key, value in genotype_dict.items():
-            writer.writerow([key] + value)
+    cols_to_be_dropped_set = set(cols_to_be_dropped)
+
+    for col in cols_to_be_dropped:
+        for strain in binary_table_dict2.keys():
+            del binary_table_dict2[strain][col]
+
+    # Directly filter headers to exclude those to be dropped
+    headers = [header for header in headers if header not in cols_to_be_dropped_set]
+
+    # The rest of the code remains the same
+    print(f"PRPS: Number of mutations in the table after dropping: {len(headers) - 1}")
+
+    with open(f"{os.path.join(temp_path, 'prps_filtered_table.tsv')}", 'w') as file:
+        # Assuming all strains have the same mutations, get headers from the first strain
+        headers = ['Strain'] + list(next(iter(binary_table_dict2.values())).keys())
+        file.write('\t'.join(headers) + '\n')  # Write the headers
+        
+        # Write each strain's mutations and their values
+        for strain, mutations in binary_table_dict2.items():
+            row = [strain] + [mutations[mutation] for mutation in headers[1:]]  # Organize values in the order of headers
+            file.write('\t'.join(row) + '\n')
 
 def gb_auto_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, temp_folder, ram, optimization_time_limit, feature_importance_analysis=False, save_model=False, resampling_strategy="holdout", custom_scorer="MCC", fia_repeats=5, train=[], test=[], same_setup_run_count=1, stratify=True):
 

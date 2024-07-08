@@ -11,8 +11,13 @@ def binary_table_threshold_with_percentage(binary_table, output_folder, threshol
     with open(binary_table, 'r') as f:
         reader = csv.reader(f, delimiter='\t')
         headers = next(reader)
-        binary_table_dict = {rows[0]: rows[1:] for rows in reader}
-
+        header_indices = {name: index for index, name in enumerate(headers[1:], start=1)}
+        binary_table_dict = {}
+        for row in reader:
+            strain = row[0]
+            mutations = row[1:]
+            binary_table_dict[strain] = {mutation_name: mutations[header_indices[mutation_name]-1] for mutation_name in headers[1:]}
+            
     print(f"Number of mutations in the table: {len(headers[1:])}")
 
     cols_to_be_dropped = []
@@ -21,13 +26,17 @@ def binary_table_threshold_with_percentage(binary_table, output_folder, threshol
 
     threshold_value = (threshold_percentage / 100) * amount_of_strains
 
-    col_indices = {col: idx for idx, col in enumerate(headers)}
+    threshold_value = int(threshold_value)
+
+    if threshold_value < 1:
+        threshold_value = 1
+
+    print(f"Threshold value: {threshold_value}")
 
     cols_to_be_dropped = []
 
     for col in headers[1:]:
-        col_index = col_indices[col] - 1
-        count_ones = sum(binary_table_dict[strain][col_index] == '1' for strain in binary_table_dict)
+        count_ones = sum(binary_table_dict[strain][col] == '1' for strain in binary_table_dict)
         if count_ones <= threshold_value:
             cols_to_be_dropped.append(col)
 
@@ -35,24 +44,25 @@ def binary_table_threshold_with_percentage(binary_table, output_folder, threshol
 
     cols_to_be_dropped_set = set(cols_to_be_dropped)
 
-    indices_to_keep = [index for index, header in enumerate(headers) if header not in cols_to_be_dropped_set]
-    
-    adjusted_indices_to_keep = [0] + [index - 1 for index in indices_to_keep[1:]]
+    for col in cols_to_be_dropped:
+        for strain in binary_table_dict.keys():
+            del binary_table_dict[strain][col]
 
-    for strain in binary_table_dict:
-        binary_table_dict[strain] = [binary_table_dict[strain][index] for index in adjusted_indices_to_keep]
+    headers = [header for header in headers if header not in cols_to_be_dropped_set]
 
-    print(f"Number of mutations in the table after dropping: {len(headers[1:]) - len(cols_to_be_dropped)}")
+    print(f"Number of mutations in the table after dropping: {len(headers) - 1}")
 
     if "with_gene_presence_absence" in binary_table:
         output_file = os.path.join(output_folder, f"binary_mutation_table_with_gene_presence_absence_threshold_{threshold_percentage}_percent.tsv")
     else:
-        output_file = os.path.join(output_folder, f"binary_mutation_table_threshold_{threshold_percentage}_percent_2.tsv")
+        output_file = os.path.join(output_folder, f"binary_mutation_table_threshold_{threshold_percentage}_percent.tsv")
 
-    with open(output_file, 'w', newline='') as f:
-        writer = csv.writer(f, delimiter='\t')
-        writer.writerow(headers)
-        for key, value in binary_table_dict.items():
-            writer.writerow([key] + value)
+    with open(f"{output_file}", 'w') as file:
+        headers = ['Strain'] + list(next(iter(binary_table_dict.values())).keys())
+        file.write('\t'.join(headers) + '\n')
+        
+        for strain, mutations in binary_table_dict.items():
+            row = [strain] + [mutations[mutation] for mutation in headers[1:]]
+            file.write('\t'.join(row) + '\n')
 
     return output_file
