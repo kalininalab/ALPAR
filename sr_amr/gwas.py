@@ -282,18 +282,33 @@ def decision_tree_input_creator(binary_table, phenotype_file_path, pyseer_output
             # Read the binary table into a dictionary
             with open(binary_table, 'r') as f:
                 reader = csv.reader(f, delimiter='\t')
-                binary_table_header = next(reader)
-                binary_table_dict = {rows[0]: rows[1:] for rows in reader}
+                headers = next(reader)
+                header_indices = {name: index for index, name in enumerate(headers[1:], start=1)}
+                binary_table_dict = {}
+                for row in reader:
+                    strain = row[0]
+                    mutations = row[1:]
+                    binary_table_dict[strain] = {mutation_name: mutations[header_indices[mutation_name]-1] for mutation_name in headers[1:]}
+            
+            cols_to_be_dropped = []
 
-            # Create a subset of the dictionary with only the top GWAS results
-            df_subset = {k: v for k, v in binary_table_dict.items() if k in top_gwas_results}
+            for col in headers[1:]:
+                if col not in top_gwas_results:
+                    cols_to_be_dropped.append(col)
+            
+            for col in cols_to_be_dropped:
+                for strain in binary_table_dict.keys():
+                    del binary_table_dict[strain][col]
 
-            # Write the subset dictionary to a file
-            with open(os.path.join(output_folder, 'gwas_top_results.tsv'), 'w', newline='') as f:
-                writer = csv.writer(f, delimiter='\t')
-                writer.writerow(binary_table_header)
-                for key, value in df_subset.items():
-                    writer.writerow([key] + value)
+            headers = [header for header in headers if header not in cols_to_be_dropped]
+
+            with open(os.path.join(output_folder, 'gwas_top_results.tsv'), 'w') as ofile:
+                headers = ['Strain'] + list(next(iter(binary_table_dict.values())).keys())
+                ofile.write('\t'.join(headers) + '\n')
+                
+                for strain, mutations in binary_table_dict.items():
+                    row = [strain] + [mutations[mutation] for mutation in headers[1:]]
+                    ofile.write('\t'.join(row) + '\n')
 
             os.makedirs(os.path.join(output_folder, 'decision_tree'), exist_ok=True)
             decision_tree(os.path.join(output_folder, 'gwas_top_results.tsv'), phenotype_file_path, gwas_sorted_file.split('.')[0], 42, 0.2, os.path.join(output_folder, 'decision_tree'))
