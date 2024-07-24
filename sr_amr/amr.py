@@ -66,6 +66,7 @@ def main():
     parser_automatix.add_argument('--fast', action='store_true', help='fast mode, does not run PanACoTA pipeline for phylogenetic tree analysis, default=False')
     parser_automatix.add_argument('--checkpoint', action='store_true',
                                   help='continues run from the checkpoint, default=False')
+    parser_automatix.add_argument('--no_datasail', action='store_true', help='splits data randomly instead of using genomic distances, default=False')
     parser_automatix.add_argument('--verbosity', type=int,
                                   help='verbosity level, default=1', default=1)
     parser_automatix.set_defaults(func=fully_automated_pipeline)
