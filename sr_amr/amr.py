@@ -8,6 +8,7 @@ import pathlib
 import contextlib
 import time
 import multiprocessing
+import shutil
 
 from sr_amr.utils import is_tool_installed, temp_folder_remover, time_function
 from sr_amr.version import __version__
@@ -764,6 +765,8 @@ def binary_table_pipeline(args):
                 # Create the gene presence absence information
                 print(f"CD-HIT preprecessor is running...")
                 cdhit_preprocessor(os.path.join(args.output, "random_names.txt"), prokka_output, os.path.join(args.temp, "cdhit"), strains_to_be_processed)
+
+                shutil.copy(f"{os.path.join(args.temp, "cdhit", "protein_positions.csv")}", os.path.join(args.output, "cd-hit", "protein_positions.csv"))
 
                 print(f"CD-HIT is running...")
                 cdhit_runner(os.path.join(args.temp, "cdhit", "combined_proteins.faa"), os.path.join(args.output, "cd-hit", "cdhit_output.txt"), n_cpu=args.threads)

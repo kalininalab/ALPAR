@@ -13,6 +13,7 @@ import logging
 import csv
 from collections import defaultdict
 import re
+from sr_amr.gbk_parser import gbk_parser
 
 import warnings
 
@@ -539,6 +540,8 @@ def cdhit_protein_dictionary_creator(fasta_file):
                 protein_id = line.strip().split(" ")[0][1:]
                 protein_names = line.strip().split(" ")[1:]
                 protein_name = "_".join(protein_names)
+                if protein_name.endswith("_"):
+                    protein_name = protein_name[:-1]
                 protein_dict[protein_id] = protein_name
     return protein_dict
 
@@ -551,11 +554,14 @@ def cdhit_protein_name_corrector(input_file, output_file):
                 if line.startswith(">"):
                     protein_original_name = line[1:].strip()
                     protein_original_name = replace_non_alphanumeric(protein_original_name)
+                    if protein_original_name.endswith("_"):
+                        protein_original_name = protein_original_name[:-1]
                     outfile.write(f">{fasta_file_name}_{protein_original_name}\n")
                 else:
                     outfile.write(line)
 
 def cdhit_preprocessor(random_names_txt, prokka_output_folder, temp_folder, strains_to_be_processed):
+    protein_positions = {}
     with open(random_names_txt, "r") as infile:
         lines = infile.readlines()
         for line in lines:
@@ -568,6 +574,20 @@ def cdhit_preprocessor(random_names_txt, prokka_output_folder, temp_folder, stra
                             shutil.copyfile(os.path.join(f"{prokka_output_folder}", f"{given_random_name}", f"{prokka_output_file}"), os.path.join(f"{temp_folder}", f"{given_random_name}.faa"))
                             cdhit_protein_name_corrector(os.path.join(f"{temp_folder}", f"{given_random_name}.faa"), os.path.join(f"{temp_folder}", f"{given_random_name}_corrected.faa"))
                             os.remove(os.path.join(f"{temp_folder}", f"{given_random_name}.faa"))
+                    if prokka_output_file.endswith(".gbk"):
+                        if prokka_output_file.startswith("PROKKA"):
+                            current_records = gbk_parser(given_random_name, os.path.join(f"{prokka_output_folder}", f"{given_random_name}", f"{prokka_output_file}"))
+                            for record in current_records:
+                                if record.protein_gpa_name:
+                                    curr_gpa_name = replace_non_alphanumeric(record.protein_gpa_name)
+                                    if curr_gpa_name.endswith("_"):
+                                        curr_gpa_name = curr_gpa_name[:-1]
+                                    protein_middle_point = (record.start + record.end) // 2
+                                    protein_positions[curr_gpa_name] = protein_middle_point
+    
+    with open(os.path.join(temp_folder, "protein_positions.csv"), "w") as outfile:
+        for protein_name, protein_position in protein_positions.items():
+            outfile.write(f"{protein_name},{protein_position}\n")
                       
     combine_faa_files(temp_folder)
     delete_unwanted_faa_files(temp_folder)
@@ -659,11 +679,11 @@ def gene_presence_absence_file_creator(clstr_file, strains_to_be_processed, comb
     # Prepare the presence-absence matrix
     matrix = {}
     for cluster_id, proteins in clusters.items():
-        matrix[f"{cluster_represantative[cluster_id]}_{protein_dict[cluster_represantative[cluster_id]]}"] = copy.deepcopy(temp_dict)
+        matrix[f"{cluster_represantative[cluster_id]}"] = copy.deepcopy(temp_dict)
         for protein in proteins:
             genome = protein.split("_")[0]
             if genome in strains_to_be_processed:
-                matrix[f"{cluster_represantative[cluster_id]}_{protein_dict[cluster_represantative[cluster_id]]}"][genome] = 1
+                matrix[f"{cluster_represantative[cluster_id]}"][genome] = 1
             else:
                 print(f"Genome {genome} is not in the list of strains to be processed")
     
