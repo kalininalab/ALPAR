@@ -4,6 +4,10 @@ import os
 import shutil
 import pathlib
 
+import warnings
+
+warnings.filterwarnings("ignore")
+
 # Get the path of the script
 PATH_OF_SCRIPT = pathlib.Path(__file__).parent.resolve()
 

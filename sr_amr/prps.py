@@ -4,6 +4,9 @@ import ete3
 import os
 import csv
 import sys
+import warnings
+
+warnings.filterwarnings("ignore")
 
 csv.field_size_limit(sys.maxsize)
 

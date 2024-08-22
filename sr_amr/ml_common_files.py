@@ -1,5 +1,9 @@
 import os
 
+import warnings
+
+warnings.filterwarnings("ignore")
+
 def fia_file_annotation(fia_file, annotation_file):
     with open (fia_file, "r") as ifile:
         lines = ifile.readlines()

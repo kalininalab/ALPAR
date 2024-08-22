@@ -1,6 +1,9 @@
 import os
 from Bio import SeqIO
 import textwrap
+import warnings
+
+warnings.filterwarnings("ignore")
 
 def annotation_file_creator(reference_genome, output_folder):
 

@@ -10,6 +10,10 @@ import csv
 from sr_amr.ml import decision_tree
 import sys
 
+import warnings
+
+warnings.filterwarnings("ignore")
+
 csv.field_size_limit(sys.maxsize)
 
 # Get the path of the script

@@ -4,6 +4,10 @@ import csv
 import os
 import sys
 
+import warnings
+
+warnings.filterwarnings("ignore")
+
 csv.field_size_limit(sys.maxsize)
 
 def binary_table_threshold_with_percentage(binary_table, output_folder, threshold_percentage):

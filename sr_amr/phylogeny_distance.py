@@ -3,6 +3,10 @@
 
 '''Extract a distance matrix from a phylogeny'''
 
+import warnings
+
+warnings.filterwarnings("ignore")
+
 
 def get_options():
     import argparse

@@ -11,6 +11,12 @@ from joblib import Parallel, delayed
 import copy
 import logging
 import csv
+from collections import defaultdict
+import re
+
+import warnings
+
+warnings.filterwarnings("ignore")
 
 csv.field_size_limit(sys.maxsize)
 
@@ -298,7 +304,7 @@ def binary_table_creator(input_folder, output_file, number_of_cores, strains_to_
         writer.writerows(data_rows)
 
 
-def binary_mutation_table_gpa_information_adder(binary_mutation_table, panaroo_output_gpa, binary_mutation_table_with_gpa_information):
+def binary_mutation_table_gpa_information_adder_panaroo(binary_mutation_table, panaroo_output_gpa, binary_mutation_table_with_gpa_information):
 
     with open(binary_mutation_table, 'r') as f:
         reader = csv.reader(f, delimiter='\t')
@@ -335,6 +341,60 @@ def binary_mutation_table_gpa_information_adder(binary_mutation_table, panaroo_o
                     except:
                         cnt += 1
                 else:
+                    try:
+                        binary_mutation_table_gpa_dict[strain_index_dict[cnt]][gene] = "0"
+                        cnt += 1
+                    except:
+                        cnt += 1
+
+    with open(binary_mutation_table_with_gpa_information, 'w') as ofile:
+        headers = ['Strain'] + list(next(iter(binary_mutation_table_gpa_dict.values())).keys())
+        ofile.write('\t'.join(headers) + '\n') 
+        
+        for strain, mutations in binary_mutation_table_gpa_dict.items():
+            row = [strain] + [mutations[mutation] for mutation in headers[1:]] 
+            ofile.write('\t'.join(row) + '\n')
+
+    table_binary_maker(binary_mutation_table_with_gpa_information)
+
+
+def binary_mutation_table_gpa_information_adder(binary_mutation_table, gpa_file, binary_mutation_table_with_gpa_information):
+
+    with open(binary_mutation_table, 'r') as f:
+        reader = csv.reader(f, delimiter='\t')
+        headers = next(reader)
+        # Create a mapping of header names to their indices
+        header_indices = {name: index for index, name in enumerate(headers[1:], start=1)}
+        binary_table_dict = {}
+        for row in reader:
+            strain = row[0]
+            mutations = row[1:]
+            binary_table_dict[strain] = {mutation_name: mutations[header_indices[mutation_name]-1] for mutation_name in headers[1:]}
+
+    binary_mutation_table_gpa_dict = copy.deepcopy(binary_table_dict)
+
+    strain_index_dict = {}
+
+    with open(gpa_file) as infile:
+        lines = infile.readlines()
+        index_line = lines[0]
+        index_line_split = index_line.split(",")
+        for strain_idx in range(len(index_line_split)):
+            if strain_idx < 1:
+                continue
+            strain_index_dict[strain_idx] = index_line_split[strain_idx].strip()
+        for line in lines[1:]:
+            splitted = line.split(",")
+            gene = splitted[0].strip()
+            cnt = 1
+            for ocome in splitted[1:]:
+                if ocome.strip() == 1 or ocome.strip() == '1':
+                    try:
+                        binary_mutation_table_gpa_dict[strain_index_dict[cnt]][gene] = "1"
+                        cnt += 1
+                    except:
+                        cnt += 1
+                elif ocome.strip() == 0 or ocome.strip() == '0':
                     try:
                         binary_mutation_table_gpa_dict[strain_index_dict[cnt]][gene] = "0"
                         cnt += 1
@@ -456,3 +516,161 @@ def table_binary_maker(binary_mutation_table):
             line = line.replace("1.0", "1")
 
             ofile.write(line)
+
+def replace_non_alphanumeric(string):
+    # Replace every character that is not a letter or number with '_'
+    return re.sub(r'\W', '_', string)
+
+def combine_faa_files(temp_folder):
+    command = f'cat {temp_folder}/*.faa > {temp_folder}/combined_proteins.faa'
+    subprocess.run(command, shell=True, check=True)
+
+def delete_unwanted_faa_files(temp_folder):
+    for file_name in os.listdir(temp_folder):
+        if file_name.endswith(".faa") and file_name != "combined_proteins.faa":
+            os.remove(os.path.join(temp_folder, file_name))
+
+def cdhit_protein_dictionary_creator(fasta_file):
+    protein_dict = {}
+    with open(fasta_file, "r") as infile:
+        lines = infile.readlines()
+        for line in lines:
+            if line.startswith(">"):
+                protein_id = line.strip().split(" ")[0][1:]
+                protein_names = line.strip().split(" ")[1:]
+                protein_name = "_".join(protein_names)
+                protein_dict[protein_id] = protein_name
+    return protein_dict
+
+def cdhit_protein_name_corrector(input_file, output_file):
+    fasta_file_name = input_file.split("/")[-1].split(".")[0]
+    with open(output_file, "w") as outfile:
+        with open(input_file, "r") as infile:
+            lines = infile.readlines()
+            for line in lines:
+                if line.startswith(">"):
+                    protein_original_name = line[1:].strip()
+                    protein_original_name = replace_non_alphanumeric(protein_original_name)
+                    outfile.write(f">{fasta_file_name}_{protein_original_name}\n")
+                else:
+                    outfile.write(line)
+
+def cdhit_preprocessor(random_names_txt, prokka_output_folder, temp_folder, strains_to_be_processed):
+    with open(random_names_txt, "r") as infile:
+        lines = infile.readlines()
+        for line in lines:
+            splitted = line.split("\t")
+            given_random_name = splitted[1].strip()
+            if given_random_name in strains_to_be_processed:
+                for prokka_output_file in os.listdir(f"{os.path.join(prokka_output_folder, given_random_name)}"):
+                    if prokka_output_file.endswith(".faa"):
+                        if prokka_output_file.startswith("PROKKA"):
+                            shutil.copyfile(os.path.join(f"{prokka_output_folder}", f"{given_random_name}", f"{prokka_output_file}"), os.path.join(f"{temp_folder}", f"{given_random_name}.faa"))
+                            cdhit_protein_name_corrector(os.path.join(f"{temp_folder}", f"{given_random_name}.faa"), os.path.join(f"{temp_folder}", f"{given_random_name}_corrected.faa"))
+                            os.remove(os.path.join(f"{temp_folder}", f"{given_random_name}.faa"))
+                      
+    combine_faa_files(temp_folder)
+    delete_unwanted_faa_files(temp_folder)
+                                                                         
+def cdhit_runner(input_file,
+    output_file,
+    id=0.95,
+    n_cpu=1,
+    s=0.0,  # length difference cutoff (%), default 0.0
+    aL=0.0,  # alignment coverage for the longer sequence
+    AL=99999999,  # alignment coverage control for the longer sequence
+    aS=0.0,  # alignment coverage for the shorter sequence
+    AS=99999999,  # alignment coverage control for the shorter sequence
+    memory=0,  # memory limit (in MB) for the program, default 8000
+    accurate=True,  # use the slower but more accurate options
+    use_local=False,  #whether to use local or global sequence alignment
+    word_length=None,
+    min_length=None,
+    quiet=False):
+
+    cdhit_script = "cd-hit"
+    cdhit_script += " -T " + str(n_cpu)
+    cdhit_script += " -i " + input_file
+    cdhit_script += " -o " + output_file
+    cdhit_script += " -c " + str(id)
+    cdhit_script += " -s " + str(s)
+    cdhit_script += " -aL " + str(aL)
+    cdhit_script += " -AL " + str(AL)
+    cdhit_script += " -aS " + str(aS)
+    cdhit_script += " -AS " + str(AS)
+    cdhit_script += " -M " + str(memory)
+    cdhit_script += " -d 0"
+
+    if use_local:
+        cdhit_script += " -G 0"
+
+    if accurate:
+        cdhit_script += " -g 1 -n 2"
+
+    if (word_length is not None) and (not accurate):
+        cdhit_script += " -n " + str(word_length)
+
+    if min_length is not None:
+        cdhit_script += " -l " + str(min_length)
+
+    if not quiet:
+        print("running cdhit_script: " + cdhit_script)
+    else:
+        cdhit_script += " > /dev/null"
+
+    subprocess.run(cdhit_script, shell=True, check=True)
+
+    return
+
+def save_matrix_to_csv(matrix, file_path):
+    with open(file_path, 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        headers = ['Protein'] + sorted(matrix[next(iter(matrix))].keys())
+        writer.writerow(headers)
+        for cluster_id, genomes in matrix.items():
+            clean_cluster_id = str(cluster_id).strip()
+            row = [clean_cluster_id] + [genomes.get(genome, 0) for genome in headers[1:]]
+            writer.writerow(row)
+
+def gene_presence_absence_file_creator(clstr_file, strains_to_be_processed, combined_proteins_faa, output_path):
+    # Dictionary to store clusters
+    clusters = defaultdict(set)
+    cluster_represantative = {}
+
+    # Parse the .clstr file
+    with open(clstr_file, 'r') as f:
+        cluster_id = None
+        for line in f:
+            if line.startswith('>Cluster'):
+                cluster_id = line.strip().split()[-1]
+            else:
+                protein_id = line.strip().split('>')[1].split('...')[0]
+                clusters[cluster_id].add(protein_id)
+                if "*" in line:
+                    cluster_represantative[cluster_id] = protein_id
+
+    temp_dict = {}
+
+    for strain in strains_to_be_processed:
+        temp_dict[strain] = 0
+
+    protein_dict = cdhit_protein_dictionary_creator(combined_proteins_faa)
+
+    # Prepare the presence-absence matrix
+    matrix = {}
+    for cluster_id, proteins in clusters.items():
+        matrix[f"{cluster_represantative[cluster_id]}_{protein_dict[cluster_represantative[cluster_id]]}"] = copy.deepcopy(temp_dict)
+        for protein in proteins:
+            genome = protein.split("_")[0]
+            if genome in strains_to_be_processed:
+                matrix[f"{cluster_represantative[cluster_id]}_{protein_dict[cluster_represantative[cluster_id]]}"][genome] = 1
+            else:
+                print(f"Genome {genome} is not in the list of strains to be processed")
+    
+    print(len(matrix))
+
+    # Save the presence-absence matrix to a CSV file
+    save_matrix_to_csv(matrix, os.path.join(output_path, 'gene_presence_absence_matrix.csv'))
+
+    print("Gene presence-absence matrix created successfully")
+

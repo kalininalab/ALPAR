@@ -15,7 +15,7 @@ from sr_amr.version import __version__
 
 from sr_amr.panacota import panacota_pre_processor, panacota_post_processor, panacota_pipeline_runner
 from sr_amr.gwas import pyseer_runner, pyseer_similarity_matrix_creator, pyseer_phenotype_file_creator, pyseer_genotype_matrix_creator, pyseer_post_processor, pyseer_gwas_graph_creator, decision_tree_input_creator
-from sr_amr.binary_tables import snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, phenotype_dataframe_creator_post_processor, prokka_create_database, snippy_processed_file_creator, annotation_file_from_snippy
+from sr_amr.binary_tables import snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, binary_mutation_table_gpa_information_adder_panaroo, phenotype_dataframe_creator, phenotype_dataframe_creator_post_processor, prokka_create_database, snippy_processed_file_creator, annotation_file_from_snippy, cdhit_preprocessor, cdhit_runner, gene_presence_absence_file_creator
 from sr_amr.binary_table_threshold import binary_table_threshold_with_percentage
 from sr_amr.phylogeny_tree import mash_preprocessor, mash_distance_runner
 from sr_amr.prps import PRPS_runner
@@ -24,6 +24,10 @@ from sr_amr.ml import rf_auto_ml, svm, rf, svm_cv, prps_ml_preprecessor, gb_auto
 from sr_amr.full_automatix import automatix_runner
 from sr_amr.ml_common_files import fia_file_annotation
 from sr_amr.structman import structman_input_creator, annotation_function
+
+import warnings
+
+warnings.filterwarnings("ignore")
 
 
 def main():
@@ -66,6 +70,7 @@ def main():
     parser_automatix.add_argument('--fast', action='store_true', help='fast mode, does not run PanACoTA pipeline for phylogenetic tree analysis, default=False')
     parser_automatix.add_argument('--checkpoint', action='store_true',
                                   help='continues run from the checkpoint, default=False')
+    parser_automatix.add_argument('--use_panaroo', action='store_true',help='use panaroo for gene presence absence analysis, WARNING: REQUIRES A LOT OF MEMORY, default=False')
     parser_automatix.add_argument('--no_datasail', action='store_true', help='splits data randomly instead of using genomic distances, default=False')
     parser_automatix.add_argument('--verbosity', type=int,
                                   help='verbosity level, default=1', default=1)
@@ -97,6 +102,8 @@ def main():
                                       help='do not run gene presence absence functions, default=False')
     parser_main_pipeline.add_argument(
         '--no_gene_annotation', action='store_true', help='do not run gene annotation, default=False')
+    parser_main_pipeline.add_argument(
+        '--use_panaroo', action='store_true', help='use panaroo for gene presence absence analysis, WARNING: REQUIRES A LOT OF MEMORY, default=False')
     parser_main_pipeline.add_argument('--checkpoint', action='store_true',
                                       help='continues run from the checkpoint, default=False')
     parser_main_pipeline.add_argument('--verbosity', type=int,
@@ -487,17 +494,22 @@ def binary_table_pipeline(args):
 
     snippy_flag = True
     prokka_flag = True
-    panaroo_flag = True
+    panaroo_flag = False
+    gpa_flag = True
 
     if args.no_gene_presence_absence:
         panaroo_flag = False
+        gpa_flag = False
     if args.no_gene_annotation:
         prokka_flag = False
+    if args.use_panaroo:
+        panaroo_flag = True
 
     if args.verbosity > 3:
         print("Will run snippy: ", snippy_flag)
         print("Will run prokka: ", prokka_flag)
         print("Will run panaroo: ", panaroo_flag)
+        print("Will run gene presence absence: ", gpa_flag)
 
     # Create the output folder
     if not os.path.exists(args.output):
@@ -509,6 +521,8 @@ def binary_table_pipeline(args):
         os.mkdir(os.path.join(args.output, "prokka"))
     if not os.path.exists(os.path.join(args.output, "panaroo")):
         os.mkdir(os.path.join(args.output, "panaroo"))
+    if not os.path.exists(os.path.join(args.output, "cd-hit")):
+        os.mkdir(os.path.join(args.output, "cd-hit"))
 
     snippy_output = os.path.join(args.output, "snippy")
     prokka_output = os.path.join(args.output, "prokka")
@@ -523,6 +537,9 @@ def binary_table_pipeline(args):
     # Create the temp folder for the panaroo input
     if not os.path.exists(os.path.join(args.temp, "panaroo")):
         os.mkdir(os.path.join(args.temp, "panaroo"))
+    # Create the temp folder for the cdhit input
+    if not os.path.exists(os.path.join(args.temp, "cdhit")):
+        os.mkdir(os.path.join(args.temp, "cdhit"))
 
     if status < 0:
 
@@ -730,12 +747,45 @@ def binary_table_pipeline(args):
                     do_not_remove_temp = True
 
                 else:
-                    binary_mutation_table_gpa_information_adder(os.path.join(args.output, "binary_mutation_table.tsv"), os.path.join(
+                    binary_mutation_table_gpa_information_adder_panaroo(os.path.join(args.output, "binary_mutation_table.tsv"), os.path.join(
                         panaroo_output, "gene_presence_absence.csv"), os.path.join(args.output, "binary_mutation_table_with_gene_presence_absence.tsv"))
                     do_not_remove_temp = False
 
             except Exception as e:
                 print("Error: Panaroo could not be run.")
+                print(e)
+                do_not_remove_temp = True
+
+        if gpa_flag:
+
+            try: 
+
+                print("Creating gene presence absence input...")
+                # Create the gene presence absence information
+                print(f"CD-HIT preprecessor is running...")
+                cdhit_preprocessor(os.path.join(args.output, "random_names.txt"), prokka_output, os.path.join(args.temp, "cdhit"), strains_to_be_processed)
+
+                print(f"CD-HIT is running...")
+                cdhit_runner(os.path.join(args.temp, "cdhit", "combined_proteins.faa"), os.path.join(args.output, "cd-hit", "cdhit_output.txt"), n_cpu=args.threads)
+
+                print(f"Gene presence-absence matrix is being created...")
+                gene_presence_absence_file_creator(os.path.join(args.output, "cd-hit", "cdhit_output.txt"), strains_to_be_processed, os.path.join(args.temp, "cdhit", "combined_proteins.faa"), os.path.join(args.temp, "cdhit"))
+
+                print("Adding gene presence absence information to the binary table...")
+                # Add gene presence absence information to the binary table
+
+                if not os.path.exists(os.path.join(args.temp, "cdhit", "gene_presence_absence_matrix.csv")):
+                    print("Warning: Gene presence absence file does not exist.")
+                    print(
+                        "Gene presence absence information will not be added to the binary table.")
+                    do_not_remove_temp = True
+                
+                else:
+                    binary_mutation_table_gpa_information_adder(os.path.join(args.output, "binary_mutation_table.tsv"), os.path.join(args.temp, "cdhit", "gene_presence_absence_matrix.csv"), os.path.join(args.output, "binary_mutation_table_with_gene_presence_absence.tsv"))
+                    do_not_remove_temp = False
+
+            except Exception as e:
+                print("Error: CD-HIT could not be run.")
                 print(e)
                 do_not_remove_temp = True
 

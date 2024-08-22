@@ -18,6 +18,10 @@ from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn import tree
 import csv
 
+import warnings
+
+warnings.filterwarnings("ignore")
+
 csv.field_size_limit(sys.maxsize)
 
 mcc_scorer = autosklearn.metrics.make_scorer(

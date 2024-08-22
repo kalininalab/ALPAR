@@ -4,6 +4,9 @@ from pathlib import Path
 import os
 import shutil
 
+import warnings
+
+warnings.filterwarnings("ignore")
 
 def datasail_pre_precessor(strains_text_file, temp_folder, random_names_dict, output_folder, cpus=1):
 

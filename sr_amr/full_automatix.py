@@ -4,6 +4,10 @@ from datetime import datetime
 import random
 import string
 
+import warnings
+
+warnings.filterwarnings("ignore")
+
 def generate_random_key():
     return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(4))
 
@@ -32,7 +36,10 @@ def automatix_runner(args):
 
     if args.overwrite:
         create_binary_tables_script += " --overwrite"
-        
+
+    if args.use_panaroo:
+        create_binary_tables_script += " --use_panaroo"
+
     # Run all steps here before ml:
 
     print("Creating binary tables...")
@@ -69,17 +76,6 @@ def automatix_runner(args):
         binary_table_threshold_script += " --overwrite"
 
     os.system(binary_table_threshold_script)
-
-    # if args.just_mutations:
-    #     files_to_be_checked_list = ["binary_mutation_table_threshold_0.2_percent.tsv"]
-    
-    # else:
-    #     files_to_be_checked_list = ["binary_mutation_table_with_gene_presence_absence_threshold_0.2_percent.tsv"]
-
-    # if not files_to_be_checked(files_to_be_checked_list, os.path.join(args.output, "binary_table_threshold")):
-    #     print("Error in thresholding binary tables!")
-    #     print("Please check the logs and try again!")
-    #     sys.exit(1)
 
     run_status_writer(f"{args.output}/status.txt", "Binary tables thresholded")
 

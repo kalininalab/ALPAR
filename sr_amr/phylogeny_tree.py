@@ -3,6 +3,9 @@
 import os
 import shutil
 import sys
+import warnings
+
+warnings.filterwarnings("ignore")
 
 
 def mash_preprocessor(strains_text_file, output_folder, temp_folder, random_names_dict):
