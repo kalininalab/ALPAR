@@ -766,13 +766,13 @@ def binary_table_pipeline(args):
                 print(f"CD-HIT preprecessor is running...")
                 cdhit_preprocessor(os.path.join(args.output, "random_names.txt"), prokka_output, os.path.join(args.temp, "cdhit"), strains_to_be_processed)
 
-                shutil.copy(f"{os.path.join(args.temp, "cdhit", "protein_positions.csv")}", os.path.join(args.output, "cd-hit", "protein_positions.csv"))
+                shutil.copy(os.path.join(args.temp, 'cdhit', 'protein_positions.csv'), os.path.join(args.output, 'cd-hit', 'protein_positions.csv'))
 
                 print(f"CD-HIT is running...")
                 cdhit_runner(os.path.join(args.temp, "cdhit", "combined_proteins.faa"), os.path.join(args.output, "cd-hit", "cdhit_output.txt"), n_cpu=args.threads)
 
                 print(f"Gene presence-absence matrix is being created...")
-                gene_presence_absence_file_creator(os.path.join(args.output, "cd-hit", "cdhit_output.txt"), strains_to_be_processed, os.path.join(args.temp, "cdhit", "combined_proteins.faa"), os.path.join(args.temp, "cdhit"))
+                gene_presence_absence_file_creator(os.path.join(args.output, "cd-hit", "cdhit_output.txt.clstr"), strains_to_be_processed, os.path.join(args.temp, "cdhit"))
 
                 print("Adding gene presence absence information to the binary table...")
                 # Add gene presence absence information to the binary table

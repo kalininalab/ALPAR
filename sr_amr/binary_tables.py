@@ -652,7 +652,7 @@ def save_matrix_to_csv(matrix, file_path):
             row = [clean_cluster_id] + [genomes.get(genome, 0) for genome in headers[1:]]
             writer.writerow(row)
 
-def gene_presence_absence_file_creator(clstr_file, strains_to_be_processed, combined_proteins_faa, output_path):
+def gene_presence_absence_file_creator(clstr_file, strains_to_be_processed, output_path):
     # Dictionary to store clusters
     clusters = defaultdict(set)
     cluster_represantative = {}
@@ -673,8 +673,6 @@ def gene_presence_absence_file_creator(clstr_file, strains_to_be_processed, comb
 
     for strain in strains_to_be_processed:
         temp_dict[strain] = 0
-
-    protein_dict = cdhit_protein_dictionary_creator(combined_proteins_faa)
 
     # Prepare the presence-absence matrix
     matrix = {}
