@@ -25,6 +25,7 @@ from sr_amr.ml import rf_auto_ml, svm, rf, svm_cv, prps_ml_preprecessor, gb_auto
 from sr_amr.full_automatix import automatix_runner
 from sr_amr.ml_common_files import fia_file_annotation
 from sr_amr.structman import structman_input_creator, annotation_function
+from sr_amr.prediction import process_data_for_prediction, predict
 
 import warnings
 
@@ -315,6 +316,30 @@ def main():
     parser_structman.add_argument('--verbosity', type=int,
                                   help='verbosity level, default=1', default=1)
     parser_structman.set_defaults(func=structman_pipeline)
+
+    parser_prediction = subparsers.add_parser(
+        'prediction', help='run prediction analysis')
+    parser_prediction.add_argument('-i', '--input', type=str,
+                                   help='txt file that contains path of each strain per line or input folder path')
+    parser_prediction.add_argument('-p', '--prediction_table', type=str, help='prediction table path')
+    parser_prediction.add_argument('-o', '--output', type=str,
+                                   help='path of the output folder', required=True)
+    parser_prediction.add_argument('--model', type=str,
+                                   help='path of the ml model', required=True)
+    parser_prediction.add_argument('--custom_database', type=str, nargs=2,
+                                    help='creates and uses custom database for prokka, require path of the fasta file and genus name, default=None')
+    parser_prediction.add_argument('--no_gene_presence_absence', action='store_true',
+                                    help='do not run gene presence absence functions, default=False')
+    parser_prediction.add_argument('--temp', type=str,
+                                   help='path of the temporary directory, default=output_folder/temp')
+    parser_prediction.add_argument(
+        '--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
+    parser_prediction.add_argument('--overwrite', action='store_true',
+                                   help='overwrite the output folder if exists, default=False')
+    parser_prediction.add_argument('--verbosity', type=int,
+                                   help='verbosity level, default=1', default=1)
+    
+    parser_prediction.set_defaults(func=prediction_pipeline)
 
     # Parse the arguments
     args = parser.parse_args()
@@ -1699,6 +1724,22 @@ def structman_pipeline(args):
         os.mkdir(os.path.join(args.temp, "structman"))
 
     structman_input_creator(args)
+
+def prediction_pipeline(args):
+
+    start_time = time.time()
+
+    if args.input is None and args.prediction_table is None:
+        print("Error: Input file or folder path is required.")
+        sys.exit(1)
+    
+    # Check if output folder empty
+    if os.path.exists(os.path.join(args.output)) and os.path.isdir(os.path.join(args.output)):
+        if not args.overwrite:
+            print("Error: Output folder is not empty.")
+            sys.exit(1)
+    
+
                                             
 
 if __name__ == "__main__":
