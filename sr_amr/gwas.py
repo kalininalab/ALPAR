@@ -222,8 +222,8 @@ def pyseer_gwas_graph_creator(pyseer_output_folder, output_folder):
 
         pyseer_plot_file_creator(os.path.join(sorted_cleaned_files_path, gwas_sorted_file), os.path.join(
             output_folder, f"{gwas_sorted_file[:-4]}.plot"))
-
-        with open(os.path.join(raw_gwas_output_path, f"{gwas_sorted_file.split('_')[0]}.tsv")) as raw_gwas_file:
+        
+        with open(os.path.join(raw_gwas_output_path, f"{gwas_sorted_file.split('.pheno')[0]}.pheno.tsv")) as raw_gwas_file:
             lines = raw_gwas_file.readlines()
             threshold_denominator = len(lines)-1
 
