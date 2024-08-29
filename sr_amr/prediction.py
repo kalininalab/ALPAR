@@ -16,6 +16,50 @@ def process_data_for_prediction(input_path_or_file):
     
     return input_files
 
+
+def equalize_columns(binary_table1, binary_table2, output_file):
+    # Read binary_table1 into a dictionary of dictionaries
+    with open(binary_table1, 'r') as infile:
+        reader = csv.reader(infile, delimiter='\t')
+        headers1 = next(reader)
+        data1 = {rows[0]: {headers1[i]: rows[i] for i in range(1, len(headers1))} for rows in reader}
+
+    # Read binary_table2 into a dictionary of dictionaries
+    with open(binary_table2, 'r') as infile2:
+        reader = csv.reader(infile2, delimiter='\t')
+        headers2 = next(reader)
+        data2 = {rows[0]: {headers2[i]: rows[i] for i in range(1, len(headers2))} for rows in reader}
+
+    # Find columns that are in binary_table1 but not in binary_table2
+    missing_columns = [col for col in headers1 if col not in headers2]
+
+    # Find columns that are in binary_table2 but not in binary_table1
+    extra_columns = [col for col in headers2 if col not in headers1]
+
+    # Add missing columns to binary_table2 with default value '0'
+    for key in data2:
+        for col in missing_columns:
+            data2[key][col] = '0'
+
+    # Remove extra columns from binary_table2
+    for key in data2:
+        for col in extra_columns:
+            data2[key].pop(col)
+
+    # Reorder columns in data2 to match the order in headers1
+    headers2 = headers1
+    reordered_data2 = {}
+    for key in data2:
+        reordered_data2[key] = {col: data2[key].get(col, '0') for col in headers1}
+
+    # Write the modified binary_table2 to the output file
+    with open(output_file, 'w', newline='') as f:
+        writer = csv.writer(f, delimiter='\t')
+        writer.writerow(headers1)
+        for key, value in reordered_data2.items():
+            writer.writerow([key] + [value[col] for col in headers1])
+
+
 def predict(trained_model, prediction_df, output_dir):
 
     prediction_dict = {}
