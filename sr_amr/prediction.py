@@ -2,6 +2,7 @@ import os
 import pickle
 import csv
 import numpy as np
+from sr_amr.ml import prps_ml_preprecessor
 
 def process_data_for_prediction(input_path_or_file):
 
@@ -50,7 +51,7 @@ def equalize_columns(binary_table1, binary_table2, output_file):
     headers2 = headers1
     reordered_data2 = {}
     for key in data2:
-        reordered_data2[key] = {col: data2[key].get(col, '0') for col in headers1}
+        reordered_data2[key] = {col: data2[key].get(col, '0') for col in headers1 if col not in ['Strain', '', 'strain', 'Strains', 'strains', ' ']}
 
     # Write the modified binary_table2 to the output file
     with open(output_file, 'w', newline='') as f:

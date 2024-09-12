@@ -35,3 +35,18 @@ def time_function(start_time, end_time):
     hours, rem = divmod(elapsed_time, 3600)
     minutes, seconds = divmod(rem, 60)
     return f"Elapsed time: {int(hours)} hours, {int(minutes)} minutes, {seconds:.2f} seconds"
+
+def copy_and_zip_file(src_file, dst_dir, zip_name):
+    # Ensure the destination directory exists
+    os.makedirs(dst_dir, exist_ok=True)
+    
+    # Copy the file to the destination directory
+    dst_file = shutil.copy2(src_file, dst_dir)
+    
+    # Create a zip archive of the destination directory
+    shutil.make_archive(zip_name, 'zip', dst_dir)
+    
+    # Remove the copied file from the destination directory
+    os.remove(dst_file)
+    
+    return zip_name + ".zip"

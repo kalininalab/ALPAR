@@ -10,7 +10,7 @@ import time
 import multiprocessing
 import shutil
 
-from sr_amr.utils import is_tool_installed, temp_folder_remover, time_function
+from sr_amr.utils import is_tool_installed, temp_folder_remover, time_function, copy_and_zip_file
 from sr_amr.version import __version__
 
 
@@ -366,6 +366,10 @@ def main():
                                     help='creates and uses custom database for prokka, require path of the fasta file and genus name, default=None')
     parser_prediction.add_argument('--no_gene_presence_absence', action='store_true',
                                     help='do not run gene presence absence functions, default=False')
+    parser_prediction.add_argument('--prps', type=str, nargs=2,
+                                    help='use prps scores, prps score table path and percentage should be given, percentage default value = 30, default = None, 30', default=[None, 30])
+    parser_prediction.add_argument(
+        '--no_gene_annotation', action='store_true', help='do not run gene annotation, default=False')
     parser_prediction.add_argument('--use_panaroo', action='store_true', help='use panaroo for gene presence absence analysis, WARNING: REQUIRES A LOT OF MEMORY, default=False')
     parser_prediction.add_argument('--threads', type=int,
                                    help='number of threads to use, default=1', default=1)
@@ -1213,6 +1217,10 @@ def ml_pipeline(args):
         binary_mutation_table_path = os.path.join(
             ml_temp, "prps_filtered_table.tsv")
 
+    binary_table_path_used_for_model = copy_and_zip_file(binary_mutation_table_path, ml_output, "model_binary_mutation_table")
+
+    print(f"Binary mutation table that will be used for model can be found in the {os.path.join(ml_output,binary_table_path_used_for_model)}")
+
     if float(args.test_train_split) < 0 or float(args.test_train_split) > 1:
         print("Error: Test train split should be between 0 and 1.")
         sys.exit(1)
@@ -1351,7 +1359,7 @@ def ml_pipeline(args):
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
                     fia_file = rf_auto_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, args.optimization_time_limit,
                                           args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, train=train_strains, test=test_strains, same_setup_run_count=same_setup_run_count, stratify=stratiy_random_split)
-
+                    
         else:
             with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
@@ -1783,10 +1791,15 @@ def prediction_pipeline(args):
     if args.input is None and args.prediction_table is None:
         print("Error: Input file or folder path is required.")
         sys.exit(1)
+
+    if args.input and args.prediction_table:
+        print("Error: Both input and prediction table cannot be used together.")
+        sys.exit(1)
     
-    # Check if output folder empty
+    # Check if output folder exists and is a directory
     if os.path.exists(os.path.join(args.output)) and os.path.isdir(os.path.join(args.output)):
-        if not args.overwrite:
+        # Check if the directory is not empty
+        if os.listdir(os.path.join(args.output)) and not args.overwrite:
             print("Error: Output folder is not empty.")
             sys.exit(1)
 
@@ -1803,10 +1816,15 @@ def prediction_pipeline(args):
     prokka_flag = True
     panaroo_flag = False
     gpa_flag = True
+    prps_flag = False
 
     if args.no_gene_presence_absence and args.use_panaroo:
         print("Error: Gene presence absence and Panaroo cannot be used together.")
         sys.exit(1)
+
+    if args.prps[0] is not None:
+        prps_flag = True
+            #args.prps[0] = os.path.join(args.output, "prps", "prps_scores.tsv")
 
     if args.no_gene_presence_absence:
         panaroo_flag = False
@@ -1851,7 +1869,7 @@ def prediction_pipeline(args):
     if args.keep_temp_files:
         do_not_remove_temp = True
 
-    if args.custom_database:
+    if args.custom_database and args.input:
         if len(args.custom_database) != 2:
             print("Error: Custom database option should have two arguments.")
             sys.exit(1)
@@ -2045,8 +2063,14 @@ def prediction_pipeline(args):
 
         print("Equalizing columns in the binary table...")
 
-        equalize_columns(args.model_binary_table, binary_table_to_be_used, os.path.join(
-            args.output, "equalized_binary_mutation_table.tsv"))
+        if prps_flag:
+            os.makedirs(os.path.join(args.temp, 'prps'), exist_ok=True)
+            prps_ml_preprecessor(args.model_binary_table, args.prps[0], args.prps[1], os.path.join(args.temp, "prps"))
+            equalize_columns(os.path.join(args.temp, 'prps', 'prps_filtered_table.tsv'), binary_table_to_be_used, os.path.join(
+                args.output, "equalized_binary_mutation_table.tsv"))
+        else:
+            equalize_columns(args.model_binary_table, binary_table_to_be_used, os.path.join(
+                args.output, "equalized_binary_mutation_table.tsv"))
         
         print("Running prediction...")
         
@@ -2059,8 +2083,15 @@ def prediction_pipeline(args):
 
         print("Equalizing columns in the binary table...")
 
-        equalize_columns(args.model_binary_table, prediction_table_to_be_used, os.path.join(
-            args.output, "equalized_binary_mutation_table.tsv"))
+        if prps_flag:
+            os.makedirs(os.path.join(args.temp, 'prps'), exist_ok=True)
+            prps_ml_preprecessor(prediction_table_to_be_used, args.prps[0], args.prps[1], os.path.join(args.temp, 'prps'))
+            equalize_columns(os.path.join(args.temp, 'prps', 'prps_filtered_table.tsv'), prediction_table_to_be_used, os.path.join(
+                args.output, "equalized_binary_mutation_table.tsv"))
+
+        else:
+            equalize_columns(args.model_binary_table, prediction_table_to_be_used, os.path.join(
+                args.output, "equalized_binary_mutation_table.tsv"))
         
         print("Running prediction...")
 

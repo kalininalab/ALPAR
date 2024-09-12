@@ -640,9 +640,9 @@ def prps_ml_preprecessor(binary_mutation_table, prps_score_file, prps_percentage
         if count < 0:
             if key in genotype_df_columns:
                 cols_to_be_dropped.append(key)
-            else:
-                print(
-                    f"Warning: {key} is not found in the genotype table. It will be ignored.")
+            # else:
+            #     print(
+            #         f"Warning: {key} is not found in the genotype table. It will be ignored.")
         count -= 1
 
     print(f"PRPS: Number of mutations to be dropped: {len(cols_to_be_dropped)}")
