@@ -58,7 +58,7 @@ def equalize_columns(binary_table1, binary_table2, output_file):
         writer = csv.writer(f, delimiter='\t')
         writer.writerow(headers1)
         for key, value in reordered_data2.items():
-            writer.writerow([key] + [value[col] for col in headers1])
+            writer.writerow([key] + [value[col] for col in headers1 if col not in ['Strain', '', 'strain', 'Strains', 'strains', ' ']])
 
 
 def predict(trained_model, prediction_df, output_dir):
