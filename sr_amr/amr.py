@@ -1858,6 +1858,14 @@ def prediction_pipeline(args):
     panaroo_output = os.path.join(args.output, "panaroo")
     cd_hit_output = os.path.join(args.output, "cd-hit")
 
+    # Create the temp folder for the panaroo input
+    if not os.path.exists(os.path.join(args.temp, "panaroo")):
+        os.mkdir(os.path.join(args.temp, "panaroo"))
+    # Create the temp folder for the cdhit input
+    if not os.path.exists(os.path.join(args.temp, "cdhit")):
+        os.mkdir(os.path.join(args.temp, "cdhit"))
+
+
     if args.verbosity > 3:
         print(f"Output folder created: {args.output}")
         print(f"Snippy output folder created: {snippy_output}")
