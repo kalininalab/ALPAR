@@ -49,7 +49,9 @@ def snippy_runner(input, strain_random_name, output, reference, log_file, cpus=1
 
     """
 
-    contigs = check_contigs(input)
+    #contigs = check_contigs(input)
+
+    contigs = True
 
     run_command = f"snippy --cpus {cpus} --ram {memory} --outdir {output}/{strain_random_name} --reference {reference} --force"
 
@@ -58,7 +60,7 @@ def snippy_runner(input, strain_random_name, output, reference, log_file, cpus=1
 
     run_command = f"{run_command} {input} >> {log_file} 2>&1"
 
-    os.system(run_command)
+    os.system(run_command)  
 
 
 def prokka_create_database(faa_file, genus_name, temp_folder, cpus=1, memory=8):
@@ -136,9 +138,9 @@ def prokka_runner(input, strain_random_name, output, reference, log_file, cpus=1
     """
 
     if custom_db == None:
-        run_command = f"prokka --cpus {cpus} --outdir {output}/{strain_random_name} --proteins {reference} --force {input} >> {log_file} 2>&1"
+        run_command = f"prokka --cpus {cpus} --outdir {output}/{strain_random_name} --proteins {reference} --compliant --force {input} >> {log_file} 2>&1"
     else:
-        run_command = f"prokka --cpus {cpus} --outdir {output}/{strain_random_name} --proteins {reference} --usegenus --genus {custom_db} --force {input} >> {log_file} 2>&1"
+        run_command = f"prokka --cpus {cpus} --outdir {output}/{strain_random_name} --proteins {reference} --usegenus --genus {custom_db} --compliant --force {input} >> {log_file} 2>&1"
 
     os.system(run_command)
 
