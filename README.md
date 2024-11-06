@@ -25,14 +25,6 @@ mamba install -c conda-forge -c kalininalab -c bioconda -c etetoolkit alpar
 pip install panacota
 `````
 
-## Lite Version
-
-ALPAR Lite is installable from [conda](https://anaconda.org/kalininalab/ALPAR-lite) using [mamba](https://mamba.readthedocs.io/en/latest/installation.html#existing-conda-install>):
-
-Lite version of the tool, missing; DataSAIL (Split Against Information Leakage), Pyseer (GWAS), PanACoTA (Alignment-Based Phylogenetic Tree Creation), MashTree (Alignment-Free Phylogenetic Tree Creation), PRPS (Phylogeny Related Parallelism Score), AutoSklearn (Machine Learning Parameter Optimization)
-
-For more information : [ALPAR-Lite](https://github.com/kalininalab/ALPAR-Lite)
-
 ## Example Files
 
 Example files can be downloaded from:
@@ -223,7 +215,6 @@ Basic usage:
 alpar prps -i example/example_output/binary_mutation_table.tsv -t example/example_output/phylogeny/phylogenetic_tree.tree -o example_output/
 `````
 
-
 ## ML
 
 Trains machine learning models with classification algorithms on the data and optimizes.
@@ -243,7 +234,7 @@ Available Classification algorithms: Random Forest, Support Vector Machine and G
     - Resampling strategy, `--resampling_strategy`: Resampling strategy to be used, available selections: [holdout, cv]
     - Parameter optimization, `--parameter_optimization`: Parameter optimization for model with autosklearn (https://automl.github.io/auto-sklearn/master/index.html)
     - Save model, `--save_model`: Save model
-    - Feature importance analysis, `--feature_importance_analysis`: Analyze important features in the model with permutation importance
+    - Feature importance analysis, `--feature_importance_analysis`: Analyze important features in the model with gini importance (for RF & GB) or permutation importance (for SVM, RF and GB)
     - Datasail, `--sail`: Splits data into training and test sets against information leakage to train better models. Requires text file that contains path of each strain per line. It can be found in create_binary_tables output path as `strains.txt` 
 
     More optional arguments can be found in help page: 
