@@ -4,8 +4,6 @@ Automated Learning Pipeline for Antimicrobial Resistance
 
 ![Pipeline](./flowcharts/ALPAR_Flowchart.jpg?raw=true "Pipeline")
 
-(Orange parts are not available in lite version)
-
 ## Installation
 
 Single-Reference AMR is installable from [conda](https://anaconda.org/kalininalab/ALPAR) using [mamba](https://mamba.readthedocs.io/en/latest/installation.html#existing-conda-install>):
