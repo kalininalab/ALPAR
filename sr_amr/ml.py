@@ -234,7 +234,7 @@ def decision_tree(binary_mutation_table, phenotype_table, antibiotic, random_see
     pickle.dump(clf, open(model_file, 'wb'))
 
 
-def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, temp_folder, ram, optimization_time_limit, model_type, feature_importance_analysis=False, save_model=False, resampling_strategy="holdout", custom_scorer="MCC", fia_repeats=5, n_estimators=100, max_depth=2, min_samples_leaf=1, min_samples_split=2, kernel="linear", optimization=False, train=[], test=[], same_setup_run_count=1, stratify=True, feature_importance_analysis_strategy="gini"):
+def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, temp_folder, ram, optimization_time_limit, model_type, feature_importance_analysis=False, save_model=False, resampling_strategy="holdout", custom_scorer="MCC", fia_repeats=5, n_estimators=100, max_depth=2, min_samples_leaf=1, min_samples_split=2, kernel="linear", optimization=False, train=[], test=[], same_setup_run_count=1, stratify=True, feature_importance_analysis_strategy="gini", important_feature_limit = 10):
 
     output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type.upper()}"
 
@@ -264,6 +264,8 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
 
     phenotype_data = ordered_phenotype_data
 
+    strain_to_index = {strain: idx for idx, strain in enumerate(genotype_data.keys())}
+
     # Convert data to numpy arrays for machine learning
     genotype_array = np.array([list(map(int, genotypes)) for genotypes in genotype_data.values()])
     phenotype_array = np.array([int(phenotypes[antibiotic_index]) for phenotypes in phenotype_data.values()])
@@ -285,15 +287,22 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
         X_test = []
         y_test = []
 
+        train_strains_to_be_used = []
+        test_strains_to_be_used = []
+
         for train_strain in train:
-            if train_strain in genotype_data:
-                X_train.append(genotype_data[train_strain])  # Directly append the list of genotypes
-                y_train.append(phenotype_data[train_strain])  # Append the phenotype value
+            if train_strain in strain_to_index:
+                train_strains_to_be_used.append(train_strain)
+                idx = strain_to_index[train_strain]
+                X_train.append(genotype_array[idx])  # Append the list of genotypes using the index
+                y_train.append(phenotype_array[idx])  # Append the phenotype value using the index
 
         for test_strain in test:
-            if test_strain in genotype_data:
-                X_test.append(genotype_data[test_strain])  # Directly append the list of genotypes
-                y_test.append(phenotype_data[test_strain])  # Append the phenotype value
+            if test_strain in strain_to_index:
+                test_strains_to_be_used.append(test_strain)
+                idx = strain_to_index[test_strain]
+                X_test.append(genotype_array[idx])  # Append the list of genotypes using the index
+                y_test.append(phenotype_array[idx])  # Append the phenotype value using the index
 
         # Convert lists to numpy arrays
         X_train = np.array(X_train, dtype=int)
@@ -335,6 +344,30 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
 
     elif model_type == "rf":
         rf_cls = RandomForestClassifier(class_weight={0: sum(y_train), 1: len(
+            y_train) - sum(y_train)}, n_estimators=n_estimators, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split)
+
+        param_grid = {
+            'n_estimators': [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100],
+            'max_depth': [2, 5, 7, 9]
+        }
+
+        if resampling_strategy == "cv":
+            if custom_scorer == "MCC":
+                scorer = "matthews_corrcoef"
+
+            grid_search = GridSearchCV(
+                rf_cls, param_grid, cv=cv_split, scoring=scorer)
+            grid_search.fit(X_train, y_train)
+
+            y_hat = grid_search.predict(X_test)
+
+        else:
+            rf_cls.fit(X_train, y_train)
+            y_hat = rf_cls.predict(X_test)
+
+    elif model_type == "xgb":
+        import xgboost as xgb
+        rf_cls = xgb.XGBClassifier(class_weight={0: sum(y_train), 1: len(
             y_train) - sum(y_train)}, n_estimators=n_estimators, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split)
 
         param_grid = {
@@ -475,7 +508,10 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
             sorted_importances = sorted(importances_dict.items(), key=lambda x: x[1], reverse=True)
 
             with open(os.path.join(output_folder, f"{output_file_template}_FIA_{feature_importance_analysis_strategy}"), "w") as file:
-                for key, value in sorted_importances[:10]:
+                if len(sorted_importances) < important_feature_limit:
+                    important_feature_limit = len(sorted_importances)
+                    print(f"Warning: Number of important features is less than the specified limit. Limit is set to {important_feature_limit}.")
+                for key, value in sorted_importances[:important_feature_limit]:
                     file.write(f"{key}\t{value}\n")
 
         elif feature_importance_analysis_strategy == "permutation_importance":
