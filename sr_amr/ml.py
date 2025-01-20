@@ -14,7 +14,7 @@ from random import randint
 import os
 from sklearn.svm import SVC
 from sklearn.model_selection import GridSearchCV
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, HistGradientBoostingClassifier
 from sklearn import tree
 import csv
 
@@ -414,7 +414,7 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
         y_hat = best_model.predict(X_test)
 
     elif model_type == "gb":
-        gb_cls = GradientBoostingClassifier(n_estimators=n_estimators, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split)
+        gb_cls = GradientBoostingClassifier(n_estimators=n_estimators, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split, class_weight={0: sum(y_train), 1: len(y_train) - sum(y_train)})
 
         param_grid = {
             'n_estimators': [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100],
@@ -434,6 +434,29 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
         else:
             gb_cls.fit(X_train, y_train)
             y_hat = gb_cls.predict(X_test)
+
+    elif model_type == "histgb":
+        histgb_cls = HistGradientBoostingClassifier(max_depth=max_depth, min_samples_leaf=min_samples_leaf, class_weight={0: sum(y_train), 1: len(y_train) - sum(y_train)})
+
+        param_grid = {
+            'max_leaf_nodes': [31, 41, 51, 61, 71, 81, 91, 101],
+            'max_features': [1.0, 0.5, 0.1, 1.5, 2.0],
+            'max_iter' : [100, 200, 300, 400, 500]
+        }
+
+        if resampling_strategy == "cv":
+            if custom_scorer == "MCC":
+                scorer = "matthews_corrcoef"
+
+            grid_search = GridSearchCV(
+                histgb_cls, param_grid, cv=cv_split, scoring=scorer)
+            grid_search.fit(X_train, y_train)
+
+            y_hat = grid_search.predict(X_test)
+
+        else:
+            histgb_cls.fit(X_train, y_train)
+            y_hat = histgb_cls.predict(X_test)
 
     outfile = os.path.join(output_folder, f"{output_file_template}_Result")
 
@@ -456,6 +479,10 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
             model_file = os.path.join(
                 output_folder, f"{output_file_template}_model.sav")
             pickle.dump(gb_cls, open(model_file, 'wb'))
+        elif model_type == "histgb":
+            model_file = os.path.join(
+                output_folder, f"{output_file_template}_model.sav")
+            pickle.dump(histgb_cls, open(model_file, 'wb'))
 
     if feature_importance_analysis:
 
@@ -502,6 +529,9 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
 
             elif model_type == "gb":
                 importances = gb_cls.feature_importances_
+
+            elif model_type == "histgb":
+                importances = histgb_cls.feature_importances_
                 
             gini_importances = pd.Series(importances, index=feature_names)
             importances_dict = gini_importances.to_dict()
@@ -527,6 +557,9 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
             elif model_type == "gb":
                 r = permutation_importance(
                     gb_cls, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
+            elif model_type == "histgb":
+                r = permutation_importance(
+                    histgb_cls, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
 
             with open(os.path.join(output_folder, f"{output_file_template}_FIA_{feature_importance_analysis_strategy}"), "w") as ofile:
                 for i in r.importances_mean.argsort()[::-1]:

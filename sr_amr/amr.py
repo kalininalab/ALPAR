@@ -295,7 +295,7 @@ def main():
     parser_ml.add_argument('--n_estimators', type=int,
                            help='number of estimators for random forest, default=100', default=100)
     parser_ml.add_argument('--max_depth', type=int,
-                           help='max depth for random forest, default=10', default=10)
+                           help='max depth for random forest, default=None', default=None)
     parser_ml.add_argument('--min_samples_split', type=int,
                            help='min samples split for random forest, default=2', default=2)
     parser_ml.add_argument('--min_samples_leaf', type=int,
@@ -1157,6 +1157,7 @@ def ml_pipeline(args):
     svm_output = os.path.join(ml_output, "svm")
     rf_output = os.path.join(ml_output, "rf")
     gb_output = os.path.join(ml_output, "gb")
+    hist_gb_output = os.path.join(ml_output, "hist_gb")
 
     # Check if output folder empty
     if os.path.exists(ml_output) and os.path.isdir(ml_output):
@@ -1480,6 +1481,57 @@ def ml_pipeline(args):
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
 
                     fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, args.optimization_time_limit, "gb", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit) 
+
+    elif args.ml_algorithm == "histgb":
+
+        if os.path.exists(hist_gb_output):
+            if args.overwrite:
+                print("Warning: Output folder is not empty. Old files will be deleted.")
+                temp_folder_remover(hist_gb_output)
+                os.makedirs(hist_gb_output, exist_ok=True)
+            else:
+                print("Error: Output folder is not empty.")
+                print(
+                    "If you want to overwrite the output folder, use --overwrite option.")
+                sys.exit(1)
+        else:
+            os.makedirs(hist_gb_output, exist_ok=True)
+
+        #TODO
+        # Will be implemented later after tests
+        # if args.parameter_optimization:
+
+        #     same_setup_run_count = 1
+
+        #     while True:
+
+        #         if same_setup_run_count == 99:
+        #             print("Error: Same setup run count reached 99.")
+        #             print("Please change the output folder name.")
+        #             sys.exit(1)
+
+        #         if not os.path.exists(os.path.join(ml_output, f"seed_{args.random_state}_testsize_{args.test_train_split}_resampling_{args.resampling_strategy}_GB_AutoML_{same_setup_run_count}")):
+        #             os.mkdir(os.path.join(
+        #                 ml_output, f"seed_{args.random_state}_testsize_{args.test_train_split}_resampling_{args.resampling_strategy}_GB_AutoML_{same_setup_run_count}"))
+        #             ml_output = os.path.join(
+        #                 ml_output, f"seed_{args.random_state}_testsize_{args.test_train_split}_resampling_{args.resampling_strategy}_GB_AutoML_{same_setup_run_count}")
+        #             break
+        #         else:
+        #             same_setup_run_count += 1
+
+        #     with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
+        #         with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
+
+        #             fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, args.optimization_time_limit, "gb_auto_ml", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, train=train_strains, test=test_strains, same_setup_run_count=same_setup_run_count, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit) 
+
+        # else:
+        with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
+            with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file): 
+
+                if args.min_samples_leaf == 1:
+                    args.min_samples_leaf = 20
+
+                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, args.optimization_time_limit, "histgb", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit) 
 
 
     if args.feature_importance_analysis:
