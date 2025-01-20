@@ -1,7 +1,4 @@
 import sys
-import autosklearn
-import autosklearn.metrics
-import autosklearn.classification
 import sklearn.model_selection
 import sklearn.datasets
 import sklearn.metrics
@@ -24,22 +21,10 @@ warnings.filterwarnings("ignore")
 
 csv.field_size_limit(sys.maxsize)
 
-mcc_scorer = autosklearn.metrics.make_scorer(
-    "mcc",
-    sklearn.metrics.matthews_corrcoef,
-    greater_is_better=True
-)
-
-
 def output_file_writer(outfile, y_test, y_hat, cls=None, best_c=None):
 
     with open(outfile, "w") as ofile:
 
-        # New version of sklearn is not working with auto-sklearn ensemble models
-
-        # if cls:
-        #     ofile.write(str(cls.show_models()))
-        #     ofile.write("\n")
         if best_c:
             ofile.write("C: " + str(best_c))
             ofile.write("\n")
@@ -234,7 +219,7 @@ def decision_tree(binary_mutation_table, phenotype_table, antibiotic, random_see
     pickle.dump(clf, open(model_file, 'wb'))
 
 
-def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, temp_folder, ram, optimization_time_limit, model_type, feature_importance_analysis=False, save_model=False, resampling_strategy="holdout", custom_scorer="MCC", fia_repeats=5, n_estimators=100, max_depth=2, min_samples_leaf=1, min_samples_split=2, kernel="linear", optimization=False, train=[], test=[], same_setup_run_count=1, stratify=True, feature_importance_analysis_strategy="gini", important_feature_limit = 10):
+def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, temp_folder, ram, model_type, feature_importance_analysis=False, save_model=False, resampling_strategy="holdout", custom_scorer="MCC", fia_repeats=5, n_estimators=100, max_depth=2, min_samples_leaf=1, min_samples_split=2, kernel="linear", optimization=False, train=[], test=[], same_setup_run_count=1, stratify=True, feature_importance_analysis_strategy="gini", important_feature_limit = 10):
 
     output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type.upper()}"
 
@@ -310,39 +295,7 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
         X_test = np.array(X_test, dtype=int)
         y_test = np.array(y_test, dtype=int)
 
-    if model_type == "rf_auto_ml" or model_type == "gb_auto_ml":
-        if custom_scorer == "MCC":
-            scorer = mcc_scorer
-        else:
-            scorer = custom_scorer
-
-        classifier = "random_forest" if model_type == "rf_auto_ml" else "gradient_boosting"
-
-        if resampling_strategy == "cv":
-            resampling_strategy_arguments = {
-                "folds": cv_split, 'train_size': float(1.00) - float(test_size)}
-
-        elif resampling_strategy == "holdout":
-            resampling_strategy_arguments = {
-                "train_size": float(1.00) - float(test_size)}
-
-        cls = autosklearn.classification.AutoSklearnClassifier(
-            memory_limit=float(ram) * 1024,
-            time_left_for_this_task=optimization_time_limit,
-            include={'classifier': [classifier]},
-            resampling_strategy=f'{resampling_strategy}',
-            resampling_strategy_arguments=resampling_strategy_arguments,
-            delete_tmp_folder_after_terminate=False,
-            ensemble_size=1,
-            metric=scorer,
-            tmp_folder=os.path.join(
-                temp_folder, f"{output_file_template}_{same_setup_run_count}_temp"),
-            n_jobs=n_jobs
-        )
-        cls.fit(X_train, y_train)
-        y_hat = cls.predict(X_test)
-
-    elif model_type == "rf":
+    if model_type == "rf":
         rf_cls = RandomForestClassifier(class_weight={0: sum(y_train), 1: len(
             y_train) - sum(y_train)}, n_estimators=n_estimators, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split)
 
@@ -463,11 +416,7 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
     output_file_writer(outfile, y_test, y_hat)
 
     if save_model:
-        if model_type == "rf_auto_ml" or model_type == "gb_auto_ml":
-            model_file = os.path.join(
-                output_folder, f"{output_file_template}_model.sav")
-            pickle.dump(cls, open(model_file, 'wb'))
-        elif model_type == "rf":
+        if model_type == "rf":
             model_file = os.path.join(
                 output_folder, f"{output_file_template}_model.sav")
             pickle.dump(rf_cls, open(model_file, 'wb'))
@@ -490,34 +439,7 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
 
         if feature_importance_analysis_strategy == "gini":
 
-            if model_type == "rf_auto_ml" or model_type == "gb_auto_ml":
-
-                # Select best model
-                for key in cls.show_models():
-                    sklearn_classifier = cls.show_models()[key]
-                    sklearn_classifier = sklearn_classifier["sklearn_classifier"]
-                    break
-                
-                classifier_params = sklearn_classifier.get_params()
-
-                if model_type == "rf_auto_ml":
-                    forest = RandomForestClassifier(**classifier_params)
-                    forest.fit(X_train, y_train)
-                    y_hat = forest.predict(X_test)
-                    importances = forest.feature_importances_
-                    
-                elif model_type == "gb_auto_ml":
-                    forest = GradientBoostingClassifier(**classifier_params)
-                    forest.fit(X_train, y_train)
-                    y_hat = forest.predict(X_test)
-                    importances = forest.feature_importances_
-
-                if save_model:
-                    model_file = os.path.join(
-                        output_folder, f"{output_file_template}_model_fia.sav")
-                    pickle.dump(forest, open(model_file, 'wb'))
-
-            elif model_type == "rf":
+            if model_type == "rf":
                 importances = rf_cls.feature_importances_
 
             # SVM need special treatment
@@ -545,10 +467,7 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                     file.write(f"{key}\t{value}\n")
 
         elif feature_importance_analysis_strategy == "permutation_importance":
-            if model_type == "rf_auto_ml" or model_type == "gb_auto_ml":
-                r = permutation_importance(
-                    cls, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
-            elif model_type == "rf":
+            if model_type == "rf":
                 r = permutation_importance(
                     rf_cls, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
             elif model_type == "svm":

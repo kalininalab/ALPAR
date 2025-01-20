@@ -23,7 +23,6 @@ requirements:
     - datasail>=1.0.0
     - ete3
     - python>=3.9,<3.10
-    - auto-sklearn
     - swig
     - grakel
     - mashtree
