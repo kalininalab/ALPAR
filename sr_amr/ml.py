@@ -219,7 +219,7 @@ def decision_tree(binary_mutation_table, phenotype_table, antibiotic, random_see
     pickle.dump(clf, open(model_file, 'wb'))
 
 
-def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, temp_folder, ram, model_type, feature_importance_analysis=False, save_model=False, resampling_strategy="holdout", custom_scorer="MCC", fia_repeats=5, n_estimators=100, max_depth=2, min_samples_leaf=1, min_samples_split=2, kernel="linear", optimization=False, train=[], test=[], same_setup_run_count=1, stratify=True, feature_importance_analysis_strategy="gini", important_feature_limit = 10):
+def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, temp_folder, ram, model_type, feature_importance_analysis=False, save_model=False, resampling_strategy="holdout", custom_scorer="MCC", fia_repeats=5, n_estimators=100, max_depth=2, min_samples_leaf=1, min_samples_split=2, kernel="linear", optimization=False, train=[], test=[], validation=[], same_setup_run_count=1, stratify=True, feature_importance_analysis_strategy="gini", important_feature_limit = 10):
 
     output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type.upper()}"
 
@@ -265,6 +265,47 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
         else:
             X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
             genotype_array, phenotype_array, random_state=random_seed, test_size=float(test_size))
+
+    elif len(train) > 0 and len(test) > 0 and len(validation) > 0:
+        X_train = []
+        y_train = []
+        X_test = []
+        y_test = []
+        X_validation = []
+        y_validation = []
+
+        train_strains_to_be_used = []
+        test_strains_to_be_used = []
+        validation_strains_to_be_used = []
+
+        for train_strain in train:
+            if train_strain in strain_to_index:
+                train_strains_to_be_used.append(train_strain)
+                idx = strain_to_index[train_strain]
+                X_train.append(genotype_array[idx])  # Append the list of genotypes using the index
+                y_train.append(phenotype_array[idx])  # Append the phenotype value using the index
+
+        for test_strain in test:
+            if test_strain in strain_to_index:
+                test_strains_to_be_used.append(test_strain)
+                idx = strain_to_index[test_strain]
+                X_test.append(genotype_array[idx])  # Append the list of genotypes using the index
+                y_test.append(phenotype_array[idx])  # Append the phenotype value using the index
+        
+        for validation_strain in validation:
+            if validation_strain in strain_to_index:
+                validation_strains_to_be_used.append(validation_strain)
+                idx = strain_to_index[validation_strain]
+                X_validation.append(genotype_array[idx])  # Append the list of genotypes using the index
+                y_validation.append(phenotype_array[idx])  # Append the phenotype value using the index
+
+        # Convert lists to numpy arrays
+        X_train = np.array(X_train, dtype=int)
+        y_train = np.array(y_train, dtype=int)
+        X_test = np.array(X_test, dtype=int)
+        y_test = np.array(y_test, dtype=int)
+        X_validation = np.array(X_validation, dtype=int)
+        y_validation = np.array(y_validation, dtype=int)
 
     else:
         X_train = []
@@ -385,7 +426,11 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
             y_hat = grid_search.predict(X_test)
 
         else:
-            gb_cls.fit(X_train, y_train)
+            if len(validation) > 0:
+                gb_cls.fit(X_train, y_train, eval_set=[(X_validation, y_validation)], early_stopping_rounds=10)
+            else:
+                gb_cls.fit(X_train, y_train)
+
             y_hat = gb_cls.predict(X_test)
 
     elif model_type == "histgb":
