@@ -276,6 +276,8 @@ def main():
                            help='train strains file path', default=None)
     parser_ml.add_argument('--test_strains_file', type=str,
                            help='test strains file path', default=None)
+    parser_ml.add_argument('--validation_strains_file', type=str,
+                           help='validation strains file path', default=None)
     parser_ml.add_argument('--overwrite', action='store_true',
                            help='overwrite the output folder if exists, default=False')
     parser_ml.add_argument(
@@ -295,11 +297,11 @@ def main():
     parser_ml.add_argument('--n_estimators', type=int,
                            help='number of estimators for random forest, default=100', default=100)
     parser_ml.add_argument('--max_depth', type=int,
-                           help='max depth for random forest, default=None', default=None)
+                           help='max depth for random forest & gradient boosting, default=10', default=10)
     parser_ml.add_argument('--min_samples_split', type=int,
                            help='min samples split for random forest, default=2', default=2)
     parser_ml.add_argument('--min_samples_leaf', type=int,
-                           help='min samples leaf for random forest, default=1', default=1)
+                           help='min samples leaf for random forest & gradient boosting, default=1', default=1)
     parser_ml.add_argument('--max_features', type=str,
                            help='max features for random forest, default=auto', default="auto")
     parser_ml.add_argument('--resampling_strategy', type=str,
@@ -1184,7 +1186,7 @@ def ml_pipeline(args):
     else:
         os.makedirs(ml_temp, exist_ok=True)
 
-    accepted_ml_algorithms = ["rf", "svm", "gb"]
+    accepted_ml_algorithms = ["rf", "svm", "gb", "histgb"]
 
     if args.ml_algorithm not in accepted_ml_algorithms:
         print("Error: ML algorithm is not accepted.")
@@ -1350,9 +1352,19 @@ def ml_pipeline(args):
             print("Error: Test strains file does not exist.")
             sys.exit(1)
 
-        if args.verbosity > 3:
-            print(f"Train strains: {train_strains}")
-            print(f"Test strains: {test_strains}")
+    if args.validation_strains_file:
+        if os.path.exists(args.validation_strains_file):
+            with open(args.validation_strains_file) as validation_file:
+                validation_strains = validation_file.readlines()
+                for validation_strain in validation_strains:
+                    validation_strains.append(validation_strain.strip())
+        else:
+            print("Error: Validation strains file does not exist.")
+            sys.exit(1)
+
+    if args.verbosity > 3:
+        print(f"Train strains: {train_strains}")
+        print(f"Test strains: {test_strains}")
 
     if args.train_strains_file and not args.test_strains_file:
         print("Error: Test strains file is missing.")
@@ -1360,6 +1372,14 @@ def ml_pipeline(args):
 
     if not args.train_strains_file and args.test_strains_file:
         print("Error: Train strains file is missing.")
+        sys.exit(1)
+
+    if args.validation_strains_file and not args.train_strains_file:
+        print("Error: Validation strains file is provided but train strains file is missing.")
+        sys.exit(1)
+        
+    if args.validation_strains_file and not args.test_strains_file:
+        print("Error: Validation strains file is provided but test strains file is missing.")
         sys.exit(1)
 
     if args.no_stratify_split:
@@ -1406,13 +1426,14 @@ def ml_pipeline(args):
             with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
 
-                    fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, args.optimization_time_limit, "rf_auto_ml", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, train=train_strains, test=test_strains, same_setup_run_count=same_setup_run_count, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit) 
+                    fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, args.optimization_time_limit, "rf_auto_ml", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, train=train_strains, test=test_strains, validation=validation_strain,same_setup_run_count=same_setup_run_count, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit) 
 
         else:
             with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
 
-                    fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, args.optimization_time_limit, "rf", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit) 
+                       fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, args.optimization_time_limit, "rf", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, validation=validation_strains, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit) 
+
 
     elif args.ml_algorithm == "svm":
 
@@ -1434,7 +1455,8 @@ def ml_pipeline(args):
         with open(os.path.join(ml_output, f"{ml_log_name}_log_file.txt"), "w") as log_file:
             with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
                 
-                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, args.optimization_time_limit, "svm", args.feature_importance_analysis, args.save_model, resampling_strategy="cv", custom_scorer="MCC", fia_repeats=5, train=train_strains, test=test_strains, stratify=stratiy_random_split, feature_importance_analysis_strategy="permutation_importance", important_feature_limit=args.important_feature_limit)
+                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, args.optimization_time_limit, "svm", args.feature_importance_analysis, args.save_model, resampling_strategy="cv", custom_scorer="MCC", fia_repeats=5, train=train_strains, test=test_strains, validation=validation_strain, stratify=stratiy_random_split, feature_importance_analysis_strategy="permutation_importance", important_feature_limit=args.important_feature_limit)
+
 
     elif args.ml_algorithm == "gb":
 
@@ -1474,13 +1496,14 @@ def ml_pipeline(args):
             with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
 
-                    fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, args.optimization_time_limit, "gb_auto_ml", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, train=train_strains, test=test_strains, same_setup_run_count=same_setup_run_count, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit) 
+                    fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, args.optimization_time_limit, "gb_auto_ml", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, train=train_strains, test=test_strains, validation=validation_strain, same_setup_run_count=same_setup_run_count, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit) 
 
         else:
             with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
                 with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
 
-                    fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, args.optimization_time_limit, "gb", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit) 
+                    fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, args.optimization_time_limit, "gb", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, validation=validation_strain, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit) 
+
 
     elif args.ml_algorithm == "histgb":
 
@@ -1531,7 +1554,7 @@ def ml_pipeline(args):
                 if args.min_samples_leaf == 1:
                     args.min_samples_leaf = 20
 
-                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, args.optimization_time_limit, "histgb", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit) 
+                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, args.optimization_time_limit, "histgb", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, validation=validation_strain, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit) 
 
 
     if args.feature_importance_analysis:
