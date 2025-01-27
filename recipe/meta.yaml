@@ -30,6 +30,7 @@ requirements:
     - iqtree
     - pyseer
     - xgboost
+    - scip==8.0.4
 
 about:
   home: https://github.com/kalininalab/ALPAR

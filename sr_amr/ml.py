@@ -14,6 +14,7 @@ from random import randint
 import os
 from sklearn.svm import SVC
 from sklearn.model_selection import GridSearchCV
+from sklearn.experimental import enable_hist_gradient_boosting
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, HistGradientBoostingClassifier
 from sklearn import tree
 import csv
