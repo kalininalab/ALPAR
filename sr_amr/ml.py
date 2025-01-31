@@ -386,12 +386,11 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
         y_hat = cls.predict(X_test)
 
     elif model_type == "rf":
-        rf_cls = RandomForestClassifier(class_weight={0: sum(y_train), 1: len(
-            y_train) - sum(y_train)}, n_estimators=n_estimators, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split)
+        rf_cls = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split, n_jobs=n_jobs)
 
         param_grid = {
-            'n_estimators': [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100],
-            'max_depth': [2, 5, 7, 9]
+            'n_estimators': [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100, 150, 200, 250, 300, 350, 400],
+            'max_depth': [2, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25],
         }
 
         if resampling_strategy == "cv":
@@ -457,7 +456,11 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
         y_hat = best_model.predict(X_test)
 
     elif model_type == "gb":
-        gb_cls = GradientBoostingClassifier(n_estimators=n_estimators, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split, class_weight={0: sum(y_train), 1: len(y_train) - sum(y_train)})
+        gb_cls = GradientBoostingClassifier(
+            max_depth=max_depth,
+            min_samples_leaf=min_samples_leaf,
+            min_samples_split=min_samples_split
+        )
 
         param_grid = {
             'n_estimators': [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100],
@@ -471,15 +474,10 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
             grid_search = GridSearchCV(
                 gb_cls, param_grid, cv=cv_split, scoring=scorer)
             grid_search.fit(X_train, y_train)
-
             y_hat = grid_search.predict(X_test)
 
         else:
-            if len(validation) > 0:
-                gb_cls.fit(X_train, y_train, eval_set=[(X_validation, y_validation)], early_stopping_rounds=10)
-            else:
-                gb_cls.fit(X_train, y_train)
-        
+            gb_cls.fit(X_train, y_train)
             y_hat = gb_cls.predict(X_test)
 
     elif model_type == "histgb":
@@ -503,7 +501,8 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
 
         else:
             histgb_cls.fit(X_train, y_train)
-            y_hat = histgb_cls.predict(X_test)
+            
+        y_hat = histgb_cls.predict(X_test)
 
     outfile = os.path.join(output_folder, f"{output_file_template}_Result")
 
