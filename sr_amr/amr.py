@@ -636,6 +636,8 @@ def binary_table_pipeline(args):
         if input_folder is not None:
             antibiotics = os.listdir(input_folder)
             for antibiotic in antibiotics:
+                resistant_path_exist = True
+                susceptible_path_exist = True
                 # Checking for Mac OS hidden files
                 if antibiotic.startswith("."):
                     continue
@@ -644,50 +646,55 @@ def binary_table_pipeline(args):
                 if not 'Resistant' in status:
                     print(
                         f"Error: {antibiotic} folder does not contain resistant folder.")
-                    sys.exit(1)
+                    resistant_path_exist = False
                 if not 'Susceptible' in status:
                     print(
                         f"Error: {antibiotic} folder does not contain susceptible folder.")
-                    sys.exit(1)
+                    susceptible_path_exist = False
+                if not resistant_path_exist or not susceptible_path_exist:
+                    print(
+                        f"Error: {antibiotic} folder does not contain both resistant and susceptible folders.")
+                    print(f"{antibiotic} folder will be skipped.")
+                    continue
+                else:
+                    resistant_path = os.path.join(antibiotic_path, 'Resistant')
+                    susceptible_path = os.path.join(antibiotic_path, 'Susceptible')
 
-                resistant_path = os.path.join(antibiotic_path, 'Resistant')
-                susceptible_path = os.path.join(antibiotic_path, 'Susceptible')
+                    # Checking if folders contain fasta files that are accepted
 
-                # Checking if folders contain fasta files that are accepted
+                    files_in_resistant_path = os.listdir(resistant_path)
+                    files_in_susceptible_path = os.listdir(susceptible_path)
 
-                files_in_resistant_path = os.listdir(resistant_path)
-                files_in_susceptible_path = os.listdir(susceptible_path)
+                    if args.verbosity > 3:
+                        print(f"Checking {antibiotic} folder...")
+                        print(f"Resistant folder: {resistant_path}")
+                        print(f"Amount of files in resistant folder: {len(files_in_resistant_path)}")
+                        print(f"Susceptible folder: {susceptible_path}")
+                        print(f"Amount of files in susceptible folder: {len(files_in_susceptible_path)}")
 
-                if args.verbosity > 3:
-                    print(f"Checking {antibiotic} folder...")
-                    print(f"Resistant folder: {resistant_path}")
-                    print(f"Amount of files in resistant folder: {len(files_in_resistant_path)}")
-                    print(f"Susceptible folder: {susceptible_path}")
-                    print(f"Amount of files in susceptible folder: {len(files_in_susceptible_path)}")
+                    resistant_strains = []
+                    susceptible_strains = []
 
-                resistant_strains = []
-                susceptible_strains = []
+                    for file in files_in_resistant_path:
+                        if pathlib.Path(file).suffix in accepted_fasta_file_extensions:
+                            resistant_strains.append(file)
 
-                for file in files_in_resistant_path:
-                    if pathlib.Path(file).suffix in accepted_fasta_file_extensions:
-                        resistant_strains.append(file)
+                    for file in files_in_susceptible_path:
+                        if pathlib.Path(file).suffix in accepted_fasta_file_extensions:
+                            susceptible_strains.append(file)
 
-                for file in files_in_susceptible_path:
-                    if pathlib.Path(file).suffix in accepted_fasta_file_extensions:
-                        susceptible_strains.append(file)
-
-                with open(os.path.join(args.output, "strains.txt"), "a") as outfile:
-                    for strain in resistant_strains:
-                        # Make sure path is same in both Windows and Linux
-                        strain_path = os.path.join(resistant_path, strain)
-                        strain_path = os.path.abspath(strain_path)
-                        strain_path = strain_path.replace("\\", "/")
-                        outfile.write(f"{strain_path}\n")
-                    for strain in susceptible_strains:
-                        strain_path = os.path.join(susceptible_path, strain)
-                        strain_path = os.path.abspath(strain_path)
-                        strain_path = strain_path.replace("\\", "/")
-                        outfile.write(f"{strain_path}\n")
+                    with open(os.path.join(args.output, "strains.txt"), "a") as outfile:
+                        for strain in resistant_strains:
+                            # Make sure path is same in both Windows and Linux
+                            strain_path = os.path.join(resistant_path, strain)
+                            strain_path = os.path.abspath(strain_path)
+                            strain_path = strain_path.replace("\\", "/")
+                            outfile.write(f"{strain_path}\n")
+                        for strain in susceptible_strains:
+                            strain_path = os.path.join(susceptible_path, strain)
+                            strain_path = os.path.abspath(strain_path)
+                            strain_path = strain_path.replace("\\", "/")
+                            outfile.write(f"{strain_path}\n")
 
             input_file = os.path.join(args.output, "strains.txt")
 
@@ -1708,6 +1715,8 @@ def phenotype_table_pipeline(args):
     if input_folder is not None:
         antibiotics = os.listdir(input_folder)
         for antibiotic in antibiotics:
+            resistant_path_exists = True
+            susceptible_path_exists = True
             if antibiotic.startswith("."):
                 continue
             antibiotic_path = os.path.join(input_folder, antibiotic)
@@ -1715,42 +1724,45 @@ def phenotype_table_pipeline(args):
             if not 'Resistant' in status:
                 print(
                     f"Error: {antibiotic} folder does not contain resistant folder.")
-                sys.exit(1)
+                resistant_path_exists = False
             if not 'Susceptible' in status:
                 print(
                     f"Error: {antibiotic} folder does not contain susceptible folder.")
-                sys.exit(1)
+                susceptible_path_exists = False
+            if not resistant_path_exists or not susceptible_path_exists:
+                print(
+                    f"Error: {antibiotic} folder does not contain both resistant and susceptible folders.")
+            else:
+                resistant_path = os.path.join(antibiotic_path, 'Resistant')
+                susceptible_path = os.path.join(antibiotic_path, 'Susceptible')
 
-            resistant_path = os.path.join(antibiotic_path, 'Resistant')
-            susceptible_path = os.path.join(antibiotic_path, 'Susceptible')
+                # Checking if folders contain fasta files that are accepted
 
-            # Checking if folders contain fasta files that are accepted
+                files_in_resistant_path = os.listdir(resistant_path)
+                files_in_susceptible_path = os.listdir(susceptible_path)
 
-            files_in_resistant_path = os.listdir(resistant_path)
-            files_in_susceptible_path = os.listdir(susceptible_path)
+                resistant_strains = []
+                susceptible_strains = []
 
-            resistant_strains = []
-            susceptible_strains = []
+                for file in files_in_resistant_path:
+                    if pathlib.Path(file).suffix in accepted_fasta_file_extensions:
+                        resistant_strains.append(file)
 
-            for file in files_in_resistant_path:
-                if pathlib.Path(file).suffix in accepted_fasta_file_extensions:
-                    resistant_strains.append(file)
+                for file in files_in_susceptible_path:
+                    if pathlib.Path(file).suffix in accepted_fasta_file_extensions:
+                        susceptible_strains.append(file)
 
-            for file in files_in_susceptible_path:
-                if pathlib.Path(file).suffix in accepted_fasta_file_extensions:
-                    susceptible_strains.append(file)
-
-            with open(os.path.join(phenotype_output, "strains.txt"), "a") as outfile:
-                for strain in resistant_strains:
-                    # Make sure path is same in both Windows and Linux
-                    strain_path = os.path.join(resistant_path, strain)
-                    strain_path = strain_path.replace("\\", "/")
-                    outfile.write(f"{strain_path}\n")
-                for strain in susceptible_strains:
-                    # Make sure path is same in both Windows and Linux
-                    strain_path = os.path.join(susceptible_path, strain)
-                    strain_path = strain_path.replace("\\", "/")
-                    outfile.write(f"{strain_path}\n")
+                with open(os.path.join(phenotype_output, "strains.txt"), "a") as outfile:
+                    for strain in resistant_strains:
+                        # Make sure path is same in both Windows and Linux
+                        strain_path = os.path.join(resistant_path, strain)
+                        strain_path = strain_path.replace("\\", "/")
+                        outfile.write(f"{strain_path}\n")
+                    for strain in susceptible_strains:
+                        # Make sure path is same in both Windows and Linux
+                        strain_path = os.path.join(susceptible_path, strain)
+                        strain_path = strain_path.replace("\\", "/")
+                        outfile.write(f"{strain_path}\n")
 
         input_file = os.path.join(phenotype_output, "strains.txt")
 
