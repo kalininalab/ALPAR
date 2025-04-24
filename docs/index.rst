@@ -79,5 +79,6 @@ For more information about the automatic pipeline parameters:
     :caption: Workflow
 
     workflow/subcommands
+    camda
     posters
     paper

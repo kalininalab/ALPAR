@@ -1,3 +1,7 @@
+###################
+ALPAR Subcommands
+###################
+
 ## Create Binary Tables
 
 From genomic files, creates binary mutation and phenotype tables.
