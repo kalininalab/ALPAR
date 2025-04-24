@@ -61,14 +61,14 @@ From genomic files, creates binary mutation and phenotype tables, applies thresh
 - Custom database (Optional), `--custom_database`: Fasta file path for protein database creation, can be downloaded from `UniProt <https://www.uniprot.org/>`_ accepted file formats are: `.fasta`
 
 Basic usage:
-############
+--------------------------
 
 .. code-block:: shell
 
     alpar automatix -i example/example_files/ -o example/example_output/ --reference example/reference.gbff
 
-For more information about the parameters:
-#########################################
+For more information about the automatic pipeline parameters:
+--------------------------
 
 .. code-block:: shell
 
@@ -80,3 +80,4 @@ For more information about the parameters:
 
     workflow/subcommands
     posters
+    paper
