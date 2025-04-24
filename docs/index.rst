@@ -28,41 +28,41 @@ Example files can be downloaded from: `Example files <https://github.com/kalinin
 
 Automatic pipeline
 --------------------------
-From genomic files, creates binary mutation and phenotype tables, applies thresholds, creates phylogenetic tree, conducts GWAS analysis, calculates PRPS score and trains machine learning models with conducting feature importance analysis and splitting data aginst information leakage with `DataSAIL <https://github.com/kalininalab/DataSAIL>_` against all the given antibiotics.
+From genomic files, creates binary mutation and phenotype tables, applies thresholds, creates phylogenetic tree, conducts GWAS analysis, calculates PRPS score and trains machine learning models with conducting feature importance analysis and splitting data aginst information leakage with `DataSAIL <https://github.com/kalininalab/DataSAIL>`_ against all the given antibiotics.
 
-- Input, `-i`: Path of folder that have structure: `input_folder -> antibiotic -> [Resistant, Susceptible]`
+- Input, `-i`: Path of folder that have structure: `input_folder -> antibiotic -> [Resistant, Susceptible]`_
 
 .. code-block:: shell
-    📦input_folder
-    ┣ 📂antibiotic1
-    ┃ ┣ 📂Resistant
-    ┃ ┃ ┣ 📜fasta1.fna
-    ┃ ┃ ┗ 📜fasta2.fna
+    input_folder
+    ┣ antibiotic1
+    ┃ ┣ Resistant
+    ┃ ┃ ┣ fasta1.fna
+    ┃ ┃ ┗ fasta2.fna
     ┃ ┃ ┗ ...
-    ┃ ┗ 📂Susceptible
-    ┃ ┃ ┣ 📜fasta3.fna
-    ┃ ┃ ┗ 📜fasta4.fna
+    ┃ ┗ Susceptible
+    ┃ ┃ ┣ fasta3.fna
+    ┃ ┃ ┗ fasta4.fna
     ┃ ┃ ┗ ...
-    ┗ 📂antibiotic2
-    ┃ ┣ 📂Resistant
-    ┃ ┃ ┣ 📜fasta2.fna
-    ┃ ┃ ┗ 📜fasta5.fna
+    ┗ antibiotic2
+    ┃ ┣ Resistant
+    ┃ ┃ ┣ fasta2.fna
+    ┃ ┃ ┗ fasta5.fna
     ┃ ┃ ┗ ...
-    ┃ ┗ 📂Susceptible
-    ┃ ┃ ┣ 📜fasta2.fna
-    ┃ ┃ ┗ 📜fasta3.fna
+    ┃ ┗ Susceptible
+    ┃ ┃ ┣ fasta2.fna
+    ┃ ┃ ┗ fasta3.fna
     ┃ ┃ ┗ ...
-    ┗ 📂...
+    ┗ ...
 
 - Output, `-o`: Output folder path, where the output will be stored. If path exist, `--overwrite` option can be used to overwrite existing output.
 
 - Reference, `--reference`: Reference file path, accepted file formats are: `.gbk .gbff`
 
-- Custom database (Optional), `--custom_database`: Fasta file path for protein database creation, can be downloaded from `UniProt <https://www.uniprot.org/>_` accepted file formats are: `.fasta`
+- Custom database (Optional), `--custom_database`: Fasta file path for protein database creation, can be downloaded from `UniProt <https://www.uniprot.org/>`_ accepted file formats are: `.fasta`
 
 Basic usage:
 .. code-block:: shell
-    alpar automatix -i example/example_files/ -o example/example_output/ --reference example/reference.gbff
+    alpar automatix -i example/example_files/ -o example/example_output/ `--reference` example/reference.gbff
 
 For more information about the parameters:
 .. code-block:: shell
@@ -72,9 +72,5 @@ For more information about the parameters:
     :maxdepth: 1
     :caption: Workflow
 
-    workflow/input
-    workflow/clustering
-    workflow/embeddings
-    workflow/splits
-    workflow/solvers
+    workflow/subcommands
     posters
