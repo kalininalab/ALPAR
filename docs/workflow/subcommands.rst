@@ -105,7 +105,7 @@ Runs the phylogeny pipeline to create a phylogenetic tree (alignment-free).
 
     alpar phylogenetic_tree -i example/example_output/strains.txt -o example/example_output/ --random_names_dict example/example_output/random_names.txt
 
-Panacota
+PanACoTA
 #######
 
 Runs the PanACoTA pipeline to create a phylogenetic tree (alignment-based).
