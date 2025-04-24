@@ -2,7 +2,8 @@
 ALPAR Subcommands
 ###################
 
-## Create Binary Tables
+Create Binary Tables
+#######
 
 From genomic files, creates binary mutation and phenotype tables.
 
@@ -70,7 +71,8 @@ From genomic files, creates binary mutation and phenotype tables.
 
     alpar create_binary_tables -i example/example_files/ -o example/example_output/ --reference example/reference.gbff
 
-## Binary Table Threshold
+Binary Table Threshold
+#######
 
 Applies a threshold to the binary mutation table and drops columns that have less than the threshold percentage. This is useful to reduce sequencing errors in the data.
 
@@ -86,7 +88,8 @@ Applies a threshold to the binary mutation table and drops columns that have les
 
     alpar binary_tables_threshold -i example/example_output/binary_mutation_table.tsv -o example/example_output/
 
-## Phylogenetic Tree
+Phylogenetic Tree
+#######
 
 Runs the phylogeny pipeline to create a phylogenetic tree (alignment-free).
 
@@ -102,7 +105,8 @@ Runs the phylogeny pipeline to create a phylogenetic tree (alignment-free).
 
     alpar phylogenetic_tree -i example/example_output/strains.txt -o example/example_output/ --random_names_dict example/example_output/random_names.txt
 
-## Panacota
+Panacota
+#######
 
 Runs the PanACoTA pipeline to create a phylogenetic tree (alignment-based).
 
@@ -118,7 +122,8 @@ Runs the PanACoTA pipeline to create a phylogenetic tree (alignment-based).
 
     alpar panacota -i example/example_output/strains.txt -o example/example_output/
 
-## GWAS
+GWAS
+#######
 
 Runs GWAS analysis to detect important mutations in the data.
 
@@ -136,7 +141,8 @@ Runs GWAS analysis to detect important mutations in the data.
 
     alpar gwas -i example/example_output/binary_mutation_table_with_gene_presence_absence.tsv -p example/example_output/phenotype_table.tsv -t example/example_output/phylogeny/phylogenetic_tree.tree -o example_output/
 
-## PRPS
+Phylogeny Related Parallelism Score
+#######
 
 Runs PRPS (Phylogeny-Related Parallelism Score) to detect mutations that are more likely associated with phylogeny rather than antimicrobial resistance.
 
@@ -152,7 +158,8 @@ Runs PRPS (Phylogeny-Related Parallelism Score) to detect mutations that are mor
 
     alpar prps -i example/example_output/binary_mutation_table.tsv -t example/example_output/phylogeny/phylogenetic_tree.tree -o example_output/
 
-## ML
+Machine Learning
+#######
 
 Trains machine learning models with classification algorithms on the data and optimizes them.
 
