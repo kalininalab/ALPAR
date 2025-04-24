@@ -57,7 +57,7 @@ html_context = {}
 html_logo = "imgs/ALPAR_Logo.png"
 html_show_sourcelink = True
 
-rst_context = {"ALPAR": alpar}
+#rst_context = {"ALPAR": alpar}
 mathjax3_config = {'chtml': {'displayAlign': 'left'}}
 
 add_module_names = False
