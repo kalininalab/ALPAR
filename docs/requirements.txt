@@ -1,0 +1,14 @@
+sphinx-rtd-theme==1.0.0
+snippy
+panaroo
+seaborn
+datasail>=1.0.0
+ete3
+python
+swig
+grakel
+mashtree
+iqtree
+pyseer
+xgboost
+scip==8.0.4
