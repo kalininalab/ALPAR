@@ -20,7 +20,7 @@ Using the ALPAR pipeline, we performed analysis of 5615 bacterial strains from s
      }
 
      .styled-table thead tr {
-       background-color: #4CAF50;
+       background-color: #005aa2;
        color: white;
        text-align: left;
      }
