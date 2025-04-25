@@ -13,7 +13,9 @@ from sklearn.svm import SVC
 from sklearn.model_selection import GridSearchCV
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, HistGradientBoostingClassifier
 from sklearn import tree
+from sklearn.metrics import matthews_corrcoef, make_scorer
 import csv
+import xgboost as xgb
 
 import warnings
 
@@ -360,28 +362,61 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
             y_hat = rf_cls.predict(X_test)
 
     elif model_type == "xgb":
-        import xgboost as xgb
-        rf_cls = xgb.XGBClassifier(class_weight={0: sum(y_train), 1: len(
-            y_train) - sum(y_train)}, n_estimators=n_estimators, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split)
+
+        dtrain = xgb.DMatrix(X_train, label=y_train)
+        dtest = xgb.DMatrix(X_test, label=y_test)
+
+        #rf_cls = xgb.XGBClassifier(class_weight={0: sum(y_train), 1: len(y_train) - sum(y_train)}, n_estimators=n_estimators, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split)
 
         param_grid = {
-            'n_estimators': [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100],
-            'max_depth': [2, 5, 7, 9]
+            'max_depth': [3, 5, 7, 9],
+            'min_child_weight': [1, 3, 5],
+            'subsample': [0.6, 0.8, 1.0],
+            'colsample_bytree': [0.6, 0.8, 1.0],
+            'eta': [0.01, 0.1, 0.2],
+            'n_estimators': [50, 100, 200]
         }
 
+        # Initialize the XGBoost classifier
+        xgb_model = xgb.XGBClassifier(
+            objective='binary:logistic',
+            eval_metric='logloss',
+            seed=random_seed,
+            n_jobs=n_jobs
+        )
+
+        mcc_scorer = make_scorer(matthews_corrcoef)
+
         if resampling_strategy == "cv":
-            if custom_scorer == "MCC":
-                scorer = "matthews_corrcoef"
-
             grid_search = GridSearchCV(
-                rf_cls, param_grid, cv=cv_split, scoring=scorer)
-            grid_search.fit(X_train, y_train)
-
-            y_hat = grid_search.predict(X_test)
-
+                estimator=xgb_model,
+                param_grid=param_grid,
+                scoring=mcc_scorer, 
+                cv=cv_split, 
+                verbose=1,
+                n_jobs=n_jobs
+            )
         else:
-            rf_cls.fit(X_train, y_train)
-            y_hat = rf_cls.predict(X_test)
+            grid_search = GridSearchCV(
+                estimator=xgb_model,
+                param_grid=param_grid,
+                scoring=mcc_scorer,
+                verbose=1,
+                n_jobs=n_jobs
+            )
+
+        grid_search.fit(X_train, y_train)
+
+        # Get the best parameters and update the params dictionary
+        best_params = grid_search.best_params_
+        print(f"Best Parameters: {antibiotic} {best_params}")
+
+        # Train the final model with the best parameters
+        bst = xgb.train(best_params, dtrain, num_boost_round=n_estimators)
+
+        # Predict on the test set
+        y_hat = bst.predict(dtest)
+        y_hat = np.round(y_hat)
 
     elif model_type == "svm":
         best_model_mcc = -1.0
@@ -477,6 +512,10 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
             model_file = os.path.join(
                 output_folder, f"{output_file_template}_model.sav")
             pickle.dump(histgb_cls, open(model_file, 'wb'))
+        elif model_type == "xgb":
+            model_file = os.path.join(
+                output_folder, f"{output_file_template}_model.sav")
+            pickle.dump(bst, open(model_file, 'wb'))
 
     if feature_importance_analysis:
 
@@ -499,6 +538,10 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
 
             elif model_type == "histgb":
                 importances = histgb_cls.feature_importances_
+            
+            elif model_type == "xgb":
+                importances = bst.get_score(importance_type='weight')
+                importances = np.array([importances[feature] for feature in feature_names])
                 
             gini_importances = pd.Series(importances, index=feature_names)
             importances_dict = gini_importances.to_dict()
@@ -524,6 +567,9 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
             elif model_type == "histgb":
                 r = permutation_importance(
                     histgb_cls, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
+            elif model_type == "xgb":
+                r = permutation_importance(
+                    bst, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
 
             with open(os.path.join(output_folder, f"{output_file_template}_FIA_{feature_importance_analysis_strategy}"), "w") as ofile:
                 for i in r.importances_mean.argsort()[::-1]:
