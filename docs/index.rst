@@ -30,7 +30,7 @@ Automatic pipeline
 --------------------------
 From genomic files, creates binary mutation and phenotype tables, applies thresholds, creates phylogenetic tree, conducts GWAS analysis, calculates PRPS score and trains machine learning models with conducting feature importance analysis and splitting data aginst information leakage with `DataSAIL <https://github.com/kalininalab/DataSAIL>`_ against all the given antibiotics.
 
-- Input, `-i`: Path of folder that have structure: input_folder -> antibiotic -> [Resistant, Susceptible]
+- Input, ``-i``: Path of folder that have structure: input_folder -> antibiotic -> [Resistant, Susceptible]
 
 .. code-block:: shell
 
@@ -54,11 +54,11 @@ From genomic files, creates binary mutation and phenotype tables, applies thresh
     │       ├── fasta3.fna
     │       └── ...
 
-- Output, `-o`: Output folder path, where the output will be stored. If path exist, `--overwrite` option can be used to overwrite existing output.
+- Output, ``-o``: Output folder path, where the output will be stored. If path exist, ``--overwrite`` option can be used to overwrite existing output.
 
-- Reference, `--reference`: Reference file path, accepted file formats are: `.gbk .gbff`
+- Reference, ``--reference``: Reference file path, accepted file formats are: ``.gbk .gbff``
 
-- Custom database (Optional), `--custom_database`: Fasta file path for protein database creation, can be downloaded from `UniProt <https://www.uniprot.org/>`_ accepted file formats are: `.fasta`
+- Custom database (Optional) [Recommended], ``--custom_database``: Fasta file path for protein database creation, can be downloaded from `UniProt <https://www.uniprot.org/>`_ accepted file formats are: ``.fasta``
 
 Basic usage:
 --------------------------
