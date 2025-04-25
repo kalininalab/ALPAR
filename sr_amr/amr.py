@@ -579,6 +579,7 @@ def binary_table_pipeline(args):
     if args.no_gene_annotation:
         prokka_flag = False
     if args.use_panaroo:
+        gpa_flag = False
         panaroo_flag = True
 
     if args.verbosity > 3:
