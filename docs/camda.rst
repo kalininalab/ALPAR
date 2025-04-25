@@ -9,11 +9,41 @@ Using the ALPAR pipeline, we performed analysis of 5615 bacterial strains from s
 
 .. raw:: html
 
-   <table>
+   <style>
+     .styled-table {
+       border-collapse: collapse;
+       margin: 1em 0;
+       font-size: 16px;
+       font-family: sans-serif;
+       width: 100%;
+       box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+     }
+
+     .styled-table thead tr {
+       background-color: #4CAF50;
+       color: white;
+       text-align: left;
+     }
+
+     .styled-table th, .styled-table td {
+       padding: 12px 15px;
+       border: 1px solid #ddd;
+     }
+
+     .styled-table tbody tr:nth-child(even) {
+       background-color: #f3f3f3;
+     }
+
+     .styled-table em {
+       font-style: italic;
+     }
+   </style>
+
+   <table class="styled-table">
      <thead>
        <tr>
-         <th><strong>Bacterium</strong></th>
-         <th><strong>MCC Value</strong></th>
+         <th>Bacterium</th>
+         <th>MCC Value</th>
        </tr>
      </thead>
      <tbody>
@@ -25,6 +55,7 @@ Using the ALPAR pipeline, we performed analysis of 5615 bacterial strains from s
        <tr><td><em>Salmonella enterica</em></td><td>0.706</td></tr>
      </tbody>
    </table>
+
 
 We predicted the test set using trained models with the random forest algorithm. All models were trained using the ALPAR Automatix pipeline with the options mentioned above, utilizing species-specific references and protein databases. (*Campylobacter jejuni* model used for both *Campylobacter jejuni* and *Campylobacter coli*). Our predictions achieved a F1-score of 83/100, which was the best performance in the leaderboard.
 
