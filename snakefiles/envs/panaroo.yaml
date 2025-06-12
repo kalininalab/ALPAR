@@ -1,0 +1,5 @@
+name: panaroo
+chanels:
+  - bioconda
+dependencies:
+  - panaroo=1.5.2

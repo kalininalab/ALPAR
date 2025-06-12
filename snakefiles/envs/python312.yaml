@@ -1,0 +1,12 @@
+name: python312
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - biopython=1.85
+  - python=3.12
+  - snakemake=9.1.7
+  - pip:
+      - polars==1.27.1
+      - pydantic==2.11.3

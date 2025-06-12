@@ -1,0 +1,5 @@
+name: prokka
+channels:
+  - bioconda
+dependencies:
+  - blast=2.16.0

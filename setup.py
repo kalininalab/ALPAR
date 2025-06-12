@@ -25,6 +25,6 @@ setup(
     include_package_data=False,
     install_requires=[],
     package_data={},
-    python_requires=">=3.9.*",
+    python_requires=">=3.9",
     keywords="bioinformatics",
 )

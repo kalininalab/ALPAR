@@ -1,0 +1,14 @@
+# ----------------
+# Files and folders
+# ----------------
+
+output_dir: "out"
+temp_dir: "temp"
+reference_file: "db/Escherichia_coli.fasta"
+
+# ----------------
+# Parameters
+# ----------------
+
+genus: "ecoli"
+gpa_method: "cd-hit"

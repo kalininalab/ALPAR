@@ -9,6 +9,7 @@ import contextlib
 import time
 import multiprocessing
 import shutil
+import subprocess
 
 from sr_amr.utils import is_tool_installed, temp_folder_remover, time_function, copy_and_zip_file
 from sr_amr.version import __version__
@@ -422,496 +423,52 @@ def binary_table_pipeline(args):
 
     start_time = time.time()
 
-    # Sanity checks
-
-    status = -1
-
-    if args.verbosity > 3:
-        print("Checking the installed tools...")
-    # Check if the tools are installed
-    tool_list = ["snippy", "prokka", "panaroo"]
-
-    for tool in tool_list:
-        if not is_tool_installed(tool):
-            print(f"Error: {tool} is not installed.")
-            sys.exit(1)
-
-    if args.verbosity > 3:
-        print("Checking the input...")
-    # Check the arguments
-    if args.input is None:
-        print("Error: Input file is required.")
-        sys.exit(1)
-
-    # Check if the input is a folder or a file
-    if os.path.isdir(args.input):
-        input_folder = args.input
-        input_file = None
-    else:
-        input_folder = None
-        input_file = args.input
-
-    # Check if reference file exists and correct extension
-    accepted_reference_extensions = ['.gbk', '.gbff']
-    if not os.path.exists(args.reference):
-        print("Error: Reference file does not exist.")
-        sys.exit(1)
-    else:
-        if pathlib.Path(args.reference).suffix not in accepted_reference_extensions:
-            print("Error: Reference file extension is not accepted.")
-            print("Accepted extensions: .gbk, .gbff")
-            sys.exit(1)
-
-    if args.custom_database:
-        if len(args.custom_database) != 2:
-            print("Error: Custom database option should have two arguments.")
-            sys.exit(1)
-
-        if not os.path.exists(args.custom_database[0]):
-            print("Error: Custom database fasta file does not exist.")
-            sys.exit(1)
-
-        if pathlib.Path(args.custom_database[0]).suffix != ".fasta":
-            print("Error: Custom database file extension is not accepted.")
-            print("Accepted extension: .fasta")
-            sys.exit(1)
-
-    # Check if output folder empty
-    if os.path.exists(args.output) and os.path.isdir(args.output):
-        if len(os.listdir(args.output)) > 0 and args.checkpoint:
-            print("Warning: Output folder is not empty.")
-            print("Checking if there is previous run files to continue.")
-            if args.temp is None:
-                print(
-                    "Warning: Temp folder is not given. Checking output folder for temp folder.")
-                temp_folder = os.path.join(args.output, "temp")
-            else:
-                temp_folder = args.temp
-            if os.path.exists(temp_folder):
-                if os.path.exists(os.path.join(temp_folder, "status.txt")):
-                    with open(os.path.join(temp_folder, "status.txt"), "r") as infile:
-                        line = infile.readline()
-                        status = int(line.strip())
-                        print(f"Previous run found. Continuing from step {status}")
-                        with open(os.path.join(args.output, "random_names.txt")) as random_names_file:
-                            random_names = {}
-                            for random_names_file_line in random_names_file.readlines():
-                                random_names[random_names_file_line.split(
-                                    "\t")[0].strip()] = random_names_file_line.split("\t")[1].strip()
-                        
-                        if args.verbosity > 4:
-                            print(f"Length of random names: {len(random_names)}")
-
-        elif len(os.listdir(args.output)) > 0 and not args.overwrite:
-            print("Error: Output folder is not empty.")
-            print("If you want to overwrite the output folder, use --overwrite option.")
-            print("If you want to continue previous run, use --checkpoint option.")
-            sys.exit(1)
-
-    # Check if output folder exists and create if not
-    if not os.path.exists(args.output):
-        os.mkdir(args.output)
-
-    temp_folder_created = False
-    continue_flag = False
-
-    if args.temp is None:
-        args.temp = os.path.join(args.output, "temp")
-        if not os.path.exists(args.temp):
-            os.mkdir(args.temp)
-            temp_folder_created = True
-        else:
-            print("Warning: Temp folder already exists. Will be used for the run.")
-            temp_folder_created = True
-
-    else:
-        if not os.path.exists(args.temp):
-            os.mkdir(args.temp)
-            temp_folder_created = True
-        else:
-            print("Warning: Temp folder already exists. Will be used for the run.")
-            temp_folder_created = True
-
-    if not temp_folder_created:
-        # Check if temp folder empty
-        if os.path.exists(args.temp) and os.path.isdir(args.temp):
-            if os.listdir(args.temp) and not args.overwrite:
-                print(
-                    "Error: Temp folder is not empty. Please remove the temp folder or use --overwrite option.")
-                sys.exit(1)
-
-    # Check if threads is positive
-    if args.threads is not None:
-        if args.threads <= 0:
-            print("Error: Number of threads should be positive.")
-            sys.exit(1)
-    else:
-        args.threads = 1
-
-    # Check if ram is positive
-    if args.ram is not None:
-        if args.ram <= 0:
-            print("Error: Amount of ram should be positive.")
-            sys.exit(1)
-    else:
-        args.ram = 4
-
-    # Check if phenotype folder exists
-    if args.create_phenotype_from_folder:
-        if not os.path.exists(args.create_phenotype_from_folder):
-            print("Error: Phenotype folder does not exist.")
-            sys.exit(1)
-
-    if args.no_gene_annotation:
-        if not args.no_gene_presence_absence:
-            print(
-                "Error: If gene annotation is not run, gene presence absence can not be run.")
-            sys.exit(1)
-
-    snippy_flag = True
-    prokka_flag = True
-    panaroo_flag = False
-    gpa_flag = True
-
-    if args.no_gene_presence_absence:
-        panaroo_flag = False
-        gpa_flag = False
-    if args.no_gene_annotation:
-        prokka_flag = False
-    if args.use_panaroo:
-        gpa_flag = False
-        panaroo_flag = True
-
-    if args.verbosity > 3:
-        print("Will run snippy: ", snippy_flag)
-        print("Will run prokka: ", prokka_flag)
-        print("Will run panaroo: ", panaroo_flag)
-        print("Will run gene presence absence: ", gpa_flag)
-
-    # Create the output folder
-    if not os.path.exists(args.output):
-        os.mkdir(args.output)
-
-    if not os.path.exists(os.path.join(args.output, "snippy")):
-        os.mkdir(os.path.join(args.output, "snippy"))
-    if not os.path.exists(os.path.join(args.output, "prokka")):
-        os.mkdir(os.path.join(args.output, "prokka"))
-    if not os.path.exists(os.path.join(args.output, "panaroo")):
-        os.mkdir(os.path.join(args.output, "panaroo"))
-    if not os.path.exists(os.path.join(args.output, "cd-hit")):
-        os.mkdir(os.path.join(args.output, "cd-hit"))
-
-    snippy_output = os.path.join(args.output, "snippy")
-    prokka_output = os.path.join(args.output, "prokka")
-    panaroo_output = os.path.join(args.output, "panaroo")
-
-    if args.verbosity > 3:
-        print(f"Output folder created: {args.output}")
-        print(f"Snippy output folder created: {snippy_output}")
-        print(f"Prokka output folder created: {prokka_output}")
-        print(f"Panaroo output folder created: {panaroo_output}")
-
-    # Create the temp folder for the panaroo input
-    if not os.path.exists(os.path.join(args.temp, "panaroo")):
-        os.mkdir(os.path.join(args.temp, "panaroo"))
-    # Create the temp folder for the cdhit input
-    if not os.path.exists(os.path.join(args.temp, "cdhit")):
-        os.mkdir(os.path.join(args.temp, "cdhit"))
-
-    if status < 0:
-
-        if os.path.exists(os.path.join(args.output, "strains.txt")):
-            if not args.overwrite:
-                print("Error: strains.txt already exists.")
-                sys.exit(1)
-            else:
-                print("Warning: strains.txt already exists. Old one will be deleted..")
-                os.remove(os.path.join(args.output, "strains.txt"))
-
-        accepted_fasta_file_extensions = [".fna", ".fasta", ".faa"]
-
-        if input_folder is not None:
-            antibiotics = os.listdir(input_folder)
-            for antibiotic in antibiotics:
-                # Checking for Mac OS hidden files
-                if antibiotic.startswith("."):
-                    continue
-                antibiotic_path = os.path.join(input_folder, antibiotic)
-                status = os.listdir(antibiotic_path)
-                if not 'Resistant' in status:
-                    print(
-                        f"Error: {antibiotic} folder does not contain resistant folder.")
-                    sys.exit(1)
-                if not 'Susceptible' in status:
-                    print(
-                        f"Error: {antibiotic} folder does not contain susceptible folder.")
-                    sys.exit(1)
-
-                resistant_path = os.path.join(antibiotic_path, 'Resistant')
-                susceptible_path = os.path.join(antibiotic_path, 'Susceptible')
-
-                # Checking if folders contain fasta files that are accepted
-
-                files_in_resistant_path = os.listdir(resistant_path)
-                files_in_susceptible_path = os.listdir(susceptible_path)
-
-                if args.verbosity > 3:
-                    print(f"Checking {antibiotic} folder...")
-                    print(f"Resistant folder: {resistant_path}")
-                    print(f"Amount of files in resistant folder: {len(files_in_resistant_path)}")
-                    print(f"Susceptible folder: {susceptible_path}")
-                    print(f"Amount of files in susceptible folder: {len(files_in_susceptible_path)}")
-
-                resistant_strains = []
-                susceptible_strains = []
-
-                for file in files_in_resistant_path:
-                    if pathlib.Path(file).suffix in accepted_fasta_file_extensions:
-                        resistant_strains.append(file)
-
-                for file in files_in_susceptible_path:
-                    if pathlib.Path(file).suffix in accepted_fasta_file_extensions:
-                        susceptible_strains.append(file)
-
-                with open(os.path.join(args.output, "strains.txt"), "a") as outfile:
-                    for strain in resistant_strains:
-                        # Make sure path is same in both Windows and Linux
-                        strain_path = os.path.join(resistant_path, strain)
-                        strain_path = os.path.abspath(strain_path)
-                        strain_path = strain_path.replace("\\", "/")
-                        outfile.write(f"{strain_path}\n")
-                    for strain in susceptible_strains:
-                        strain_path = os.path.join(susceptible_path, strain)
-                        strain_path = os.path.abspath(strain_path)
-                        strain_path = strain_path.replace("\\", "/")
-                        outfile.write(f"{strain_path}\n")
-
-            input_file = os.path.join(args.output, "strains.txt")
-
-            if args.verbosity > 3:
-                print(f"Strains.txt file created: {input_file}")
-
-        if input_file is not None:
-            random_names = random_name_giver(
-                input_file, os.path.join(args.output, "random_names.txt"))
-            if args.verbosity > 3:
-                print(f"Random names file created: {os.path.join(args.output, 'random_names.txt')}")
-
-        with open(os.path.join(args.temp, "status.txt"), "w") as outfile:
-            outfile.write(f"0")
-            status = 0
-
-    with open(os.path.join(args.output, "random_names.txt")) as random_names_file:
-        random_names = {}
-        for random_names_file_line in random_names_file.readlines():
-            random_names[random_names_file_line.split(
-                "\t")[0].strip()] = random_names_file_line.split("\t")[1].strip()
-
-    input_file = os.path.join(args.output, "strains.txt")
-
-    if status < 1:
-
-        strain_list = []
-
-        with open(input_file, "r") as infile:
-            added_strains = []
-            lines = infile.readlines()
-            for line in lines:
-                if os.path.splitext(line.split("/")[-1].strip())[0] not in added_strains:
-                    added_strains.append(os.path.splitext(
-                        line.split("/")[-1].strip())[0])
-                    strain_list.append(line.strip())
-
-        if args.custom_database:
-            if len(args.custom_database) != 2:
-                print("Error: Custom database option should have two arguments.")
-                sys.exit(1)
-
-            if not os.path.exists(args.custom_database[0]):
-                print("Error: Custom database fasta file does not exist.")
-                sys.exit(1)
-
-            print("Creating custom database...")
-            prokka_create_database(
-                args.custom_database[0], args.custom_database[1], args.temp, args.threads, args.ram)
-            print("Custom database created.")
-
-            with open(os.path.join(args.temp, "status.txt"), "w") as outfile:
-                outfile.write(f"1")
-                status = 1
-
-    if status < 2:
-        # Run snippy and prokka
-
-        print(f"Number of strains to be processed: {len(strain_list)}")
-        print("Running snippy and prokka...")
-
-        num_parallel_tasks = args.threads
-
-        params = [(strain, random_names, snippy_output, prokka_output,
-                   args, snippy_flag, prokka_flag) for strain in strain_list]
-
-        if args.custom_database:
-            params = [(strain, random_names, snippy_output, prokka_output, args,
-                       snippy_flag, prokka_flag, args.custom_database[1]) for strain in strain_list]
-
-        with multiprocessing.Pool(num_parallel_tasks) as pool:
-            pool.starmap(run_snippy_and_prokka, params)
-
-        # We will use a status file to indicate checkpoints
-
-        with open(os.path.join(args.temp, "status.txt"), "w") as outfile:
-            outfile.write(f"2")
-            status = 2
-
-    if status < 3:
-
-        strains_to_be_processed = []
-
-        prokka_output_strains = os.listdir(prokka_output)
-        snippy_output_strains = os.listdir(snippy_output)
-
-        strains_to_be_skiped = []
-
-        for strain in random_names.keys():
-            if prokka_flag and snippy_flag:
-                if random_names[strain] in prokka_output_strains and random_names[strain] in snippy_output_strains:
-                    strains_to_be_processed.append(random_names[strain])
-                else:
-                    strains_to_be_skiped.append(random_names[strain])
-            elif prokka_flag and not snippy_flag:
-                if random_names[strain] in prokka_output_strains:
-                    strains_to_be_processed.append(random_names[strain])
-                else:
-                    strains_to_be_skiped.append(random_names[strain])
-            elif snippy_flag and not prokka_flag:
-                if random_names[strain] in snippy_output_strains:
-                    strains_to_be_processed.append(random_names[strain])
-                else:
-                    strains_to_be_skiped.append(random_names[strain])
-
-        print(f"Number of strains processed: {len(strains_to_be_processed)}")
-        print(f"Number of strains skipped: {len(strains_to_be_skiped)}")
-
-        snippy_processed_file_creator(snippy_output, os.path.join(
-            args.output, "snippy_processed_strains.txt"))
-
-        print("Creating binary mutation table...")
-        # Create the binary table
-        binary_table_creator(snippy_output, os.path.join(
-            args.output, "binary_mutation_table.tsv"), args.threads, strains_to_be_processed)
-
-        print("Creating annotation table...")
-
-        annotation_file_from_snippy(snippy_output, args.output)
-
-        with open(os.path.join(args.temp, "status.txt"), "w") as outfile:
-            outfile.write(f"3")
-            status = 3
-
-    if status < 4:
-
-        if panaroo_flag:
-
-            try:
-
-                print("Creating panaroo input...")
-                # Create the panaroo input
-                panaroo_input_creator(os.path.join(args.output, "random_names.txt"), prokka_output, os.path.join(
-                    args.temp, "panaroo"), strains_to_be_processed)
-
-                print("Running panaroo...")
-                # Run panaroo
-                panaroo_runner(os.path.join(args.temp, "panaroo"), panaroo_output, os.path.join(
-                    args.temp, "panaroo_log.txt"), args.threads)
-
-                print("Adding gene presence absence information to the binary table...")
-                # Add gene presence absence information to the binary table
-
-                if not os.path.exists(os.path.join(panaroo_output, "gene_presence_absence.csv")):
-                    print("Warning: Gene presence absence file does not exist.")
-                    print(
-                        "Gene presence absence information will not be added to the binary table.")
-                    do_not_remove_temp = True
-
-                else:
-                    binary_mutation_table_gpa_information_adder_panaroo(os.path.join(args.output, "binary_mutation_table.tsv"), os.path.join(
-                        panaroo_output, "gene_presence_absence.csv"), os.path.join(args.output, "binary_mutation_table_with_gene_presence_absence.tsv"))
-                    do_not_remove_temp = False
-
-            except Exception as e:
-                print("Error: Panaroo could not be run.")
-                print(e)
-                do_not_remove_temp = True
-
-        if gpa_flag:
-
-            try: 
-
-                print("Creating gene presence absence input...")
-                # Create the gene presence absence information
-                print(f"CD-HIT preprecessor is running...")
-                cdhit_preprocessor(os.path.join(args.output, "random_names.txt"), prokka_output, os.path.join(args.temp, "cdhit"), strains_to_be_processed)
-
-                shutil.copy(os.path.join(args.temp, 'cdhit', 'protein_positions.csv'), os.path.join(args.output, 'cd-hit', 'protein_positions.csv'))
-
-                print(f"CD-HIT is running...")
-                cdhit_runner(os.path.join(args.temp, "cdhit", "combined_proteins.faa"), os.path.join(args.output, "cd-hit", "cdhit_output.txt"), n_cpu=args.threads)
-
-                print(f"Gene presence-absence matrix is being created...")
-                gene_presence_absence_file_creator(os.path.join(args.output, "cd-hit", "cdhit_output.txt.clstr"), strains_to_be_processed, os.path.join(args.temp, "cdhit"))
-
-                print("Adding gene presence absence information to the binary table...")
-                # Add gene presence absence information to the binary table
-
-                if not os.path.exists(os.path.join(args.temp, "cdhit", "gene_presence_absence_matrix.csv")):
-                    print("Warning: Gene presence absence file does not exist.")
-                    print(
-                        "Gene presence absence information will not be added to the binary table.")
-                    do_not_remove_temp = True
-                
-                else:
-                    binary_mutation_table_gpa_information_adder(os.path.join(args.output, "binary_mutation_table.tsv"), os.path.join(args.temp, "cdhit", "gene_presence_absence_matrix.csv"), os.path.join(args.output, "binary_mutation_table_with_gene_presence_absence.tsv"))
-                    do_not_remove_temp = False
-
-            except Exception as e:
-                print("Error: CD-HIT could not be run.")
-                print(e)
-                do_not_remove_temp = True
-
-        if args.create_phenotype_from_folder:
-            print("Creating phenotype dataframe...")
-            # Create the phenotype dataframe
-            phenotype_dataframe_creator(args.create_phenotype_from_folder, os.path.join(
-                args.output, "phenotype_table.tsv"), random_names)
-
-            phenotype_dataframe_creator_post_processor(os.path.join(
-                args.output, "binary_mutation_table.tsv"), os.path.join(args.output, "phenotype_table.tsv"))
-
-        with open(os.path.join(args.temp, "status.txt"), "w") as outfile:
-            outfile.write(f"4")
-            status = 4
-
-    if args.keep_temp_files:
-        print("Warning, temp files will be kept this might take up space.")
-
+    # Base command
+    snakemake_cmd = [
+        'snakemake',
+        'create_binary_tables',
+        '--use-conda',
+        '--benchmark-extended'
+    ]
+
+    # Add defaults
+    snakemake_cmd += [
+        '--jobs', str(args.threads),
+        '--resources', f'mem_gb={args.ram}'
+    ]
+
+    # Add nullable parameters
+    if args.overwrite:
+        snakemake_cmd.append('--force')
+    
     if not args.keep_temp_files:
-        if not do_not_remove_temp:
-            print("Removing temp folder...")
-            temp_folder_remover(os.path.join(args.temp))
-            temp_folder_remover(os.path.join(args.output, "snippy"))
-            temp_folder_remover(os.path.join(args.output, "prokka"))
-            temp_folder_remover(os.path.join(args.output, "panaroo"))
+        #TODO handle using temporary() in Snakefile
+        snakemake_cmd.append('--delete-temp-output')
+    
+    if args.checkpoint:
+        snakemake_cmd += ['--rerun-triggers', 'mtime']
 
-        else:
-            print(
-                "Warning: Temp folder will not be removed because gene presence absence file does not exist.")
-            print(
-                "Temp folder can be used for re-run panaroo again for gene presence absence information.")
-            print("You can remove the temp folder manually. Temp folder path: ",
-                  os.path.join(args.temp))
+    # Add config options
+    snakemake_cmd += [
+        '--config',
+        f'input_dir="{args.input}"',
+        f'output_dir="{args.output}"',
+        f'reference_file="{args.reference}"',
+        f'temp_dir="{args.temp}"' if args.temp else f'temp_dir="{os.path.join(args.output, "temp")}"',
+        f'gpa_method="panaroo"' if args.use_panaroo else 'gpa_method="cd-hit"',
+    ]
 
-    print(f"Binary tables are created, can be found in {args.output}")
+    #TODO handle args.custom_database
+    #TODO handle args.create_phenotype_from_folder
+    #TODO handle args.no_gene_presence_absence
+    #TODO handle args.no_gene_annotation
+    #TODO handle args.verbosity
+
+    subprocess.run(
+        snakemake_cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
 
     end_time = time.time()
 
