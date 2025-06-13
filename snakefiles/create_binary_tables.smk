@@ -64,6 +64,7 @@ rule cd_hit_create_db:
     input: FASTA_FILE
     output: TEMP_DIR / GENUS / GENUS
     log: TEMP_DIR / "prokka_db.log"
+    benchmark: TEMP_DIR / "benchmarks" / "cdhit_create_db.tsv"
     conda: "envs/cd-hit.yaml"
     threads: workflow.cores
     shell:
@@ -88,6 +89,7 @@ rule makeblastdb:
     input: rules.cd_hit_create_db.output
     output: touch(TEMP_DIR / "flags" / "makeblastdb")
     log: TEMP_DIR / "makeblastdb.log"
+    benchmark: TEMP_DIR / "benchmarks" / "makeblastdb.tsv"
     conda: "envs/makeblastdb.yaml"
     shell:
         r"""
@@ -182,6 +184,7 @@ rule panaroo_runner:
 rule binary_gpa_panaroo:
     input: rules.panaroo_runner.output,
     output: OUT_DIR / "binary_gpa_panaroo.tsv"
+    benchmark: TEMP_DIR / "benchmarks" / "binary_gpa_panaroo.py.tsv"
     conda: "envs/python312.yaml"
     threads: 1
     script:
@@ -228,6 +231,7 @@ rule cdhit_protein_positions:
             sample = get_sample_names()
         )
     output: OUT_DIR / "cd-hit" / "protein_positions.csv",
+    benchmark: TEMP_DIR / "benchmarks" / "cdhit_protein_positions.py.tsv"
     conda: "envs/python312.yaml"
     threads: 4
     script:
@@ -272,6 +276,7 @@ rule binary_gpa_cdhit:
     input: 
         rules.cdhit_runner.output.clstr,
     output: OUT_DIR / "binary_gpa_cdhit.tsv"
+    benchmark: TEMP_DIR / "benchmarks" / "binary_gpa_cdhit.py.tsv"
     conda: "envs/python312.yaml"
     script:
         "scripts/binary_gpa_cdhit.py"
@@ -335,6 +340,7 @@ rule binary_mutation_table:
             sample = get_sample_names()
         )
     output: OUT_DIR / "binary_mutation_table.tsv"
+    benchmark: TEMP_DIR / "benchmarks" / "binary_mutation_table.py.tsv"
     conda: "envs/python312.yaml"
     threads: 4
     script:
@@ -352,6 +358,7 @@ rule annotation_file_from_snippy:
             sample = get_sample_names()
         )
     output: OUT_DIR / "mutations_annotations.tsv"
+    benchmark: TEMP_DIR / "benchmarks" / "annotation_file_from_snippy.py.tsv"
     conda: "envs/python312.yaml"
     threads: 4
     script:
@@ -365,6 +372,7 @@ rule annotation_file_from_snippy:
 rule phenotype_dataframe_creator:
     input: rules.rename_files.output.mapping
     output: OUT_DIR / "phenotype_table.tsv"
+    benchmark: TEMP_DIR / "benchmarks" / "phenotype_dataframe_creator.py.tsv"
     conda: "envs/python312.yaml"
     threads: 1
     script:
@@ -376,6 +384,7 @@ rule merge_binary_tables:
         rules.binary_mutation_table.output,
         rules.binary_gpa.output,
     output: OUT_DIR / "merged_binary_table.tsv"
+    benchmark: TEMP_DIR / "benchmarks" / "merge_binary_tables.py.tsv"
     conda: "envs/python312.yaml"
     threads: 1
     script:
