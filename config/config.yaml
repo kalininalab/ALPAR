@@ -4,7 +4,8 @@
 
 output_dir: "out"
 temp_dir: "temp"
-reference_file: "db/Escherichia_coli.fasta"
+gbff_file: "db/Escherichia_coli.gbff"
+fasta_file: "db/Escherichia_coli.fasta"
 
 # ----------------
 # Parameters

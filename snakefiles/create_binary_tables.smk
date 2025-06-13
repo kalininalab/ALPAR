@@ -16,7 +16,8 @@ GENUS = config.get("genus")
 IN_DIR = Path(config.get("input_dir", "data"))
 OUT_DIR = Path(config.get("output_dir", "out"))
 TEMP_DIR = Path(config.get("temp_dir", "temp"))
-REF_FILE = Path(config.get("reference_file"))
+GBFF_FILE = Path(config.get("gbff_file"))
+FASTA_FILE = Path(config.get("fasta_file"))
 CHECKSUM_DIR = TEMP_DIR / "data_checksum"
 
 
@@ -60,7 +61,7 @@ def get_sample_names() -> list[str]:
 # -----------------------
 
 rule cd_hit_create_db:
-    input: REF_FILE
+    input: FASTA_FILE
     output: TEMP_DIR / GENUS / GENUS
     log: TEMP_DIR / "prokka_db.log"
     conda: "envs/cd-hit.yaml"
@@ -115,11 +116,12 @@ rule prokka_listdb:
         """
 
 
+#TODO Implement branching logic if no reference is given
 rule prokka_runner:
     input:
         rules.prokka_listdb.output,
         sample = CHECKSUM_DIR / "{sample}",
-        reference = REF_FILE,
+        reference = GBFF_FILE,
     output: 
         gff = OUT_DIR / "prokka" / "{sample}" / "{sample}.gff",
         faa = OUT_DIR / "prokka" / "{sample}" / "{sample}.faa",
@@ -301,7 +303,7 @@ rule binary_gpa:
 rule snippy_runner:
     input:
         sample = CHECKSUM_DIR / "{sample}",
-        reference = REF_FILE,
+        reference = GBFF_FILE,
     output:
         vcf = OUT_DIR / "snippy" / "{sample}" / "snps.vcf",
         tab = OUT_DIR / "snippy" / "{sample}" / "snps.tab",
@@ -315,7 +317,7 @@ rule snippy_runner:
         mem_gb = workflow.global_resources.get("mem_gb", 4)
     shell:
         r"""
-        $input_file=$(readlink -f {input.sample})
+        input_file=$(readlink -f {input.sample})
         snippy \
             --ctgs $input_file \
             --outdir {params.out_dir} \
