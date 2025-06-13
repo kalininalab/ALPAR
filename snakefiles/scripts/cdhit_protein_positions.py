@@ -68,8 +68,7 @@ class SnakemakeHandler(BaseModel):
                 if ('locus_tag' in feature.qualifiers and
                     'product' in feature.qualifiers):
 
-                    protein_position = \
-                        (int(feature.location.start) + int(feature.location.end)) // 2
+                    protein_position = (feature.location.start   + feature.location.end) // 2
                     protein_name = '_'.join((
                         gbk_file.stem,
                         feature.qualifiers['locus_tag'][0],
@@ -83,7 +82,8 @@ class SnakemakeHandler(BaseModel):
 
         df = pl.DataFrame(
             list_of_protein_positions,
-            schema=(('protein_name', pl.String), (protein_position, pl.Int32))
+            schema=(('protein_name', pl.String), ('protein_position', pl.Int32)),
+            orient='row'
         )
 
         return df
@@ -93,5 +93,6 @@ if __name__ == '__main__':
     smk_val = SnakemakeHandler(
         input=snakemake.input,
         output=snakemake.output[0],
+        threads=snakemake.threads
     )
     smk_val.protein_positions_from_gbk()
