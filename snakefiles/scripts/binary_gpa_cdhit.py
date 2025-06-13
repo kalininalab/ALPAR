@@ -59,7 +59,7 @@ class SnakemakeHandler(BaseModel):
         protein_raw_regex = r'^\d+\t+\d+aa, >(?P<protein>\w+)\.{3} (?:\*|at (?P<similarity>\d+\.\d+)%)$'
         df_regex = df_clusters_cdhit.with_columns(
             captures=(
-                pl.col('data')
+                pl.col('protein_raw')
                 .str.extract_groups(protein_raw_regex)
             ),
         ).unnest('captures')
@@ -88,7 +88,7 @@ class SnakemakeHandler(BaseModel):
         # First column is the cluster reference protein, columns are the strains.
         df_pivot = df_fill.pivot(
             on='protein_fill',
-            index='strain',
+            index='Strain',
             values='value',
             aggregate_function='first',
         ).fill_null(0)
