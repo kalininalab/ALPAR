@@ -270,8 +270,7 @@ rule cdhit_runner:
 
 rule binary_gpa_cdhit:
     input: 
-        clstr = rules.cdhit_runner.output.clstr,
-        positions = rules.cdhit_protein_positions.output,
+        rules.cdhit_runner.output.clstr,
     output: OUT_DIR / "binary_gpa_cdhit.tsv"
     conda: "envs/python312.yaml"
     script:
