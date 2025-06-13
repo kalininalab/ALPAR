@@ -108,7 +108,7 @@ rule prokka_listdb:
     output: touch(TEMP_DIR / "flags" / "prokka_listdb"),
     params:
         prokka_listdb = TEMP_DIR / "db_path.txt"
-    conda: "envs/alpar.yaml"
+    conda: "envs/prokka.yaml"
     shell:
         r"""
         DB_DIR=$(dirname {input.db_dir})
