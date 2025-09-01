@@ -289,7 +289,7 @@ def main():
     parser_ml.add_argument('--keep_temp_files', action='store_true',
                            help='keep the temporary files, default=False')
     parser_ml.add_argument('--ml_algorithm', type=str,
-                           help='classification algorithm to be used, available selections: [rf, svm, gb, histgb], default=rf', default="rf")
+                           help='classification algorithm to be used, available selections: [rf, svm, gb, histgb, xgb], default=rf', default="rf")
     parser_ml.add_argument('--test_train_split', type=float,
                            help='test train split ratio, default=0.20', default=0.20)
     parser_ml.add_argument('--random_state', type=int,
@@ -315,7 +315,7 @@ def main():
     parser_ml.add_argument('--feature_importance_analysis', action='store_true',
                            help='analyze feature importance, default=False')
     parser_ml.add_argument('--important_feature_limit', type=int,
-                           help='number of reported maximum number of features in FIA file, default=25', default=25)
+                           help='number of reported maximum number of features in FIA file, if want all > 0.0, use -1, default=25', default=25)
     parser_ml.add_argument('--feature_importance_analysis_number_of_repeats', type=int,
                            help='number of repeats for feature importance analysis should be given with --feature_importance_analysis option, default=5', default=5)
     parser_ml.add_argument('--feature_importance_analysis_strategy', type=str,
@@ -324,6 +324,12 @@ def main():
                            help='kernel for svm, available selections: [linear, poly, rbf, sigmoid], default=linear', default="linear")
     parser_ml.add_argument('--no_stratify_split', type=str,
                            help='if given, does not uses stratify in random split', default="False")
+    parser_ml.add_argument('--param_grid_size', type=str,
+                           help='size of the parameter grid for best parameter search,available selections: [small, medium, large], default=small', default="small")
+    parser_ml.add_argument('--param_grid_low_memory_mode', action='store_true',
+                           help='Only for XGB, if given, uses low memory mode for parameter grid search, if given memory is not 100 times more than datasize, will automatically activate, default=False')
+    parser_ml.add_argument('--device', type=str,
+                           help='Only for XGB, device to use for training, available selections: [cpu, cuda], default=cpu', default="cpu")
     parser_ml.add_argument('--verbosity', type=int,
                            help='verbosity level, default=1', default=1)
     parser_ml.set_defaults(func=ml_pipeline)
@@ -1157,6 +1163,7 @@ def ml_pipeline(args):
     rf_output = os.path.join(ml_output, "rf")
     gb_output = os.path.join(ml_output, "gb")
     hist_gb_output = os.path.join(ml_output, "hist_gb")
+    xgb_output = os.path.join(ml_output, "xgb")
 
     # Check if output folder empty
     if os.path.exists(ml_output) and os.path.isdir(ml_output):
@@ -1445,6 +1452,27 @@ def ml_pipeline(args):
             with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
 
                 fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, "gb", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, validation=validation_strain, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit) 
+
+    elif args.ml_algorithm == "xgb":
+
+        if os.path.exists(xgb_output):
+            if args.overwrite:
+                print("Warning: Output folder is not empty. Old files will be deleted.")
+                temp_folder_remover(xgb_output)
+                os.makedirs(xgb_output, exist_ok=True)
+            else:
+                print("Error: Output folder is not empty.")
+                print(
+                    "If you want to overwrite the output folder, use --overwrite option.")
+                sys.exit(1)
+        else:
+            os.makedirs(xgb_output, exist_ok=True)
+
+        with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
+            with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
+
+                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, "xgb", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, validation=validation_strains, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit, param_grid_size=args.param_grid_size, param_grid_low_memory_mode= args.param_grid_low_memory_mode, device=args.device) 
+
 
     elif args.ml_algorithm == "histgb":
 
