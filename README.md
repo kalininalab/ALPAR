@@ -244,3 +244,27 @@ Basic usage:
 `````shell
 alpar ml -i example/example_output/binary_mutation_table.tsv -p example/example_output/phenotype_table.tsv -o example_output/ -a amikacin
 `````
+
+## Citation
+
+If you use ALPAR, please cite the preprint:
+
+Yurtseven et al. ALPAR: Automated Learning Pipeline for Antimicrobial Resistance. bioRxiv (2025). doi:10.1101/2025.07.08.663126  
+Preprint: https://www.biorxiv.org/content/10.1101/2025.07.08.663126v1
+
+### Plain text
+Yurtseven et al (2025). ALPAR: Automated Learning Pipeline for Antimicrobial Resistance. bioRxiv. doi:10.1101/2025.07.08.663126
+
+### BibTeX
+```bibtex
+@article{ALPAR_2025_preprint,
+  title   = {ALPAR: Automated Learning Pipeline for Antimicrobial Resistance},
+  author  = {Yurtseven, Alper and Joeres, Roman and Kalinina, Olga V.},
+  year    = {2025},
+  journal = {bioRxiv},
+  publisher = {Cold Spring Harbor Laboratory},
+  doi     = {10.1101/2025.07.08.663126},
+  url     = {https://www.biorxiv.org/content/10.1101/2025.07.08.663126v1},
+  note    = {Preprint. Not peer reviewed.}
+}
+```

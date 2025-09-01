@@ -86,3 +86,4 @@ For more information about the automatic pipeline parameters:
     camda
     posters
     paper
+    citation
