@@ -21,7 +21,7 @@ BibTeX
 
     @article{ALPAR_bioRxiv_2025,
       title        = {ALPAR: Automated Learning Pipeline for Antimicrobial Resistance},
-      author       = {{Alper Yurtseven, Roman Joeres, Olga V. Kalinina}},
+      author       = {Yurtseven, Alper and Joeres, Roman and Kalinina, Olga V.},
       year         = {2025},
       journal      = {bioRxiv},
       publisher    = {Cold Spring Harbor Laboratory},
