@@ -21,7 +21,7 @@ ALPAR is installable from conda, currently only support Linux:.
 Flowchart
 #########
 
-.. image:: /imgs/ALPAR_Flowchart_new.jpg
+.. image:: /imgs/ALPAR_Flowchart_New.pdf
 
 Quick Start
 #######
