@@ -29,7 +29,7 @@ BibTeX
       note    = {Preprint. Not peer reviewed.}
     }
 
-Abstract (Placeholder)
+Abstract
 =====================
 The field of machine learning in antimicrobial resistance (AMR) research has experienced rapid growth, fueled by advancements in high-throughput genome sequencing and growing capacity of computational resources. However, the complexity and lack of standardized data preparation and bioinformatic analyses present significant challenges, especially to newcomers to the domain.
 
