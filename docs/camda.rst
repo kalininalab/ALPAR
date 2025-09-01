@@ -2,6 +2,61 @@
 ALPAR on CAMDA (Critical Assessment of Massive Data Analysis)
 ###################
 
+CAMDA 2025 - Second best model
+====================
+
+.. raw:: html
+
+   <style>
+     .styled-table {
+       border-collapse: collapse;
+       margin: 1em 0;
+       font-size: 16px;
+       font-family: sans-serif;
+       width: 100%;
+       box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+     }
+
+     .styled-table thead tr {
+       background-color: #005aa2;
+       color: white;
+       text-align: left;
+     }
+
+     .styled-table th, .styled-table td {
+       padding: 12px 15px;
+       border: 1px solid #ddd;
+     }
+
+     .styled-table tbody tr:nth-child(even) {
+       background-color: #f3f3f3;
+     }
+
+     .styled-table em {
+       font-style: italic;
+     }
+   </style>
+
+   <table class="styled-table">
+     <thead>
+       <tr>
+         <th>Bacterium</th>
+         <th>MCC Value</th>
+       </tr>
+     </thead>
+     <tbody>
+       <tr><td><em>Acinetobacter baumannii</em></td><td>0.772</td></tr>
+       <tr><td><em>Campylobacter jejuni</em></td><td>0.931</td></tr>
+       <tr><td><em>Escherichia coli</em></td><td>0.463</td></tr>
+       <tr><td><em>Klebsiella pneumoniae</em></td><td>0.561</td></tr>
+       <tr><td><em>Neisseria gonorrhoeae</em></td><td>0.141</td></tr>
+       <tr><td><em>Pseudomonas aeruginosa</em></td><td>0.130</td></tr>
+       <tr><td><em>Salmonella enterica</em></td><td>0.817</td></tr>
+       <tr><td><em>Staphylococcus aureus</em></td><td>0.948</td></tr>
+       <tr><td><em>Streptococcus pneumoniae</em></td><td>0.737</td></tr>
+     </tbody>
+   </table>
+
 CAMDA 2024 - Winner
 ====================
 
