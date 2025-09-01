@@ -78,7 +78,8 @@ For more information about the automatic pipeline parameters:
 
     alpar automatix -h
 
-Citation & Contact
+Citation
+#######
 
 For citation details, see :doc:`/citation`.  
 
