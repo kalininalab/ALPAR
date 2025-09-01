@@ -2,7 +2,7 @@
 
 Automated Learning Pipeline for Antimicrobial Resistance
 
-![Pipeline](./flowcharts/ALPAR_Flowchart.png?raw=true "Pipeline")
+![Pipeline](docs/imgs/ALPAR_Flowchart.png?raw=true "Pipeline")
 
 ## Installation
 
