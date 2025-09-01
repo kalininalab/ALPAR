@@ -1,5 +1,5 @@
 ############################
-ALPAR Talks & Poster Archive
+ALPAR Talks & Poster
 ############################
 
 Talks
@@ -26,12 +26,3 @@ ALPAR and CAMDA results were presented as a poster, focusing on reproducible res
    :alt: ALPAR CAMDA 2024 Poster
    :width: 70%
    :align: center
-
-Citation & Contact
-==================
-For citation details, see :doc:`/citation`.  
-For collaboration or presentation requests, open an issue on GitHub or contact the maintainer.
-
-Change Log
-==========
-- 2025-09-01: Restructured page, reduced

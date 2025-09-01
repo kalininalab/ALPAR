@@ -29,7 +29,3 @@ BibTeX
       url          = {https://www.biorxiv.org/content/10.1101/2025.07.08.663126v1},
       note         = {Preprint. Version 1. Not peer-reviewed.}
     }
-
-Change Log
-==========
-- 2025-09-01: Initial

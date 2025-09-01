@@ -78,6 +78,10 @@ For more information about the automatic pipeline parameters:
 
     alpar automatix -h
 
+Citation & Contact
+
+For citation details, see :doc:`/citation`.  
+
 .. toctree::
     :maxdepth: 1
     :caption: Workflow
