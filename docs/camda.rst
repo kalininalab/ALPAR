@@ -2,8 +2,10 @@
 ALPAR on CAMDA (Critical Assessment of Massive Data Analysis)
 ###################
 
-CAMDA 2025 - Second best model
+CAMDA 2025 - Third best model
 ====================
+
+Using the ALPAR pipeline, we performed analysis of 5346 bacterial strains from nine species given as the training set by the organizers of the `CAMDA anti-microbial resistance prediction challenge 2025 <https://bipress.boku.ac.at/camda2025/>`_, to predict AMR status of 5353 bacterial strains from nine different species (*Acinetobacter baumannii*, *Campylobacter jejuni*, *Escherichia coli*, *Klebsiella pneumoniae*, *Neisseria gonorrhoeae*, *Pseudomonas aeruginosa*, *Salmonella enterica*, *Staphylococcus aureus*, *Streptococcus pneumoniae*) held as the private test set in that challenge.
 
 .. raw:: html
 
