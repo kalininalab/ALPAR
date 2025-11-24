@@ -344,35 +344,61 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
         y_test = np.array(y_test, dtype=int)
 
     if model_type == "rf":
-        rf_cls = RandomForestClassifier(class_weight={0: sum(y_train), 1: len(
-            y_train) - sum(y_train)}, n_estimators=n_estimators, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split)
-        
+
         if param_grid_size == "small":
             param_grid = {
                 'max_depth': [3, 6, 9],                             
                 'min_samples_leaf': [1],  
                 'min_samples_split': [2],              
-                'n_estimators': [500, 1000]       
+                'n_estimators': [500, 1000],
+                "max_features": [0.5]     
             }
         elif param_grid_size == "medium":
             param_grid = {
                 'max_depth': [3, 5, 7, 9],
                 'min_samples_leaf': [1, 5, 10],
                 'min_samples_split': [2, 4, 6],
-                'n_estimators': [50, 100, 200]
+                'n_estimators': [50, 100, 200],
+                "max_features": [0.5, 0.7]     
             }
         else:
             param_grid = {
                 'max_depth': [3, 5, 7, 9, 11, 13, 15, 17],
                 'min_samples_leaf': [1, 3, 5, 7, 9, 11],
                 'min_samples_split': [2, 4, 6, 8, 10],
-                'n_estimators': [10, 50, 100, 200, 500]
+                'n_estimators': [10, 50, 100, 200, 500],
+                "max_features": [0.3, 0.5, 0.7]     
             }
+
+        if param_grid_low_memory_mode:
+            best_result = -1
+            sorted_importances = {}
+            for temp_max_depth in param_grid['max_depth']:
+                for temp_min_samples_leaf in param_grid['min_samples_leaf']:
+                    for temp_min_samples_split in param_grid['min_samples_split']:
+                        for temp_n_estimators in param_grid['n_estimators']:
+                            for temp_max_features in param_grid['max_features']:
+                                # Initialize the Random Forest classifier with each parameter
+                                rf_cls = RandomForestClassifier(class_weight={0: sum(y_train), 1: len( y_train) - sum(y_train)}, n_estimators=temp_n_estimators, max_depth=temp_max_depth, min_samples_leaf=temp_min_samples_leaf, min_samples_split=temp_min_samples_split, max_features=temp_max_features
+                                )
+                                rf_cls.fit(X_train, y_train)
+                                y_hat = rf_cls.predict(X_test)
+                                current_score = selected_scorer(y_test, y_hat)
+
+                                if current_score > best_result:
+                                    best_result = current_score
+                                    bst = rf_cls
+                                    with open(os.path.join(output_folder, f"{output_file_template}_best_params.txt"), "w") as param_file:
+                                        param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_result}\n")
+                                        param_file.write(f"Parameters: max_depth={temp_max_depth}, min_samples_leaf={temp_min_samples_leaf}, min_samples_split={temp_min_samples_split}, n_estimators={temp_n_estimators}, max_features={temp_max_features}\n")
 
         if resampling_strategy == "cv":
             if custom_scorer == "MCC":
                 scorer = "matthews_corrcoef"
 
+            rf_cls = RandomForestClassifier(class_weight={0: sum(y_train), 1: len(
+            y_train) - sum(y_train)}, n_estimators=n_estimators, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split)
+        
             grid_search = GridSearchCV(
                 rf_cls, param_grid, cv=cv_split, scoring=scorer)
             grid_search.fit(X_train, y_train)
