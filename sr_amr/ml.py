@@ -16,6 +16,7 @@ from sklearn import tree
 from sklearn.metrics import matthews_corrcoef, make_scorer, accuracy_score, f1_score, roc_auc_score
 import csv
 import xgboost as xgb
+import secrets
 
 import warnings
 
@@ -221,7 +222,7 @@ def decision_tree(binary_mutation_table, phenotype_table, antibiotic, random_see
     pickle.dump(clf, open(model_file, 'wb'))
 
 
-def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, temp_folder, ram, model_type, feature_importance_analysis=False, save_model=False, resampling_strategy="holdout", custom_scorer="MCC", fia_repeats=5, n_estimators=100, max_depth=2, min_samples_leaf=1, min_samples_split=2, kernel="linear", optimization=False, train=[], test=[], validation=[], same_setup_run_count=1, stratify=True, feature_importance_analysis_strategy="gini", important_feature_limit = 10, param_grid_size = "small", param_grid_low_memory_mode = False, device= "cpu"):
+def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, temp_folder, ram, model_type, feature_importance_analysis=False, save_model=False, resampling_strategy="holdout", custom_scorer="MCC", fia_repeats=5, n_estimators=100, max_depth=2, min_samples_leaf=1, min_samples_split=2, kernel="linear", optimization=False, train=[], test=[], validation=[], same_setup_run_count=1, stratify=True, feature_importance_analysis_strategy="gini", important_feature_limit = 10, param_grid_size = "small", param_grid_low_memory_mode = False, device= "cpu", parameter_search_strategy="grid_search", parameter_search_n_iter=20):
 
     output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type.upper()}"
 
@@ -369,45 +370,62 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                 'n_estimators': [10, 50, 100, 200, 500],
                 "max_features": [0.3, 0.5, 0.7]     
             }
-
-        if param_grid_low_memory_mode:
-            best_result = -1
-            sorted_importances = {}
-            for temp_max_depth in param_grid['max_depth']:
-                for temp_min_samples_leaf in param_grid['min_samples_leaf']:
-                    for temp_min_samples_split in param_grid['min_samples_split']:
-                        for temp_n_estimators in param_grid['n_estimators']:
-                            for temp_max_features in param_grid['max_features']:
-                                # Initialize the Random Forest classifier with each parameter
-                                rf_cls = RandomForestClassifier(class_weight={0: sum(y_train), 1: len( y_train) - sum(y_train)}, n_estimators=temp_n_estimators, max_depth=temp_max_depth, min_samples_leaf=temp_min_samples_leaf, min_samples_split=temp_min_samples_split, max_features=temp_max_features
-                                )
-                                rf_cls.fit(X_train, y_train)
-                                y_hat = rf_cls.predict(X_test)
-                                current_score = selected_scorer(y_test, y_hat)
-
-                                if current_score > best_result:
-                                    best_result = current_score
-                                    bst = rf_cls
-                                    with open(os.path.join(output_folder, f"{output_file_template}_best_params.txt"), "w") as param_file:
-                                        param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_result}\n")
-                                        param_file.write(f"Parameters: max_depth={temp_max_depth}, min_samples_leaf={temp_min_samples_leaf}, min_samples_split={temp_min_samples_split}, n_estimators={temp_n_estimators}, max_features={temp_max_features}\n")
-
-        if resampling_strategy == "cv":
-            if custom_scorer == "MCC":
-                scorer = "matthews_corrcoef"
-
-            rf_cls = RandomForestClassifier(class_weight={0: sum(y_train), 1: len(
-            y_train) - sum(y_train)}, n_estimators=n_estimators, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split)
         
-            grid_search = GridSearchCV(
-                rf_cls, param_grid, cv=cv_split, scoring=scorer)
-            grid_search.fit(X_train, y_train)
+        if parameter_search_strategy == "random_search":
+            best_result = -1
+            sampled_params = parameter_sampler(param_grid, n_iter=parameter_search_n_iter)
+            for parameter_sample in sampled_params:
+                rf_cls = RandomForestClassifier(class_weight={0: sum(y_train), 1: len( y_train) - sum(y_train)}, n_estimators=parameter_sample['n_estimators'], max_depth=parameter_sample['max_depth'], min_samples_leaf=parameter_sample['min_samples_leaf'], min_samples_split=parameter_sample['min_samples_split'], max_features=parameter_sample['max_features']
+                )
+                rf_cls.fit(X_train, y_train)
+                y_hat = rf_cls.predict(X_test)
+                current_score = sklearn.metrics.matthews_corrcoef(y_test, y_hat)
 
-            y_hat = grid_search.predict(X_test)
-
+                if current_score > best_result:
+                    best_result = current_score
+                    bst = rf_cls
+                    with open(os.path.join(output_folder, f"{output_file_template}_best_params.txt"), "w") as param_file:
+                        param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_result}\n")
+                        param_file.write(f"Parameters: max_depth={parameter_sample['max_depth']}, min_samples_leaf={parameter_sample['min_samples_leaf']}, min_samples_split={parameter_sample['min_samples_split']}, n_estimators={parameter_sample['n_estimators']}, max_features={parameter_sample['max_features']}\n")
         else:
-            rf_cls.fit(X_train, y_train)
-            y_hat = rf_cls.predict(X_test)
+            if param_grid_low_memory_mode:
+                best_result = -1
+                sorted_importances = {}
+                for temp_max_depth in param_grid['max_depth']:
+                    for temp_min_samples_leaf in param_grid['min_samples_leaf']:
+                        for temp_min_samples_split in param_grid['min_samples_split']:
+                            for temp_n_estimators in param_grid['n_estimators']:
+                                for temp_max_features in param_grid['max_features']:
+                                    # Initialize the Random Forest classifier with each parameter
+                                    rf_cls = RandomForestClassifier(class_weight={0: sum(y_train), 1: len( y_train) - sum(y_train)}, n_estimators=temp_n_estimators, max_depth=temp_max_depth, min_samples_leaf=temp_min_samples_leaf, min_samples_split=temp_min_samples_split, max_features=temp_max_features
+                                    )
+                                    rf_cls.fit(X_train, y_train)
+                                    y_hat = rf_cls.predict(X_test)
+                                    current_score = selected_scorer(y_test, y_hat)
+
+                                    if current_score > best_result:
+                                        best_result = current_score
+                                        bst = rf_cls
+                                        with open(os.path.join(output_folder, f"{output_file_template}_best_params.txt"), "w") as param_file:
+                                            param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_result}\n")
+                                            param_file.write(f"Parameters: max_depth={temp_max_depth}, min_samples_leaf={temp_min_samples_leaf}, min_samples_split={temp_min_samples_split}, n_estimators={temp_n_estimators}, max_features={temp_max_features}\n")
+            else:
+                if resampling_strategy == "cv":
+                    if custom_scorer == "MCC":
+                        scorer = "matthews_corrcoef"
+
+                    rf_cls = RandomForestClassifier(class_weight={0: sum(y_train), 1: len(
+                    y_train) - sum(y_train)}, n_estimators=n_estimators, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split)
+                
+                    grid_search = GridSearchCV(
+                        rf_cls, param_grid, cv=cv_split, scoring=scorer)
+                    grid_search.fit(X_train, y_train)
+
+                    y_hat = grid_search.predict(X_test)
+
+                else:
+                    rf_cls.fit(X_train, y_train)
+                    y_hat = rf_cls.predict(X_test)
 
     elif model_type == "xgb":
 
@@ -456,80 +474,110 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
         elif custom_scorer == "roc_auc":
             selected_scorer = roc_auc_scorer
 
-        if param_grid_low_memory_mode:
+        if parameter_search_strategy == "random_search":
             best_result = -1
-            sorted_importances = {}
-            for temp_max_depth in param_grid['max_depth']:
-                for temp_min_child_weight in param_grid['min_child_weight']:
-                    for temp_subsample in param_grid['subsample']:
-                        for temp_colsample_bytree in param_grid['colsample_bytree']:
-                            for temp_eta in param_grid['eta']:
-                                for temp_n_estimators in param_grid['n_estimators']:
-                                    # Initialize the XGBoost classifier with each parameter
-                                    xgb_model = xgb.XGBClassifier(
-                                        objective='binary:logistic',
-                                        eval_metric='logloss',
-                                        seed=random_seed,
-                                        n_jobs=n_jobs,
-                                        max_depth=temp_max_depth,
-                                        min_child_weight=temp_min_child_weight,
-                                        subsample=temp_subsample,
-                                        colsample_bytree=temp_colsample_bytree,
-                                        learning_rate=temp_eta,
-                                        n_estimators=temp_n_estimators
-                                    )
-                                    xgb_model.fit(X_train, y_train)
-                                    y_hat = xgb_model.predict(X_test)
-                                    current_score = selected_scorer(y_test, y_hat)
+            sampled_params = parameter_sampler(param_grid, n_iter=parameter_search_n_iter)
+            for parameter_sample in sampled_params:
+                # Initialize the XGBoost classifier with each parameter
+                xgb_model = xgb.XGBClassifier(
+                    objective='binary:logistic',
+                    eval_metric='logloss',
+                    seed=random_seed,
+                    n_jobs=n_jobs,
+                    max_depth=parameter_sample['max_depth'],
+                    min_child_weight=parameter_sample['min_child_weight'],
+                    subsample=parameter_sample['subsample'],
+                    colsample_bytree=parameter_sample['colsample_bytree'],
+                    learning_rate=parameter_sample['eta'],
+                    n_estimators=parameter_sample['n_estimators']
+                )
+                xgb_model.fit(X_train, y_train)
+                y_hat = xgb_model.predict(X_test)
+                current_score = selected_scorer(y_test, y_hat)
 
-                                    if current_score > best_result:
-                                        best_result = current_score
-                                        bst = xgb_model
-                                        with open(os.path.join(output_folder, f"{output_file_template}_best_params.txt"), "w") as param_file:
-                                            param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_result}\n")
-                                            param_file.write(f"Parameters: max_depth={temp_max_depth}, min_child_weight={temp_min_child_weight}, subsample={temp_subsample}, colsample_bytree={temp_colsample_bytree}, eta={temp_eta}, n_estimators={temp_n_estimators}\n")
+                if current_score > best_result:
+                    best_result = current_score
+                    bst = xgb_model
+                    with open(os.path.join(output_folder, f"{output_file_template}_best_params.txt"), "w") as param_file:
+                        param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_result}\n")
+                        param_file.write(f"Parameters: max_depth={parameter_sample['max_depth']}, min_child_weight={parameter_sample['min_child_weight']}, subsample={parameter_sample['subsample']}, colsample_bytree={parameter_sample['colsample_bytree']}, eta={parameter_sample['eta']}, n_estimators={parameter_sample['n_estimators']}\n")
 
         else:
-            # Initialize the XGBoost classifier
-            xgb_model = xgb.XGBClassifier(
-                objective='binary:logistic',
-                eval_metric='logloss',
-                seed=random_seed,
-                n_jobs=n_jobs
-            )
+            if param_grid_low_memory_mode:
+                best_result = -1
+                sorted_importances = {}
+                for temp_max_depth in param_grid['max_depth']:
+                    for temp_min_child_weight in param_grid['min_child_weight']:
+                        for temp_subsample in param_grid['subsample']:
+                            for temp_colsample_bytree in param_grid['colsample_bytree']:
+                                for temp_eta in param_grid['eta']:
+                                    for temp_n_estimators in param_grid['n_estimators']:
+                                        # Initialize the XGBoost classifier with each parameter
+                                        xgb_model = xgb.XGBClassifier(
+                                            objective='binary:logistic',
+                                            eval_metric='logloss',
+                                            seed=random_seed,
+                                            n_jobs=n_jobs,
+                                            max_depth=temp_max_depth,
+                                            min_child_weight=temp_min_child_weight,
+                                            subsample=temp_subsample,
+                                            colsample_bytree=temp_colsample_bytree,
+                                            learning_rate=temp_eta,
+                                            n_estimators=temp_n_estimators
+                                        )
+                                        xgb_model.fit(X_train, y_train)
+                                        y_hat = xgb_model.predict(X_test)
+                                        current_score = selected_scorer(y_test, y_hat)
 
-            if resampling_strategy == "cv":
-                grid_search = GridSearchCV(
-                    estimator=xgb_model,
-                    param_grid=param_grid,
-                    scoring=selected_scorer, 
-                    cv=cv_split, 
-                    verbose=1,
-                    n_jobs=n_jobs
-                )
+                                        if current_score > best_result:
+                                            best_result = current_score
+                                            bst = xgb_model
+                                            with open(os.path.join(output_folder, f"{output_file_template}_best_params.txt"), "w") as param_file:
+                                                param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_result}\n")
+                                                param_file.write(f"Parameters: max_depth={temp_max_depth}, min_child_weight={temp_min_child_weight}, subsample={temp_subsample}, colsample_bytree={temp_colsample_bytree}, eta={temp_eta}, n_estimators={temp_n_estimators}\n")
+
             else:
-                grid_search = GridSearchCV(
-                    estimator=xgb_model,
-                    param_grid=param_grid,
-                    scoring=selected_scorer,
-                    verbose=1,
+                # Initialize the XGBoost classifier
+                xgb_model = xgb.XGBClassifier(
+                    objective='binary:logistic',
+                    eval_metric='logloss',
+                    seed=random_seed,
                     n_jobs=n_jobs
                 )
 
-            grid_search.fit(X_train, y_train)
+                if resampling_strategy == "cv":
+                    grid_search = GridSearchCV(
+                        estimator=xgb_model,
+                        param_grid=param_grid,
+                        scoring=selected_scorer, 
+                        cv=cv_split, 
+                        verbose=1,
+                        n_jobs=n_jobs
+                    )
+                else:
+                    grid_search = GridSearchCV(
+                        estimator=xgb_model,
+                        param_grid=param_grid,
+                        scoring=selected_scorer,
+                        cv=1,
+                        verbose=1,
+                        n_jobs=n_jobs
+                    )
 
-            # Get the best parameters and update the params dictionary
-            best_params = grid_search.best_params_
-            with open(os.path.join(output_folder, f"{output_file_template}_best_params.txt"), "w") as param_file:
-                param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_result}\n")
-                param_file.write(f"Parameters: {best_params}\n")
+                grid_search.fit(X_train, y_train)
 
-            # Train the final model with the best parameters
-            bst = xgb.train(best_params, dtrain, num_boost_round=n_estimators)
+                # Get the best parameters and update the params dictionary
+                best_params = grid_search.best_params_
+                with open(os.path.join(output_folder, f"{output_file_template}_best_params.txt"), "w") as param_file:
+                    param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_result}\n")
+                    param_file.write(f"Parameters: {best_params}\n")
 
-            # Predict on the test set
-            y_hat = bst.predict(dtest)
-            y_hat = np.round(y_hat)
+                # Train the final model with the best parameters
+                bst = xgb.train(best_params, dtrain, num_boost_round=n_estimators)
+
+                # Predict on the test set
+                y_hat = bst.predict(dtest)
+                y_hat = np.round(y_hat)
 
     elif model_type == "svm":
         best_model_mcc = -1.0
@@ -707,3 +755,31 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
         
         fia_file_path = os.path.join(output_folder, f"{output_file_template}_FIA_{feature_importance_analysis_strategy}")
         return fia_file_path
+    
+def parameter_sampler(param_grid_dict, n_iter=10, random_state=None):
+    rng = secrets.SystemRandom()
+    keys = list(param_grid_dict.keys())
+    samples = []
+    seen = set()
+    attempts = 0
+    max_attempts = max(1000, n_iter * 50)
+    while len(samples) < n_iter and attempts < max_attempts:
+        attempts += 1
+        s = {}
+        for k in keys:
+            vals = param_grid_dict[k]
+            if callable(vals):
+                try:
+                    s[k] = vals(rng)
+                except TypeError:
+                    s[k] = vals()
+            elif isinstance(vals, (str, bytes)):
+                s[k] = vals
+            else:
+                vals_list = list(vals)
+                s[k] = rng.choice(vals_list)
+        key = tuple(sorted(s.items()))
+        if key not in seen:
+            seen.add(key)
+            samples.append(s)
+    return samples

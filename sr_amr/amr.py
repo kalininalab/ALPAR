@@ -330,6 +330,10 @@ def main():
                            help='Only for XGB, if given, uses low memory mode for parameter grid search, if given memory is not 100 times more than datasize, will automatically activate, default=False')
     parser_ml.add_argument('--device', type=str,
                            help='Only for XGB, device to use for training, available selections: [cpu, cuda], default=cpu', default="cpu")
+    parser_ml.add_argument('--parameter_search_strategy', type=str,
+                           help='parameter search strategy, available selections: [grid_search, random_search], default=grid_search', default="grid_search")
+    parser_ml.add_argument('--parameter_search_n_iter', type=int,
+                           help='number of iterations for random parameter search, should be used with --parameter_search_strategy random_search option, default=20', default=20)
     parser_ml.add_argument('--verbosity', type=int,
                            help='verbosity level, default=1', default=1)
     parser_ml.set_defaults(func=ml_pipeline)
@@ -1409,7 +1413,7 @@ def ml_pipeline(args):
         with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
             with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
 
-                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, "rf", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, validation=validation_strains, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit) 
+                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, "rf", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, validation=validation_strains, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit, param_grid_size=args.param_grid_size, param_grid_low_memory_mode= args.param_grid_low_memory_mode, parameter_search_strategy=args.parameter_search_strategy, parameter_search_n_iter=args.parameter_search_n_iter) 
 
     elif args.ml_algorithm == "svm":
 
@@ -1471,8 +1475,7 @@ def ml_pipeline(args):
         with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
             with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
 
-                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, "xgb", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, validation=validation_strains, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit, param_grid_size=args.param_grid_size, param_grid_low_memory_mode= args.param_grid_low_memory_mode, device=args.device) 
-
+                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, "xgb", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, validation=validation_strains, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit, param_grid_size=args.param_grid_size, param_grid_low_memory_mode= args.param_grid_low_memory_mode, device=args.device, parameter_search_strategy=args.parameter_search_strategy, parameter_search_n_iter=args.parameter_search_n_iter) 
 
     elif args.ml_algorithm == "histgb":
 
