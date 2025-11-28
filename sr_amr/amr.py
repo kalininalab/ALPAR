@@ -9,6 +9,7 @@ import contextlib
 import time
 import multiprocessing
 import shutil
+import pandas as pd
 
 from sr_amr.utils import is_tool_installed, temp_folder_remover, time_function, copy_and_zip_file
 from sr_amr.version import __version__
@@ -272,6 +273,9 @@ def main():
                            default=0.1)
     parser_ml.add_argument('--sail_delta', type=str, help='delta value for datasail, default=0.1')
     parser_ml.add_argument('--sail_solver', type=str, help='solver for datasail, available selections: [SCIP, MOSEK, GUROBI, CPLEX], check https://datasail.readthedocs.io/en/latest/workflow/solvers.html for more information default=SCIP')
+    parser_ml.add_argument('--sail_max_time', type=int,
+                           help='maximum time in seconds for datasail to run, default=600', default=600)
+    parser_ml.add_argument('--sail_stratify', action='store_true', help='whether to stratify the datasail split, default=False')
     parser_ml.add_argument('--train_strains_file', type=str,
                            help='train strains file path', default=None)
     parser_ml.add_argument('--test_strains_file', type=str,
@@ -1319,9 +1323,18 @@ def ml_pipeline(args):
                 args.sail_delta = 0.1
             if not args.sail_solver:
                 args.sail_solver = "SCIP"
-
+            if args.sail_max_time:
+                sail_max_time = args.sail_max_time
+            else:
+                sail_max_time = 600
+            if args.sail_stratify:
+                phenotype_df = pd.read_csv(f'{args.phenotype}', sep='\t', index_col=0)
+                phenotype_df_dict = phenotype_df.T.to_dict(orient='index')
+            else:
+                phenotype_df_dict = None
+                
             datasail_runner(distance_matrix, datasail_output,
-                            splits=train_test, cpus=args.threads, epsilon=args.sail_epsilon, delta=args.sail_delta, solver=args.sail_solver)
+                            splits=train_test, cpus=args.threads, epsilon=args.sail_epsilon, delta=args.sail_delta, solver=args.sail_solver, sail_max_time=sail_max_time, df_dict=phenotype_df_dict, antibiotic=args.antibiotic)
 
             if not args.keep_temp_files:
                 print(f"Removing temp folder {datasail_temp}...")
