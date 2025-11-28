@@ -132,9 +132,10 @@ def datasail_runner(distance_matrix, output_folder, splits=[0.8, 0.2], cpus=1, m
     else:
         splits, _, _ = datasail_main(output=None, techniques=["C1e"], splits=splits, names=["train", "test"], e_type="P", e_data=[(n, "a" * i) for i, n in enumerate(dm.columns)], e_dist=Path(distance_matrix), max_sec=max_time, threads=cpus, inter=None, max_sol=10, verbosity="I", delta=delta, epsilon=epsilon, runs=1, solver=solver, cache=False, cache_dir=None, linkage="average", e_weights=None, e_strat=df_dict[antibiotic], e_sim=None, e_args="", e_clusters=100, f_type=None, f_data=None, f_weights=None, f_strat=None, f_sim=None, f_dist=None, f_args="", f_clusters=100, cli=False, logdir=None)
 
+        output_folder = os.path.join(output_folder, antibiotic)
 
     with open(f"{output_folder}/splits.tsv", "w") as ofile:
         for key in splits["C1e"][0]:
             ofile.write(f"{key}\t{splits['C1e'][0][key]}\n")
 
-    return None
+    return output_folder

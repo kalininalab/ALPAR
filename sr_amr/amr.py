@@ -276,6 +276,7 @@ def main():
     parser_ml.add_argument('--sail_max_time', type=int,
                            help='maximum time in seconds for datasail to run, default=600', default=600)
     parser_ml.add_argument('--sail_stratify', action='store_true', help='whether to stratify the datasail split, default=False')
+    parser_ml.add_argument('--sail_distance_matrix', type=str, help='distance matrix file path for datasail if it has been generated previously, default=None')
     parser_ml.add_argument('--train_strains_file', type=str,
                            help='train strains file path', default=None)
     parser_ml.add_argument('--test_strains_file', type=str,
@@ -1283,6 +1284,10 @@ def ml_pipeline(args):
         if os.path.exists(os.path.join(datasail_output, "splits.tsv")):
             print("Warning: Split file already exists, it will be used for calculations. If you want to re-run the datasail, please remove the splits.tsv file from the output folder.")
 
+        if os.path.exists(os.path.join(datasail_output, args.antibiotic, "splits.tsv")):
+            print(f"Warning: Split file already exists at {os.path.join(datasail_output, args.antibiotic, 'splits.tsv')}, it will be used for calculations. If you want to re-run the datasail, please remove the splits.tsv file from the output folder.")
+            datasail_output = os.path.join(datasail_output, args.antibiotic)
+            
         else:
             # Check if output folder empty
             if os.path.exists(datasail_output) and os.path.isdir(datasail_output):
@@ -1306,17 +1311,22 @@ def ml_pipeline(args):
             if args.test_train_split:
                 train_test = [float(1-args.test_train_split),
                               float(args.test_train_split)]
+            
+            if args.sail_distance_matrix:
+                print("Using provided distance matrix...")
+                distance_matrix = args.sail_distance_matrix
+            else:
+                print("Creating distance matrix...")
 
-            print("Creating distance matrix...")
+                datasail_pre_precessor(
+                    args.sail, datasail_temp, random_names_dict, datasail_output, args.threads)
+                
+                distance_matrix = os.path.join(datasail_output, "distance_matrix.tsv")
 
-            datasail_pre_precessor(
-                args.sail, datasail_temp, random_names_dict, datasail_output, args.threads)
-
+                print(f"Distance matrix created: {distance_matrix}")
+            
             print("Running datasail...")
 
-            distance_matrix = os.path.join(
-                datasail_output, "distance_matrix.tsv")
-            
             if not args.sail_epsilon:
                 args.sail_epsilon = 0.1
             if not args.sail_delta:
@@ -1333,7 +1343,7 @@ def ml_pipeline(args):
             else:
                 phenotype_df_dict = None
                 
-            datasail_runner(distance_matrix, datasail_output,
+            datasail_output = datasail_runner(distance_matrix, datasail_output,
                             splits=train_test, cpus=args.threads, epsilon=args.sail_epsilon, delta=args.sail_delta, solver=args.sail_solver, sail_max_time=sail_max_time, df_dict=phenotype_df_dict, antibiotic=args.antibiotic)
 
             if not args.keep_temp_files:
