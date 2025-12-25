@@ -1,6 +1,6 @@
 package:
   name: "alpar"
-  version: '1.1.1'
+  version: '1.1.2'
 
 source:
   path: ..
@@ -12,11 +12,12 @@ build:
 
 requirements:
   build:
-    - python>=3.13
+    - python >=3.9,<3.12
     - setuptools
     - setuptools_scm
     - pip
   run:
+    - python >=3.9,<3.12
     - snippy
     - panaroo
     - seaborn
