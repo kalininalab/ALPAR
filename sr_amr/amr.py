@@ -20,7 +20,7 @@ from sr_amr.gwas import pyseer_runner, pyseer_similarity_matrix_creator, pyseer_
 from sr_amr.binary_tables import snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, binary_mutation_table_gpa_information_adder_panaroo, phenotype_dataframe_creator, phenotype_dataframe_creator_post_processor, prokka_create_database, snippy_processed_file_creator, annotation_file_from_snippy, cdhit_preprocessor, cdhit_runner, gene_presence_absence_file_creator
 from sr_amr.binary_table_threshold import binary_table_threshold_with_percentage
 from sr_amr.phylogeny_tree import mash_preprocessor, mash_distance_runner
-from sr_amr.prps import PRPS_runner
+from sr_amr.prps import PRPS_runner, PRPS_runner_continuous, PRPS_binary_check
 from sr_amr.ds import datasail_runner, datasail_pre_precessor
 from sr_amr.ml import prps_ml_preprecessor, combined_ml
 from sr_amr.full_automatix import automatix_runner
@@ -1133,7 +1133,13 @@ def prps_pipeline(args):
     try:
         print("Running PRPS...")
 
-        PRPS_runner(args.tree, args.input, prps_output, prps_temp)
+        print("Checking if input file is binary or continuous...")
+        if PRPS_binary_check(args.input):
+            print("Input file is binary. Running PRPS for binary data...")
+            PRPS_runner(args.tree, args.input, prps_output, prps_temp)
+        else:
+            print("Input file is continuous. Running PRPS for continuous data...")
+            PRPS_runner_continuous(args.tree, args.input, prps_output, prps_temp)
 
         if not args.keep_temp_files:
             print("Removing temp folder...")
