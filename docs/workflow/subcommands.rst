@@ -192,11 +192,11 @@ Available classification algorithms: Random Forest, Support Vector Machine, and 
 - **Antibiotic**, ``-a``: Antibiotic name that the model will be trained on. This should match the name of the column that represents the phenotype in the binary phenotype table. If none is provided, all the columns will be used.
 
 - **Optional arguments**:
-    - **Machine learning algorithm**, ``--ml_algorithm``: Classification algorithm to be used. Available options: ``[rf, svm, gb]``.
+    - **Machine learning algorithm**, ``--ml_algorithm``: Classification algorithm to be used. Available options: ``[rf, svm, gb, histgb, xgb]``.
     - **Resampling strategy**, ``--resampling_strategy``: Resampling strategy to be used. Available options: ``[holdout, cv]``.
     - **Parameter optimization**, ``--parameter_optimization``: Parameter optimization for the model with `autosklearn <https://automl.github.io/auto-sklearn/master/index.html>`_.
     - **Save model**, ``--save_model``: Save the trained model.
-    - **Feature importance analysis**, ``--feature_importance_analysis``: Analyze important features in the model with Gini importance (for RF & GB) or permutation importance (for SVM, RF, and GB).
+    - **Feature importance analysis**, ``--feature_importance_analysis``: Analyze important features in the model with Gini importance (for RF, GB & XGB) or permutation importance (for SVM, RF, GB & XGB).
     - **Datasail**, ``--sail``: Splits data into training and test sets against information leakage to train better models. Requires a text file that contains the path of each strain per line. It can be found in the ``create_binary_tables`` output path as ``strains.txt``.
 
     More optional arguments can be found in the help page:

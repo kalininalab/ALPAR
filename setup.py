@@ -15,7 +15,7 @@ setup(
     maintainer="Alper Yurtseven",
     classifiers=[
         "Development Status :: 4 - Beta",
-        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.13",
         "Intended Audience :: Science/Research",
         "Natural Language :: English",
         "Topic :: Scientific/Engineering :: Bio-Informatics",
@@ -32,6 +32,6 @@ setup(
         "datasail",
     ],
     package_data={},
-    python_requires=">=3.9",
+    python_requires=">=3.13",
     keywords="bioinformatics",
 )

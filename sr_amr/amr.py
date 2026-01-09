@@ -10,6 +10,7 @@ import time
 import multiprocessing
 import shutil
 import subprocess
+import pandas as pd
 
 from sr_amr.utils import is_tool_installed, temp_folder_remover, time_function, copy_and_zip_file
 from sr_amr.version import __version__
@@ -273,6 +274,10 @@ def main():
                            default=0.1)
     parser_ml.add_argument('--sail_delta', type=str, help='delta value for datasail, default=0.1')
     parser_ml.add_argument('--sail_solver', type=str, help='solver for datasail, available selections: [SCIP, MOSEK, GUROBI, CPLEX], check https://datasail.readthedocs.io/en/latest/workflow/solvers.html for more information default=SCIP')
+    parser_ml.add_argument('--sail_max_time', type=int,
+                           help='maximum time in seconds for datasail to run, default=600', default=600)
+    parser_ml.add_argument('--sail_stratify', action='store_true', help='whether to stratify the datasail split, default=False')
+    parser_ml.add_argument('--sail_distance_matrix', type=str, help='distance matrix file path for datasail if it has been generated previously, default=None')
     parser_ml.add_argument('--train_strains_file', type=str,
                            help='train strains file path', default=None)
     parser_ml.add_argument('--test_strains_file', type=str,
@@ -290,7 +295,7 @@ def main():
     parser_ml.add_argument('--keep_temp_files', action='store_true',
                            help='keep the temporary files, default=False')
     parser_ml.add_argument('--ml_algorithm', type=str,
-                           help='classification algorithm to be used, available selections: [rf, svm, gb, histgb], default=rf', default="rf")
+                           help='classification algorithm to be used, available selections: [rf, svm, gb, histgb, xgb], default=rf', default="rf")
     parser_ml.add_argument('--test_train_split', type=float,
                            help='test train split ratio, default=0.20', default=0.20)
     parser_ml.add_argument('--random_state', type=int,
@@ -316,7 +321,7 @@ def main():
     parser_ml.add_argument('--feature_importance_analysis', action='store_true',
                            help='analyze feature importance, default=False')
     parser_ml.add_argument('--important_feature_limit', type=int,
-                           help='number of reported maximum number of features in FIA file, default=25', default=25)
+                           help='number of reported maximum number of features in FIA file, if want all > 0.0, use -1, default=25', default=25)
     parser_ml.add_argument('--feature_importance_analysis_number_of_repeats', type=int,
                            help='number of repeats for feature importance analysis should be given with --feature_importance_analysis option, default=5', default=5)
     parser_ml.add_argument('--feature_importance_analysis_strategy', type=str,
@@ -325,6 +330,16 @@ def main():
                            help='kernel for svm, available selections: [linear, poly, rbf, sigmoid], default=linear', default="linear")
     parser_ml.add_argument('--no_stratify_split', type=str,
                            help='if given, does not uses stratify in random split', default="False")
+    parser_ml.add_argument('--param_grid_size', type=str,
+                           help='size of the parameter grid for best parameter search,available selections: [small, medium, large], default=small', default="small")
+    parser_ml.add_argument('--param_grid_low_memory_mode', action='store_true',
+                           help='Only for XGB, if given, uses low memory mode for parameter grid search, if given memory is not 100 times more than datasize, will automatically activate, default=False')
+    parser_ml.add_argument('--device', type=str,
+                           help='Only for XGB, device to use for training, available selections: [cpu, cuda], default=cpu', default="cpu")
+    parser_ml.add_argument('--parameter_search_strategy', type=str,
+                           help='parameter search strategy, available selections: [grid_search, random_search], default=grid_search', default="grid_search")
+    parser_ml.add_argument('--parameter_search_n_iter', type=int,
+                           help='number of iterations for random parameter search, should be used with --parameter_search_strategy random_search option, default=20', default=20)
     parser_ml.add_argument('--verbosity', type=int,
                            help='verbosity level, default=1', default=1)
     parser_ml.set_defaults(func=ml_pipeline)
@@ -717,6 +732,7 @@ def ml_pipeline(args):
     rf_output = os.path.join(ml_output, "rf")
     gb_output = os.path.join(ml_output, "gb")
     hist_gb_output = os.path.join(ml_output, "hist_gb")
+    xgb_output = os.path.join(ml_output, "xgb")
 
     # Check if output folder empty
     if os.path.exists(ml_output) and os.path.isdir(ml_output):
@@ -828,6 +844,10 @@ def ml_pipeline(args):
         if os.path.exists(os.path.join(datasail_output, "splits.tsv")):
             print("Warning: Split file already exists, it will be used for calculations. If you want to re-run the datasail, please remove the splits.tsv file from the output folder.")
 
+        if os.path.exists(os.path.join(datasail_output, args.antibiotic, "splits.tsv")):
+            print(f"Warning: Split file already exists at {os.path.join(datasail_output, args.antibiotic, 'splits.tsv')}, it will be used for calculations. If you want to re-run the datasail, please remove the splits.tsv file from the output folder.")
+            datasail_output = os.path.join(datasail_output, args.antibiotic)
+            
         else:
             # Check if output folder empty
             if os.path.exists(datasail_output) and os.path.isdir(datasail_output):
@@ -851,26 +871,40 @@ def ml_pipeline(args):
             if args.test_train_split:
                 train_test = [float(1-args.test_train_split),
                               float(args.test_train_split)]
+            
+            if args.sail_distance_matrix:
+                print("Using provided distance matrix...")
+                distance_matrix = args.sail_distance_matrix
+            else:
+                print("Creating distance matrix...")
 
-            print("Creating distance matrix...")
+                datasail_pre_precessor(
+                    args.sail, datasail_temp, random_names_dict, datasail_output, args.threads)
+                
+                distance_matrix = os.path.join(datasail_output, "distance_matrix.tsv")
 
-            datasail_pre_precessor(
-                args.sail, datasail_temp, random_names_dict, datasail_output, args.threads)
-
+                print(f"Distance matrix created: {distance_matrix}")
+            
             print("Running datasail...")
 
-            distance_matrix = os.path.join(
-                datasail_output, "distance_matrix.tsv")
-            
             if not args.sail_epsilon:
                 args.sail_epsilon = 0.1
             if not args.sail_delta:
                 args.sail_delta = 0.1
             if not args.sail_solver:
                 args.sail_solver = "SCIP"
-
-            datasail_runner(distance_matrix, datasail_output,
-                            splits=train_test, cpus=args.threads, epsilon=args.sail_epsilon, delta=args.sail_delta, solver=args.sail_solver)
+            if args.sail_max_time:
+                sail_max_time = args.sail_max_time
+            else:
+                sail_max_time = 600
+            if args.sail_stratify:
+                phenotype_df = pd.read_csv(f'{args.phenotype}', sep='\t', index_col=0)
+                phenotype_df_dict = phenotype_df.T.to_dict(orient='index')
+            else:
+                phenotype_df_dict = None
+                
+            datasail_output = datasail_runner(distance_matrix, datasail_output,
+                            splits=train_test, cpus=args.threads, epsilon=args.sail_epsilon, delta=args.sail_delta, solver=args.sail_solver, sail_max_time=sail_max_time, df_dict=phenotype_df_dict, antibiotic=args.antibiotic)
 
             if not args.keep_temp_files:
                 print(f"Removing temp folder {datasail_temp}...")
@@ -962,7 +996,7 @@ def ml_pipeline(args):
         with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
             with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
 
-                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, "rf", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, validation=validation_strains, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit) 
+                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, "rf", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, validation=validation_strains, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit, param_grid_size=args.param_grid_size, param_grid_low_memory_mode= args.param_grid_low_memory_mode, parameter_search_strategy=args.parameter_search_strategy, parameter_search_n_iter=args.parameter_search_n_iter) 
 
     elif args.ml_algorithm == "svm":
 
@@ -1005,6 +1039,26 @@ def ml_pipeline(args):
             with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
 
                 fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, "gb", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, validation=validation_strain, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit) 
+
+    elif args.ml_algorithm == "xgb":
+
+        if os.path.exists(xgb_output):
+            if args.overwrite:
+                print("Warning: Output folder is not empty. Old files will be deleted.")
+                temp_folder_remover(xgb_output)
+                os.makedirs(xgb_output, exist_ok=True)
+            else:
+                print("Error: Output folder is not empty.")
+                print(
+                    "If you want to overwrite the output folder, use --overwrite option.")
+                sys.exit(1)
+        else:
+            os.makedirs(xgb_output, exist_ok=True)
+
+        with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
+            with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
+
+                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, "xgb", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, validation=validation_strains, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit, param_grid_size=args.param_grid_size, param_grid_low_memory_mode= args.param_grid_low_memory_mode, device=args.device, parameter_search_strategy=args.parameter_search_strategy, parameter_search_n_iter=args.parameter_search_n_iter) 
 
     elif args.ml_algorithm == "histgb":
 

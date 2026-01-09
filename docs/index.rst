@@ -21,7 +21,7 @@ ALPAR is installable from conda, currently only support Linux:.
 Flowchart
 #########
 
-.. image:: /imgs/ALPAR_Flowchart_new.jpg
+.. image:: /imgs/ALPAR_Flowchart.png
 
 Quick Start
 #######
@@ -78,6 +78,11 @@ For more information about the automatic pipeline parameters:
 
     alpar automatix -h
 
+Citation
+#######
+
+For citation details, see :doc:`/citation`.  
+
 .. toctree::
     :maxdepth: 1
     :caption: Workflow
@@ -86,3 +91,4 @@ For more information about the automatic pipeline parameters:
     camda
     posters
     paper
+    citation
