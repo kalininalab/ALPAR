@@ -421,7 +421,7 @@ def run_snippy_and_prokka(strain, random_names, snippy_output, prokka_output, ar
 
 def binary_table_pipeline(args):
 
-    start_time = time.time()
+    start_time = time.time() #TODO use perf_counter
 
     # Base command
     snakemake_cmd = [
@@ -439,35 +439,38 @@ def binary_table_pipeline(args):
 
     # Add nullable parameters
     if args.overwrite:
-        snakemake_cmd.append('--force')
-    
+        snakemake_cmd += ['--force', '--rerun-incomplete']
+
     if not args.keep_temp_files:
         #TODO handle using temporary() in Snakefile
         snakemake_cmd.append('--delete-temp-output')
-    
+
     if args.checkpoint:
         snakemake_cmd += ['--rerun-triggers', 'mtime']
 
     # Add config options
     snakemake_cmd += [
         '--config',
-        f'input_dir="{args.input}"',
-        f'output_dir="{args.output}"',
-        f'reference_file="{args.reference}"',
-        f'temp_dir="{args.temp}"' if args.temp else f'temp_dir="{os.path.join(args.output, "temp")}"',
-        f'gpa_method="panaroo"' if args.use_panaroo else 'gpa_method="cd-hit"',
+        f'input_dir={args.input}',
+        f'output_dir={args.output}',
+        f'gbff_file={args.reference}',
+        f'fasta_file={args.custom_database[0]}'
+        f'temp_dir={args.temp}' if args.temp else f'temp_dir={os.path.join(args.output, "temp")}',
+        f'genus={args.custom_database[1]}'
+        f'gpa_method=panaroo' if args.use_panaroo else 'gpa_method=cd-hit',
     ]
 
-    #TODO handle args.custom_database
+    #TODO handle args.custom_database when None
     #TODO handle args.create_phenotype_from_folder
     #TODO handle args.no_gene_presence_absence
     #TODO handle args.no_gene_annotation
     #TODO handle args.verbosity
 
-    subprocess.run(
+    print(snakemake_cmd)
+    smk_process = subprocess.run(
         snakemake_cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stdout=subprocess.STDOUT,
+        stderr=subprocess.STDOUT,
     )
 
     end_time = time.time()
