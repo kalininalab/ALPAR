@@ -1,4 +1,4 @@
-name: prokka
+name: cd-hit
 channels:
   - bioconda
 dependencies:

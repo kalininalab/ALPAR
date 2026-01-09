@@ -1,5 +1,6 @@
-name: prokka
+name: makeblastdb
 channels:
   - bioconda
+  - conda-forge
 dependencies:
   - blast=2.16.0
