@@ -559,7 +559,7 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                         estimator=xgb_model,
                         param_grid=param_grid,
                         scoring=selected_scorer,
-                        cv=1,
+                        cv=cv_split,
                         verbose=1,
                         n_jobs=n_jobs
                     )

@@ -1205,7 +1205,7 @@ def ml_pipeline(args):
     else:
         os.makedirs(ml_temp, exist_ok=True)
 
-    accepted_ml_algorithms = ["rf", "svm", "gb", "histgb"]
+    accepted_ml_algorithms = ["rf", "svm", "gb", "histgb", "xgb"]
 
     if args.ml_algorithm not in accepted_ml_algorithms:
         print("Error: ML algorithm is not accepted.")
@@ -1277,6 +1277,7 @@ def ml_pipeline(args):
 
     train_strains = []
     test_strains = []
+    validation_strains = []
 
     if args.sail:
 
@@ -1392,9 +1393,9 @@ def ml_pipeline(args):
         if args.validation_strains_file:
             if os.path.exists(args.validation_strains_file):
                 with open(args.validation_strains_file) as validation_file:
-                    validation_strains = validation_file.readlines()
-                    for validation_strain in validation_strains:
-                        validation_strains.append(validation_strain.strip())
+                    validation_strains_lines = validation_file.readlines()
+                    for validation_strain_line in validation_strains_lines:
+                        validation_strains.append(validation_strain_line.strip())
             else:
                 print("Error: Validation strains file does not exist.")
                 sys.exit(1)
@@ -1464,7 +1465,7 @@ def ml_pipeline(args):
         with open(os.path.join(ml_output, f"{ml_log_name}_log_file.txt"), "w") as log_file:
             with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
                 
-                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, "svm", args.feature_importance_analysis, args.save_model, resampling_strategy="cv", custom_scorer="MCC", fia_repeats=5, train=train_strains, test=test_strains, validation=validation_strain, stratify=stratiy_random_split, feature_importance_analysis_strategy="permutation_importance", important_feature_limit=args.important_feature_limit)
+                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, "svm", args.feature_importance_analysis, args.save_model, resampling_strategy="cv", custom_scorer="MCC", fia_repeats=5, train=train_strains, test=test_strains, validation=validation_strains, stratify=stratiy_random_split, feature_importance_analysis_strategy="permutation_importance", important_feature_limit=args.important_feature_limit)
 
     elif args.ml_algorithm == "gb":
 
@@ -1484,7 +1485,7 @@ def ml_pipeline(args):
         with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
             with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
 
-                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, "gb", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, validation=validation_strain, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit) 
+                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, "gb", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, validation=validation_strains, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit) 
 
     elif args.ml_algorithm == "xgb":
 
@@ -1528,7 +1529,7 @@ def ml_pipeline(args):
                 if args.min_samples_leaf == 1:
                     args.min_samples_leaf = 20
 
-                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, "histgb", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, validation=validation_strain, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit) 
+                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, "histgb", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, validation=validation_strains, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit) 
 
 
     if args.feature_importance_analysis:
@@ -1830,7 +1831,7 @@ def fully_automated_pipeline(args):
     
     if args.ml_algorithm:
         for algorithm in args.ml_algorithm:
-            if algorithm not in ["rf", "svm", "gb", "histgb"]:
+            if algorithm not in ["rf", "svm", "gb", "histgb", "xgb"]:
                 print("Error: ML algorithm is not accepted.")
                 sys.exit(1)
 
