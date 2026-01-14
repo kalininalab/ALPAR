@@ -344,6 +344,25 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
         X_test = np.array(X_test, dtype=int)
         y_test = np.array(y_test, dtype=int)
 
+    
+    mcc_scorer = make_scorer(matthews_corrcoef)
+    accuracy_scorer = make_scorer(accuracy_score)
+    f1_scorer = make_scorer(f1_score)
+    roc_auc_scorer = make_scorer(roc_auc_score)
+
+    if custom_scorer == "MCC":
+        selected_scorer = mcc_scorer
+        scoring_function = matthews_corrcoef
+    elif custom_scorer == "accuracy":
+        selected_scorer = accuracy_scorer
+        scoring_function = accuracy_score
+    elif custom_scorer == "f1":
+        selected_scorer = f1_scorer
+        scoring_function = f1_score
+    elif custom_scorer == "roc_auc":
+        selected_scorer = roc_auc_scorer
+        scoring_function = roc_auc_score
+
     if model_type == "rf":
 
         if param_grid_size == "small":
@@ -379,7 +398,7 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                 )
                 rf_cls.fit(X_train, y_train)
                 y_hat = rf_cls.predict(X_test)
-                current_score = sklearn.metrics.matthews_corrcoef(y_test, y_hat)
+                current_score = scoring_function(y_test, y_hat)
 
                 if current_score > best_result:
                     best_result = current_score
@@ -401,7 +420,7 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                                     )
                                     rf_cls.fit(X_train, y_train)
                                     y_hat = rf_cls.predict(X_test)
-                                    current_score = selected_scorer(y_test, y_hat)
+                                    current_score = scoring_function(y_test, y_hat)
 
                                     if current_score > best_result:
                                         best_result = current_score
@@ -460,22 +479,9 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                 'n_estimators': [10, 50, 100, 200, 500]
             }
 
-        mcc_scorer = make_scorer(matthews_corrcoef)
-        accuracy_scorer = make_scorer(accuracy_score)
-        f1_scorer = make_scorer(f1_score)
-        roc_auc_scorer = make_scorer(roc_auc_score)
-
-        if custom_scorer == "MCC":
-            selected_scorer = mcc_scorer
-        elif custom_scorer == "accuracy":
-            selected_scorer = accuracy_scorer
-        elif custom_scorer == "f1":
-            selected_scorer = f1_scorer
-        elif custom_scorer == "roc_auc":
-            selected_scorer = roc_auc_scorer
+        best_result = -1
 
         if parameter_search_strategy == "random_search":
-            best_result = -1
             sampled_params = parameter_sampler(param_grid, n_iter=parameter_search_n_iter)
             for parameter_sample in sampled_params:
                 # Initialize the XGBoost classifier with each parameter
@@ -504,7 +510,6 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
 
         else:
             if param_grid_low_memory_mode:
-                best_result = -1
                 sorted_importances = {}
                 for temp_max_depth in param_grid['max_depth']:
                     for temp_min_child_weight in param_grid['min_child_weight']:
@@ -527,7 +532,7 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                                         )
                                         xgb_model.fit(X_train, y_train)
                                         y_hat = xgb_model.predict(X_test)
-                                        current_score = selected_scorer(y_test, y_hat)
+                                        current_score = scoring_function(y_test, y_hat)
 
                                         if current_score > best_result:
                                             best_result = current_score
@@ -568,9 +573,6 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
 
                 # Get the best parameters and update the params dictionary
                 best_params = grid_search.best_params_
-                with open(os.path.join(output_folder, f"{output_file_template}_best_params.txt"), "w") as param_file:
-                    param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_result}\n")
-                    param_file.write(f"Parameters: {best_params}\n")
 
                 # Train the final model with the best parameters
                 bst = xgb.train(best_params, dtrain, num_boost_round=n_estimators)
@@ -578,6 +580,11 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                 # Predict on the test set
                 y_hat = bst.predict(dtest)
                 y_hat = np.round(y_hat)
+                best_custom_score = scoring_function(y_test, y_hat)
+                with open(os.path.join(output_folder, f"{output_file_template}_best_params.txt"), "w") as param_file:
+                    param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_custom_score}\n")
+                    param_file.write(f"Parameters: {best_params}\n")
+
 
     elif model_type == "svm":
         best_model_mcc = -1.0
