@@ -688,17 +688,26 @@ def binary_table_pipeline(args):
                     if pathlib.Path(file).suffix in accepted_fasta_file_extensions:
                         susceptible_strains.append(file)
 
+                STRAIN_FILE_MINIMUM_SIZE_LIMIT = 1000
+
                 with open(os.path.join(args.output, "strains.txt"), "a") as outfile:
                     for strain in resistant_strains:
                         # Make sure path is same in both Windows and Linux
                         strain_path = os.path.join(resistant_path, strain)
                         strain_path = os.path.abspath(strain_path)
                         strain_path = strain_path.replace("\\", "/")
+                        # Check if file size is larger than minimum size limit, teoratically bacterial wgs fasta files should be larger than 1 KB
+                        if os.path.getsize(strain_path) < STRAIN_FILE_MINIMUM_SIZE_LIMIT:
+                            print(f"Warning: {strain_path} file size is smaller than {STRAIN_FILE_MINIMUM_SIZE_LIMIT} bytes, skipping this file.")
+                            continue
                         outfile.write(f"{strain_path}\n")
                     for strain in susceptible_strains:
                         strain_path = os.path.join(susceptible_path, strain)
                         strain_path = os.path.abspath(strain_path)
                         strain_path = strain_path.replace("\\", "/")
+                        if os.path.getsize(strain_path) < STRAIN_FILE_MINIMUM_SIZE_LIMIT:
+                            print(f"Warning: {strain_path} file size is smaller than {STRAIN_FILE_MINIMUM_SIZE_LIMIT} bytes, skipping this file.")
+                            continue
                         outfile.write(f"{strain_path}\n")
 
             input_file = os.path.join(args.output, "strains.txt")
