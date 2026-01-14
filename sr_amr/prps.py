@@ -159,3 +159,119 @@ def PRPS_runner(tree_file, binary_mutation_file, output_folder, temp_folder):
         writer = csv.writer(f, delimiter="\t")
         for k, v in feature_score_dict.items():
             writer.writerow([k, v])
+
+def continuous_prps(leaves_to_values, dist_matrix):
+    """
+    Continuous weighted PRPS score.
+
+    Parameters
+    ----------
+    leaves_to_values : dict
+        {leaf_name: continuous_value}
+    tree : ete3.TreeNode
+    dist_matrix : pandas.DataFrame
+
+    Returns
+    -------
+    score : float
+        Weighted phylogenetic dispersion score
+    """
+
+    leaf_names = list(leaves_to_values.keys())
+    values = pd.Series(leaves_to_values)
+
+    # Subset distance matrix
+    sub_dist = dist_matrix.loc[leaf_names, leaf_names]
+
+    # Weight by feature magnitudes
+    weighted_dist = sub_dist.mul(values, axis=0).mul(values, axis=1)
+
+    # Normalize (tree-size invariant)
+    score = weighted_dist.sum().sum() / (values.sum() ** 2)
+
+    return score
+
+
+def PRPS_runner_continuous(tree_file, mutation_file, output_folder, temp_folder):
+    """
+    PRPS runner for continuous-valued features using weighted phylogenetic distances.
+    """
+
+    # Load tree
+    with open(tree_file, "r") as f:
+        newick = f.readline()
+
+    t, node_list, names_list = load_tree(newick)
+
+    # Compute distance matrix (reused from binary version)
+    get_distance_matrix(t, node_list, names_list, temp_folder)
+
+    dist_matrix = pd.read_csv(
+        os.path.join(temp_folder, "dist_matrix_all_incl_internal.csv"),
+        index_col="Unnamed: 0"
+    ).fillna(0)
+
+    # Load feature matrix
+    id_match = []
+    with open(mutation_file, "r") as f:
+        reader = csv.reader(f, delimiter="\t")
+        headers = next(reader)
+
+        for row in reader:
+            id_match.append(
+                [row[0]] +
+                [float(val) if val not in ("", "?") else 0 for val in row[1:]]
+            )
+
+    feature_score_dict = {}
+    empty_f = []
+
+    # Iterate over features (same structure as PRPS_runner)
+    for feature_index in range(1, len(headers)):
+        feature = headers[feature_index]
+
+        # leaf_name -> continuous value
+        feature_values = {
+            row[0]: row[feature_index]
+            for row in id_match
+            if row[feature_index] > 0
+        }
+
+        if len(feature_values) == 0:
+            empty_f.append(feature)
+        else:
+            feature_score_dict[feature] = continuous_prps(
+                feature_values, dist_matrix
+            )
+
+    # Write output
+    with open(os.path.join(output_folder, "prps_score.tsv"), "w") as f:
+        writer = csv.writer(f, delimiter="\t")
+        for k, v in feature_score_dict.items():
+            writer.writerow([k, v])
+
+def PRPS_binary_check(mutation_file):
+    """
+    Checks if the mutation file is binary (0/1) or continuous.
+
+    Parameters
+    ----------
+    mutation_file : str
+        Path to the mutation file.
+
+    Returns
+    -------
+    is_binary : bool
+        True if the mutation file is binary, False otherwise.
+    """
+
+    with open(mutation_file, "r") as f:
+        reader = csv.reader(f, delimiter="\t")
+        headers = next(reader)
+
+        for row in reader:
+            for val in row[1:]:
+                if val not in ("0", "1", "", "?"):
+                    return False
+
+    return True

@@ -20,7 +20,7 @@ from sr_amr.gwas import pyseer_runner, pyseer_similarity_matrix_creator, pyseer_
 from sr_amr.binary_tables import snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, binary_mutation_table_gpa_information_adder_panaroo, phenotype_dataframe_creator, phenotype_dataframe_creator_post_processor, prokka_create_database, snippy_processed_file_creator, annotation_file_from_snippy, cdhit_preprocessor, cdhit_runner, gene_presence_absence_file_creator
 from sr_amr.binary_table_threshold import binary_table_threshold_with_percentage
 from sr_amr.phylogeny_tree import mash_preprocessor, mash_distance_runner
-from sr_amr.prps import PRPS_runner
+from sr_amr.prps import PRPS_runner, PRPS_runner_continuous, PRPS_binary_check
 from sr_amr.ds import datasail_runner, datasail_pre_precessor
 from sr_amr.ml import prps_ml_preprecessor, combined_ml
 from sr_amr.full_automatix import automatix_runner
@@ -688,17 +688,26 @@ def binary_table_pipeline(args):
                     if pathlib.Path(file).suffix in accepted_fasta_file_extensions:
                         susceptible_strains.append(file)
 
+                STRAIN_FILE_MINIMUM_SIZE_LIMIT = 1000
+
                 with open(os.path.join(args.output, "strains.txt"), "a") as outfile:
                     for strain in resistant_strains:
                         # Make sure path is same in both Windows and Linux
                         strain_path = os.path.join(resistant_path, strain)
                         strain_path = os.path.abspath(strain_path)
                         strain_path = strain_path.replace("\\", "/")
+                        # Check if file size is larger than minimum size limit, teoratically bacterial wgs fasta files should be larger than 1 KB
+                        if os.path.getsize(strain_path) < STRAIN_FILE_MINIMUM_SIZE_LIMIT:
+                            print(f"Warning: {strain_path} file size is smaller than {STRAIN_FILE_MINIMUM_SIZE_LIMIT} bytes, skipping this file.")
+                            continue
                         outfile.write(f"{strain_path}\n")
                     for strain in susceptible_strains:
                         strain_path = os.path.join(susceptible_path, strain)
                         strain_path = os.path.abspath(strain_path)
                         strain_path = strain_path.replace("\\", "/")
+                        if os.path.getsize(strain_path) < STRAIN_FILE_MINIMUM_SIZE_LIMIT:
+                            print(f"Warning: {strain_path} file size is smaller than {STRAIN_FILE_MINIMUM_SIZE_LIMIT} bytes, skipping this file.")
+                            continue
                         outfile.write(f"{strain_path}\n")
 
             input_file = os.path.join(args.output, "strains.txt")
@@ -1133,7 +1142,13 @@ def prps_pipeline(args):
     try:
         print("Running PRPS...")
 
-        PRPS_runner(args.tree, args.input, prps_output, prps_temp)
+        print("Checking if input file is binary or continuous...")
+        if PRPS_binary_check(args.input):
+            print("Input file is binary. Running PRPS for binary data...")
+            PRPS_runner(args.tree, args.input, prps_output, prps_temp)
+        else:
+            print("Input file is continuous. Running PRPS for continuous data...")
+            PRPS_runner_continuous(args.tree, args.input, prps_output, prps_temp)
 
         if not args.keep_temp_files:
             print("Removing temp folder...")
@@ -1199,7 +1214,7 @@ def ml_pipeline(args):
     else:
         os.makedirs(ml_temp, exist_ok=True)
 
-    accepted_ml_algorithms = ["rf", "svm", "gb", "histgb"]
+    accepted_ml_algorithms = ["rf", "svm", "gb", "histgb", "xgb"]
 
     if args.ml_algorithm not in accepted_ml_algorithms:
         print("Error: ML algorithm is not accepted.")
@@ -1271,6 +1286,7 @@ def ml_pipeline(args):
 
     train_strains = []
     test_strains = []
+    validation_strains = []
 
     if args.sail:
 
@@ -1386,9 +1402,9 @@ def ml_pipeline(args):
         if args.validation_strains_file:
             if os.path.exists(args.validation_strains_file):
                 with open(args.validation_strains_file) as validation_file:
-                    validation_strains = validation_file.readlines()
-                    for validation_strain in validation_strains:
-                        validation_strains.append(validation_strain.strip())
+                    validation_strains_lines = validation_file.readlines()
+                    for validation_strain_line in validation_strains_lines:
+                        validation_strains.append(validation_strain_line.strip())
             else:
                 print("Error: Validation strains file does not exist.")
                 sys.exit(1)
@@ -1458,7 +1474,7 @@ def ml_pipeline(args):
         with open(os.path.join(ml_output, f"{ml_log_name}_log_file.txt"), "w") as log_file:
             with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
                 
-                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, "svm", args.feature_importance_analysis, args.save_model, resampling_strategy="cv", custom_scorer="MCC", fia_repeats=5, train=train_strains, test=test_strains, validation=validation_strain, stratify=stratiy_random_split, feature_importance_analysis_strategy="permutation_importance", important_feature_limit=args.important_feature_limit)
+                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, "svm", args.feature_importance_analysis, args.save_model, resampling_strategy="cv", custom_scorer="MCC", fia_repeats=5, train=train_strains, test=test_strains, validation=validation_strains, stratify=stratiy_random_split, feature_importance_analysis_strategy="permutation_importance", important_feature_limit=args.important_feature_limit)
 
     elif args.ml_algorithm == "gb":
 
@@ -1478,7 +1494,7 @@ def ml_pipeline(args):
         with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
             with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
 
-                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, "gb", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, validation=validation_strain, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit) 
+                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, "gb", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, validation=validation_strains, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit) 
 
     elif args.ml_algorithm == "xgb":
 
@@ -1522,7 +1538,7 @@ def ml_pipeline(args):
                 if args.min_samples_leaf == 1:
                     args.min_samples_leaf = 20
 
-                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, "histgb", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, validation=validation_strain, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit) 
+                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, "histgb", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, validation=validation_strains, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit) 
 
 
     if args.feature_importance_analysis:
@@ -1824,7 +1840,7 @@ def fully_automated_pipeline(args):
     
     if args.ml_algorithm:
         for algorithm in args.ml_algorithm:
-            if algorithm not in ["rf", "svm", "gb", "histgb"]:
+            if algorithm not in ["rf", "svm", "gb", "histgb", "xgb"]:
                 print("Error: ML algorithm is not accepted.")
                 sys.exit(1)
 
