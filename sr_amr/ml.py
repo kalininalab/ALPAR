@@ -510,6 +510,11 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
 
         else:
             if param_grid_low_memory_mode:
+                total_number_of_parameter_combinations = 1
+                for value in param_grid.values():
+                    total_number_of_parameter_combinations *= len(value)
+                print(f"XGBoost: Total number of parameter combinations to be evaluated: {total_number_of_parameter_combinations}")
+                current_number_of_processed_combinations = 0
                 sorted_importances = {}
                 for temp_max_depth in param_grid['max_depth']:
                     for temp_min_child_weight in param_grid['min_child_weight']:
@@ -517,6 +522,7 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                             for temp_colsample_bytree in param_grid['colsample_bytree']:
                                 for temp_eta in param_grid['eta']:
                                     for temp_n_estimators in param_grid['n_estimators']:
+                                        print(f"Training model {current_number_of_processed_combinations + 1} / {total_number_of_parameter_combinations}")
                                         # Initialize the XGBoost classifier with each parameter
                                         xgb_model = xgb.XGBClassifier(
                                             objective='binary:logistic',
@@ -540,6 +546,7 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                                             with open(os.path.join(output_folder, f"{output_file_template}_best_params.txt"), "w") as param_file:
                                                 param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_result}\n")
                                                 param_file.write(f"Parameters: max_depth={temp_max_depth}, min_child_weight={temp_min_child_weight}, subsample={temp_subsample}, colsample_bytree={temp_colsample_bytree}, eta={temp_eta}, n_estimators={temp_n_estimators}\n")
+                                        current_number_of_processed_combinations += 1
 
             else:
                 # Initialize the XGBoost classifier
