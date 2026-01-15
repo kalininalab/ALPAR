@@ -289,9 +289,11 @@ rule binary_gpa_cdhit:
 rule binary_gpa:
     input:
         branch(
-            lookup(dpath="gpa_method", within=config, default="cd-hit"),
-            then=rules.binary_gpa_cdhit.output,
-            otherwise=rules.binary_gpa_panaroo.output,
+            condition=lookup(dpath="gpa_method", within=config, default="cd-hit"),
+            cases={
+                "cd-hit": rules.binary_gpa_cdhit.output,
+                "panaroo": rules.binary_gpa_panaroo.output,
+            }
         )
     output: OUT_DIR / "binary_gpa.tsv"
     shell:
