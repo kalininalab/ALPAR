@@ -1,5 +1,6 @@
 name: panaroo
-chanels:
+channels:
   - bioconda
+  - conda-forge
 dependencies:
-  - panaroo=1.5.2
+  - panaroo=1.6.0
