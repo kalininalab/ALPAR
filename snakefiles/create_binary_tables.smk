@@ -1,7 +1,8 @@
 # snakemake --use-conda --jobs 8 --resources mem_gb=4 --benchmark-extended --rerun-triggers mtime
 from pathlib import Path
 
-configfile: "config/config.yaml"
+workflow_dir = Path(workflow.basedir)
+configfile: workflow_dir / "snakefiles" / "config" / "config.yaml"
 
 # -----------------------
 # Global Variables
