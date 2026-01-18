@@ -140,6 +140,7 @@ rule prokka_runner:
     resources:
         mem_mb = 600
     conda: "envs/prokka.yaml"
+    group: "prokka_and_snippy_runner"
     shell:
         r"""
         input_file=$(readlink -f {input.sample})
@@ -325,6 +326,7 @@ rule snippy_runner:
     threads: 1
     resources:
         mem_gb = 1
+    group: "prokka_and_snippy_runner"
     shell:
         r"""
         input_file=$(readlink -f {input.sample})
