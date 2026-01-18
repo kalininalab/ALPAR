@@ -68,13 +68,15 @@ rule cd_hit_create_db:
     benchmark: TEMP_DIR / "benchmarks" / "cdhit_create_db.tsv"
     conda: "envs/cd-hit.yaml"
     threads: workflow.cores
+    resources:
+        mem_mb = 800
     shell:
         r"""
         cd-hit \
             -i {input} \
             -o {output} \
             -T {threads} \
-            -M 0 \
+            -M {resources.mem_mb} \
             -g 1 \
             -s 0.8 \
             -c 0.9 \
@@ -134,9 +136,9 @@ rule prokka_runner:
     params:
         genus = GENUS,
         outdir = subpath(output.gff, parent=True),
-    threads: 4
+    threads: 1
     resources:
-        mem_mb = 500
+        mem_mb = 600
     conda: "envs/prokka.yaml"
     shell:
         r"""
@@ -234,7 +236,7 @@ rule cdhit_protein_positions:
     output: OUT_DIR / "cd-hit" / "protein_positions.csv",
     benchmark: TEMP_DIR / "benchmarks" / "cdhit_protein_positions.py.tsv"
     conda: "envs/python312.yaml"
-    threads: 4
+    threads: workflow.cores
     script:
         "scripts/cdhit_protein_positions.py"
 
@@ -279,6 +281,7 @@ rule binary_gpa_cdhit:
     output: OUT_DIR / "binary_gpa_cdhit.tsv"
     benchmark: TEMP_DIR / "benchmarks" / "binary_gpa_cdhit.py.tsv"
     conda: "envs/python312.yaml"
+    threads: 1
     script:
         "scripts/binary_gpa_cdhit.py"
 
@@ -319,9 +322,9 @@ rule snippy_runner:
     params:
         out_dir = subpath(output.vcf, parent=True)
     conda: "envs/snippy.yaml"
-    threads: workflow.cores
+    threads: 1
     resources:
-        mem_gb = workflow.global_resources.get("mem_gb", 4)
+        mem_gb = 1
     shell:
         r"""
         input_file=$(readlink -f {input.sample})
@@ -337,7 +340,7 @@ rule snippy_runner:
 
 
 rule binary_mutation_table:
-    input: 
+    input:
         lambda wc: expand(
             rules.snippy_runner.output.vcf,
             sample = get_sample_names()
@@ -345,13 +348,13 @@ rule binary_mutation_table:
     output: OUT_DIR / "binary_mutation_table.tsv"
     benchmark: TEMP_DIR / "benchmarks" / "binary_mutation_table.py.tsv"
     conda: "envs/python312.yaml"
-    threads: 4
+    threads: workflow.cores
     script:
         "scripts/binary_mutation_table.py"
 
 
 # -----------------------
-# Featre Importance Analysis
+# Feature Importance Analysis
 # -----------------------
 
 rule annotation_file_from_snippy:
@@ -363,7 +366,7 @@ rule annotation_file_from_snippy:
     output: OUT_DIR / "mutations_annotations.tsv"
     benchmark: TEMP_DIR / "benchmarks" / "annotation_file_from_snippy.py.tsv"
     conda: "envs/python312.yaml"
-    threads: 4
+    threads: workflow.cores
     script:
         "scripts/annotation_file_from_snippy.py"
 
