@@ -303,7 +303,7 @@ rule binary_gpa:
     output: OUT_DIR / "binary_gpa.tsv"
     shell:
         r"""
-        mv {input} {output}
+        ln -sr {input} {output}
         """
 
 
