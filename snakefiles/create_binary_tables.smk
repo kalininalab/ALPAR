@@ -68,15 +68,13 @@ rule cd_hit_create_db:
     benchmark: TEMP_DIR / "benchmarks" / "cdhit_create_db.tsv"
     conda: "envs/cd-hit.yaml"
     threads: workflow.cores
-    resources:
-        mem_mb = 800
     shell:
         r"""
         cd-hit \
             -i {input} \
             -o {output} \
             -T {threads} \
-            -M {resources.mem_mb} \
+            -M 0 \
             -g 1 \
             -s 0.8 \
             -c 0.9 \
