@@ -329,9 +329,8 @@ rule snippy_runner:
     group: "prokka_and_snippy_runner"
     shell:
         r"""
-        input_file=$(readlink -f {input.sample})
         snippy \
-            --ctgs $input_file \
+            --ctgs {input.sample} \
             --outdir {params.out_dir} \
             --reference {input.reference} \
             --cpus {threads} \
