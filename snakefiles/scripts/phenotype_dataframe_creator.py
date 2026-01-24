@@ -8,12 +8,6 @@ with suppress(ImportError):
     from snakemake.script import snakemake
 
 
-RESISTANCE_STATUS_MAPPING = {
-    'Resistant': 1,
-    'Susceptible': 0,
-}
-
-
 class SnakemakeHandler(BaseModel):
     """Validator for snakemake io."""
 
@@ -22,6 +16,13 @@ class SnakemakeHandler(BaseModel):
     )
     output_file: NewPath = Field(
         description='Path to binary table of checksum\tantibiotic(s)'
+    )
+    resistance_status_mapping: dict[str, int] = Field(
+        default={
+            'Resistant': 1,
+            'Susceptible': 0,
+        },
+        description='Mapping of resistance status to binary values.'
     )
 
 
@@ -44,7 +45,7 @@ class SnakemakeHandler(BaseModel):
         df_path_split_binary = df_path_split.with_columns(
             pl.col('resistance_status')
             .replace_strict(
-                RESISTANCE_STATUS_MAPPING,
+                self.resistance_status_mapping,
                 default=None,
                 return_dtype=pl.UInt8
             )
@@ -68,5 +69,6 @@ if __name__ == '__main__':
     smk_val = SnakemakeHandler(
         all_files_tsv=snakemake.input[0],
         output_file=snakemake.output[0],
+        resistance_status_mapping=snakemake.params['resistance_status_mapping'],
     )
     smk_val.phenotype_dataframe_creator()

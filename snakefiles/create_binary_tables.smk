@@ -9,6 +9,10 @@ configfile: workflow_dir / "snakefiles" / "config" / "config.yaml"
 # -----------------------
 
 GENUS = config.get("genus")
+RESISTANCE_STATUS_MAPPING = {
+    'Resistant': 1,
+    'Susceptible': 0,
+}
 
 # -----------------------
 # Directories and Files
@@ -55,6 +59,22 @@ def get_sample_names() -> list[str]:
         if f.name != ".snakemake_timestamp"
     ]
     return sample_names
+
+
+# -----------------------
+# Phenotype
+# -----------------------
+
+rule phenotype_dataframe_creator:
+    input: rules.rename_files.output.mapping
+    output: OUT_DIR / "phenotype_table.tsv"
+    benchmark: TEMP_DIR / "benchmarks" / "phenotype_dataframe_creator.py.tsv"
+    conda: "envs/python312.yaml"
+    params:
+        resistance_status_mapping = RESISTANCE_STATUS_MAPPING
+    threads: 1
+    script:
+        "scripts/phenotype_dataframe_creator.py"
 
 
 # -----------------------
