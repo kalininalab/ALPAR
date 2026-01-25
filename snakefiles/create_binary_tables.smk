@@ -185,11 +185,15 @@ rule panaroo_runner:
             rules.prokka_runner.output.gff,
             sample = get_sample_names()
         ),
-    output: OUT_DIR / "panaroo" / "gene_presence_absence.csv",
+    output:
+        gpa = OUT_DIR / "panaroo" / "gene_presence_absence.csv",
+        gene_data = OUT_DIR / "panaroo" / "gene_data.csv",
     log: TEMP_DIR / "panaroo.log"
     benchmark: TEMP_DIR / "benchmarks" / "panaroo.tsv"
     params:
-        outdir = subpath(output[0], parent=True),
+        outdir = subpath(output.gpa, parent=True),
+        seq_identity_threshold = 0.8,
+        seq_len_diff_cutoff = 0.8,
     conda: "envs/panaroo.yaml"
     threads: 30
     shell:
@@ -197,6 +201,9 @@ rule panaroo_runner:
         panaroo \
             --input {input} \
             --out_dir {params.outdir} \
+            --threshold {params.seq_identity_threshold} \
+            --len_dif_percent {params.seq_len_diff_cutoff} \
+            --codons \
             --clean-mode strict \
             --threads {threads} \
             >> {log} 2>&1
@@ -204,13 +211,32 @@ rule panaroo_runner:
 
 
 rule binary_gpa_panaroo:
-    input: rules.panaroo_runner.output,
+    input: rules.panaroo_runner.output.gpa,
     output: OUT_DIR / "binary_gpa_panaroo.tsv"
     benchmark: TEMP_DIR / "benchmarks" / "binary_gpa_panaroo.py.tsv"
     conda: "envs/python312.yaml"
     threads: 1
     script:
         "scripts/binary_gpa_panaroo.py"
+
+
+# -----------------------
+# Clustering: Panaroo
+# -----------------------
+
+checkpoint panaroo_cluster:
+    input:
+        gpa = rules.panaroo_runner.output.gpa,
+        gene_data = rules.panaroo_runner.output.gene_data,
+        phenotypes = rules.phenotype_dataframe_creator.output[0],
+    output: directory(OUT_DIR / "panaroo_protein_sequences"),
+    benchmark: TEMP_DIR / "benchmarks" / "panaroo_cluster.py.tsv"
+    params:
+        resistance_status_mapping = RESISTANCE_STATUS_MAPPING
+    conda: "envs/python312.yaml"
+    threads: 8
+    script:
+        "scripts/panaroo_cluster.py"
 
 
 # -----------------------
@@ -393,15 +419,6 @@ rule annotation_file_from_snippy:
 # -----------------------
 # Binary Tables
 # -----------------------
-
-rule phenotype_dataframe_creator:
-    input: rules.rename_files.output.mapping
-    output: OUT_DIR / "phenotype_table.tsv"
-    benchmark: TEMP_DIR / "benchmarks" / "phenotype_dataframe_creator.py.tsv"
-    conda: "envs/python312.yaml"
-    threads: 1
-    script:
-        "scripts/phenotype_dataframe_creator.py"
 
 
 rule merge_binary_tables:
