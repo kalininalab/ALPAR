@@ -1,6 +1,9 @@
 import itertools
+import operator
+
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
+from functools import reduce
 from pathlib import Path
 from typing import Mapping
 
@@ -58,6 +61,7 @@ class SnakemakeHandler(BaseModel):
     def aggregate_clusters(self) -> None:
         """Aggregate panaroo clusters with phenotypes and write fasta files."""
 
+        # Has the information about which which gene is in which strain
         df_gpa = (
             pl.scan_csv(self.panaroo_gpa)
             .drop('Non-unique Gene name', 'Annotation')
@@ -65,6 +69,7 @@ class SnakemakeHandler(BaseModel):
             .drop_nulls('annotation_id')
         )
 
+        # Has the resistance status for each strain
         df_phenotypes = (
             pl.scan_csv(self.phenotypes, separator='\t')
             .unpivot(index='checksum', variable_name='antibiotic', value_name='resistance_status')
@@ -77,15 +82,17 @@ class SnakemakeHandler(BaseModel):
             )
         )
 
+        # Has the gene sequences and strain information
         df_data = pl.scan_csv(self.gene_data)
 
+        # Join all dataframes together
         df_join = (
             df_data
             .join(
                 df_gpa,
                 left_on=('gff_file', 'annotation_id'),
                 right_on=('Strain', 'annotation_id'),
-                how='inner',
+                how='inner', # Drop unmatched genes
                 validate='1:1'
             )
             .join(
@@ -97,8 +104,29 @@ class SnakemakeHandler(BaseModel):
             )
         )
 
+        # We are only interested in genes that have all resistance statuses,
+        #   default to Resistant and Susceptible
+        df_genes_with_all_status = (
+            df_join
+            .group_by('Gene')
+            .agg(
+                all_status=reduce(
+                    operator.and_,
+                    [
+                        (pl.col('resistance_status') == status).any()
+                        for status in self.resistance_status_mapping.keys()
+                    ]
+                )
+            )
+            .filter(pl.col('all_status'))
+            .select('Gene')
+        )
+
+        # Append information to create two columns:
+        #   filename to create and its content
         df_to_write = (
             df_join
+            .join(df_genes_with_all_status, on='Gene', how='semi')
             .with_columns(
                 pl.concat_str(
                     (
