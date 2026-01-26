@@ -1,0 +1,6 @@
+name: mafft
+channels:
+  - bioconda
+  - defaults
+dependencies:
+  - mafft=7.525
