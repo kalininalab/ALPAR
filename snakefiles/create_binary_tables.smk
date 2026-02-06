@@ -311,24 +311,21 @@ rule mafft_add_resistant:
 
 def get_all_alignments(wildcards):
     panaroo_checkpoint = Path(checkpoints.panaroo_cluster.get(**wildcards).output[0])
-    
+
     combined_files = []
     for antibiotic_dir in panaroo_checkpoint.glob("*/"):
         antibiotic = antibiotic_dir.name
         susceptible_dir = antibiotic_dir / "Susceptible"
         resistant_dir = antibiotic_dir / "Resistant"
-        
+
         susceptible_genes = {f.stem for f in susceptible_dir.glob("*.fasta")}
         resistant_genes = {f.stem for f in resistant_dir.glob("*.fasta")}
         assert susceptible_genes == resistant_genes, f"Gene sets do not match for antibiotic {antibiotic}: {susceptible_genes ^ resistant_genes}"
-            
+
         for cluster_gene in susceptible_genes:
             combined_files.append(OUT_DIR / "protein_alignments_all" / antibiotic / f"{cluster_gene}.aln")
-    
-    return combined_files
 
-# rule combine_all_alignments:
-#     input: get_all_alignments
+    return combined_files
 
 
 # -----------------------
@@ -383,6 +380,7 @@ rule cdhit_runner:
     output: 
         faa = OUT_DIR / "cd-hit" / "cdhit_output.faa",
         clstr = OUT_DIR / "cd-hit" / "cdhit_output.faa.clstr",
+    log: TEMP_DIR / "logs" / "cdhit_runner.log"
     benchmark: TEMP_DIR / "benchmarks" / "cdhit.tsv"
     params:
         seq_identity_threshold = 0.95,
@@ -391,7 +389,7 @@ rule cdhit_runner:
         aln_cov_control_longer_seq = 99_999_999, # alignment coverage control for the longer sequence
         aln_cov_shorter_seq = 0.0, # alignment coverage for the shorter sequence
         aln_cov_control_shorter_seq = 99_999_999, # alignment coverage control for the shorter sequence
-        unlimited_memory = 0, # memory limit (in MB) for the program; 0 for unlimitted;
+        unlimited_memory = 0, # memory limit (in MB) for the program; 0 for unlimited;
     threads: workflow.cores
     conda: "envs/cd-hit.yaml"
     shell:
@@ -408,7 +406,7 @@ rule cdhit_runner:
             -aS {params.aln_cov_shorter_seq} \
             -AS {params.aln_cov_control_shorter_seq} \
             -d 0 \
-            > /dev/null
+            > {log} 2>&1
         """
 
 
@@ -530,6 +528,5 @@ rule create_binary_tables:
         rules.merge_binary_tables.output,
         rules.phenotype_dataframe_creator.output,
         rules.annotation_file_from_snippy.output,
-        get_all_alignments,
     default_target: True
 
