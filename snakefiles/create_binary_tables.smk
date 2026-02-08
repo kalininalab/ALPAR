@@ -383,7 +383,7 @@ rule cdhit_runner:
     log: TEMP_DIR / "logs" / "cdhit_runner.log"
     benchmark: TEMP_DIR / "benchmarks" / "cdhit.tsv"
     params:
-        seq_identity_threshold = 0.95,
+        seq_identity_threshold = 0.7,
         length_difference_cutoff = 0.0, # (%)
         aln_cov_longer_seq = 0.0, # alingment coverage for the longer sequence
         aln_cov_control_longer_seq = 99_999_999, # alignment coverage control for the longer sequence
@@ -420,6 +420,19 @@ rule binary_gpa_cdhit:
     script:
         "scripts/binary_gpa_cdhit.py"
 
+
+checkpoint split_cluster_fasta:
+    input:
+        cdhit_clstr = rules.cdhit_runner.output.clstr,
+        combined_proteins = rules.combine_faa_files.output[0],
+    output: directory(OUT_DIR / "cluster_sequences"),
+    benchmark: TEMP_DIR / "benchmarks" / "split_cluster_fasta.py.tsv"
+    params:
+        resistance_status_mapping = RESISTANCE_STATUS_MAPPING
+    conda: "envs/python312.yaml"
+    threads: 8
+    script:
+        "scripts/split_cluster_fasta.py"
 
 # -----------------------
 # Binary Gene Presence Absence
