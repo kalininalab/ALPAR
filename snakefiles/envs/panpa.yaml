@@ -1,0 +1,14 @@
+name: panpa
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.8
+  - cython=0.29.21
+  - setuptools=75.1.0
+  - gxx_linux-64
+  - gcc_linux-64
+  - libxcrypt
+  - pip
+  - pip:
+      - git+https://github.com/fawaz-dabbaghieh/PanPA.git

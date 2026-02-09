@@ -158,7 +158,6 @@ rule prokka_runner:
     resources:
         mem_mb = 600
     conda: "envs/prokka.yaml"
-    group: "prokka_and_snippy_runner"
     shell:
         r"""
         input_file=$(readlink -f {input.sample})
@@ -421,6 +420,10 @@ rule binary_gpa_cdhit:
         "scripts/binary_gpa_cdhit.py"
 
 
+# ------------------------
+# Split Clusters
+# ------------------------
+
 checkpoint split_cluster_fasta:
     input:
         cdhit_clstr = rules.cdhit_runner.output.clstr,
@@ -433,6 +436,117 @@ checkpoint split_cluster_fasta:
     threads: 8
     script:
         "scripts/split_cluster_fasta.py"
+
+# -----------------------
+# Multiple Sequence Alignment: MAFFT
+# -----------------------
+
+CLUSTER_BATCH_SIZE = 100
+
+def get_cluster_files() -> list[Path]:
+    cluster_checkpoint = checkpoints.split_cluster_fasta.get()
+    cluster_folder = Path(cluster_checkpoint.output[0])
+    cluster_files = [
+        f
+        for f in cluster_folder.iterdir()
+        if f.name != ".snakemake_timestamp"
+    ]
+    return sorted(cluster_files)
+
+def batched_clusters(wildcards) -> list[Path]:
+    cluster_files = get_cluster_files()
+    batch_num = int(wildcards.batch_num)
+    start = batch_num * CLUSTER_BATCH_SIZE
+    end = min(start + CLUSTER_BATCH_SIZE, len(cluster_files))
+    return cluster_files[start:end]
+
+rule batch_align_clusters:
+    input: batched_clusters
+    output: directory(TEMP_DIR / "batch_align_clusters" / "batch_{batch_num}")
+    log: TEMP_DIR / "logs" / "batch_align_clusters" / "batch_{batch_num}.log"
+    benchmark: TEMP_DIR / "benchmarks" / "batch_align_clusters_batch_{batch_num}.tsv"
+    conda: "envs/mafft.yaml"
+    threads: 1
+    shell:
+        r"""
+        mkdir -p {output}
+
+        for i in {input}; do
+            OUT_FILE="{output}/$(basename ${{i%.faa}}).fasta"
+            FASTA_COUNT=$(grep -c "^>" $i)
+
+            if [ $FASTA_COUNT -eq 1 ]; then
+                echo ">>$i with $FASTA_COUNT sequence, skipping alignment" >> {log}
+                ln -sr $i $OUT_FILE
+            else
+                echo ">>$i with $FASTA_COUNT sequences" >> {log}
+                mafft --auto --thread {threads} $i > $OUT_FILE 2>> {log}
+            fi
+        done
+        """
+
+rule gather_align_clusters:
+    input:
+        lambda wc: expand(
+            rules.batch_align_clusters.output,
+            batch_num = range((len(get_cluster_files()) - 1) // CLUSTER_BATCH_SIZE + 1)
+        )
+    output: directory(OUT_DIR / "cluster_alignments")
+    shell:
+        r"""
+        mkdir -p {output}
+        for batch_dir in {input}; do
+            for aln_file in $batch_dir/*.fasta; do
+                ln -sr $aln_file {output}/$(basename $aln_file)
+            done
+        done
+        """
+
+
+# -----------------------
+# Panproteome Graph: PanPA
+# -----------------------
+
+rule panpa_build_index:
+    input: rules.gather_align_clusters.output
+    output: OUT_DIR / "panpa" / "index.pickle"
+    log: TEMP_DIR / "logs" / "panpa_build_index.log"
+    benchmark: TEMP_DIR / "benchmarks" / "panpa_build_index.tsv"
+    params:
+        kmer_size = 10,
+        window_size = 15,
+        seed_limit = 0,
+    group: "mafft_alignment"
+    conda: "envs/panpa.yaml"
+    threads: 1
+    shell:
+        r"""
+        PanPA build_index \
+            --in_dir {input} \
+            --out_index {output} \
+            --seeding_alg wk_min \
+            --kmer_size {params.kmer_size} \
+            --window {params.window_size} \
+            --seed_limit {params.seed_limit} \
+            >> {log} 2>&1
+        """
+
+rule panpa_build_gfa:
+    input: rules.gather_align_clusters.output
+    output: directory(OUT_DIR / "panpa" / "gfa")
+    log: TEMP_DIR / "logs" / "panpa_build_gfa.log"
+    benchmark: TEMP_DIR / "benchmarks" / "panpa_build_gfa.tsv"
+    conda: "envs/panpa.yaml"
+    threads: workflow.cores
+    shell:
+        r"""
+        PanPA build_gfa \
+            --in_dir {input} \
+            --out_dir {output} \
+            --cores {threads} \
+            >> {log} 2>&1
+        """
+
 
 # -----------------------
 # Binary Gene Presence Absence
@@ -473,7 +587,6 @@ rule snippy_runner:
     threads: 1
     resources:
         mem_gb = 1
-    group: "prokka_and_snippy_runner"
     shell:
         r"""
         snippy \
