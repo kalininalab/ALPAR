@@ -8,6 +8,8 @@ configfile: workflow_dir / "snakefiles" / "config" / "config.yaml"
 # Global Variables
 # -----------------------
 
+MAX_PYTHON_THREADS = min(workflow.cores, 32)
+
 GENUS = config.get("genus")
 RESISTANCE_STATUS_MAPPING = {
     'Resistant': 1,
@@ -233,7 +235,7 @@ checkpoint panaroo_cluster:
     params:
         resistance_status_mapping = RESISTANCE_STATUS_MAPPING
     conda: "envs/python312.yaml"
-    threads: 8
+    threads: MAX_PYTHON_THREADS
     script:
         "scripts/panaroo_cluster.py"
 
@@ -369,7 +371,7 @@ rule cdhit_protein_positions:
     output: OUT_DIR / "cd-hit" / "protein_positions.csv",
     benchmark: TEMP_DIR / "benchmarks" / "cdhit_protein_positions.py.tsv"
     conda: "envs/python312.yaml"
-    threads: workflow.cores
+    threads: MAX_PYTHON_THREADS
     script:
         "scripts/cdhit_protein_positions.py"
 
@@ -609,7 +611,7 @@ rule binary_mutation_table:
     output: OUT_DIR / "binary_mutation_table.tsv"
     benchmark: TEMP_DIR / "benchmarks" / "binary_mutation_table.py.tsv"
     conda: "envs/python312.yaml"
-    threads: workflow.cores
+    threads: MAX_PYTHON_THREADS
     script:
         "scripts/binary_mutation_table.py"
 
@@ -627,7 +629,7 @@ rule annotation_file_from_snippy:
     output: OUT_DIR / "mutations_annotations.tsv"
     benchmark: TEMP_DIR / "benchmarks" / "annotation_file_from_snippy.py.tsv"
     conda: "envs/python312.yaml"
-    threads: workflow.cores
+    threads: MAX_PYTHON_THREADS
     script:
         "scripts/annotation_file_from_snippy.py"
 
@@ -637,21 +639,21 @@ rule annotation_file_from_snippy:
 # -----------------------
 
 
-rule merge_binary_tables:
+rule merge_binary_features:
     input:
         rules.binary_mutation_table.output,
         rules.binary_gpa.output,
     output: OUT_DIR / "merged_binary_table.tsv"
-    benchmark: TEMP_DIR / "benchmarks" / "merge_binary_tables.py.tsv"
-    conda: "envs/python312.yaml"
     threads: 1
-    script:
-        "scripts/merge_binary_tables.py"
+    shell:
+        r"""
+        cat {input} > {output}
+        """
 
 
 rule create_binary_tables:
     input:
-        rules.merge_binary_tables.output,
+        rules.merge_binary_features.output,
         rules.phenotype_dataframe_creator.output,
         rules.annotation_file_from_snippy.output,
     default_target: True

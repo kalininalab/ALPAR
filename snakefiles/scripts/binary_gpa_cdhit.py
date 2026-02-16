@@ -1,8 +1,9 @@
 
+import csv
+import itertools
+import re
 from contextlib import suppress
-from typing import Generator
 
-import polars as pl
 from pydantic import BaseModel, Field, FilePath, NewPath
 with suppress(ImportError):
     from snakemake.script import snakemake
@@ -28,73 +29,47 @@ class SnakemakeHandler(BaseModel):
         description='Path to where the output file will be saved.'
     )
 
-    def binary_gpa_cdhit(self) -> None:
-        """Create Protein Presence/Absence information as a binary table."""
 
-        df_clusters_cdhit = pl.LazyFrame(
-            self.zip_header_and_content(self.clstr_file),
-            schema=(('cluster', pl.String), ('protein_raw', pl.String)),
-            orient='row',
-        )
+def binary_gpa_cdhit(handler: SnakemakeHandler) -> None:
+    """Create Protein Presence/Absence information as a binary table.
+    
+    Format of the output:
+    strain1\treference_protein1
+    strain2\treference_protein1
+    ...
+    """
+    pattern = re.compile(r'^\d+\t+\d+aa, >(?P<protein>(?P<strain>[a-f0-9]+)\w+)\.{3} (?:at \d+\.\d+%|(?P<is_ref>\*))$')
 
-        # Extract the protein name and similarity from the raw data.
-        protein_raw_regex = r'^\d+\t+\d+aa, >(?P<protein>\w+)\.{3} (?:\*|at (?P<similarity>\d+\.\d+)%)$'
-        df_regex = (
-            df_clusters_cdhit.with_columns(
-                captures=(
-                    pl.col('protein_raw').str.extract_groups(protein_raw_regex)
-                ),
-            )
-            .unnest('captures')
-            .with_columns(
-                pl.col('protein').cast(pl.String),
-                pl.col('similarity').cast(pl.Float64),
-                value=pl.lit(1, pl.UInt8), # This will help us with the binary pivot table.
-                Strain=pl.col('protein').str.extract(r'^(?P<Strain>[a-zA-Z0-9]+)', 1)
-            )
-        )
+    with (
+        open(handler.clstr_file, 'r', encoding='utf-8') as infile,
+        open(handler.output_file, 'w', encoding='utf-8', newline='') as outfile
+    ):
+        csv_writer = csv.writer(outfile, delimiter='\t')
 
-        # Whenever the similarity is null, that is the cluster reference.
-        # We will propagate the protein name to all rows within the same cluster.
-        df_fill = df_regex.with_columns(
-            protein_ref = (
-                pl.col('protein')
-                .filter(pl.col('similarity').is_null())
-                .first()
-                .over(pl.col('cluster'))
-            )
-        )
+        clstr_strains = set[str]()
+        clstr_ref_prot = ''
 
-        # First column is the cluster reference protein, columns are the strains.
-        # We have to resolve the LazyFrame because we do not know in advance the protein names.
-        df_pivot = (
-            df_fill
-            .collect()
-            .pivot(
-                on='protein_fill',
-                index='Strain',
-                values='value',
-                aggregate_function='first',
-            )
-            .fill_null(0)
-        )
+        for line in iter(infile):
+            line = line.strip()
+            if not line:
+                continue
 
-        with open(self.output_file, 'w', encoding='utf-8') as f:
-            df_pivot.write_csv(f, include_header=True, separator='\t')
+            if line.startswith('>'):
+                if clstr_strains and clstr_ref_prot:
+                    csv_writer.writerows(zip(clstr_strains, itertools.repeat(clstr_ref_prot)))
+                    clstr_strains = set()
+                    clstr_ref_prot = ''
 
-    @staticmethod
-    def zip_header_and_content(file: FilePath) -> Generator[tuple[str, str]]:
-        """Given a fasta file, yield tuples of (header, content) for each sequence."""
-        header = ''
-        with open(file, 'r', encoding='utf-8') as f:
-            for line in iter(f):
-                line = line.strip()
+            else:
+                match = pattern.match(line)
 
-                if line.startswith('>'):
-                    header = line
-                    continue
+                clstr_strains.add(match.group('strain'))
+                if match.group('is_ref'):
+                    clstr_ref_prot = match.group('protein')
 
-                yield header, line
+        else:
+            if clstr_strains and clstr_ref_prot:
+                csv_writer.writerows(zip(clstr_strains, itertools.repeat(clstr_ref_prot)))
 
 
 if __name__ == '__main__':
@@ -102,4 +77,4 @@ if __name__ == '__main__':
         clstr_file=snakemake.input[0],
         output_file=snakemake.output[0],
     )
-    smk_val.binary_gpa_cdhit()
+    binary_gpa_cdhit(smk_val)

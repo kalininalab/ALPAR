@@ -18,30 +18,24 @@ class SnakemakeHandler(BaseModel):
     )
 
 
-    def binary_gpa_panaroo(self) -> None:
-        """Add Gene Presence/Absence information to the binary mutation table."""
+def binary_gpa_panaroo(handler: SnakemakeHandler) -> None:
+    """Add Gene Presence/Absence information to the binary mutation table."""
 
-        df_gpa_panaroo = pl.read_csv(
-            self.panaroo_gpa,
-            has_header=True,
-            separator=',',
-        ).drop('Non-unique Gene name', 'Annotation')
+    df_gpa_panaroo = pl.scan_csv(handler.panaroo_gpa)
 
-        df_gpa_transposed = df_gpa_panaroo.unpivot(
+    df_gpa_unpivot = (
+        df_gpa_panaroo
+        .drop('Non-unique Gene name', 'Annotation')
+        .unpivot(
             index='Gene',
             variable_name='Strain'
-        ).pivot(
-            on='Gene',
-            index='Strain'
         )
+        .drop_nulls('value')
+        .select('Strain', 'Gene')
+    )
 
-        binary_gpa = df_gpa_transposed.select(
-            pl.col('Strain'),
-            pl.exclude('Strain').is_not_null().cast(pl.UInt8)
-        )
-
-        with open(self.output_file, 'w', encoding='utf-8') as f:
-            binary_gpa.write_csv(f, include_header=True, separator='\t')
+    with open(handler.output_file, 'w', encoding='utf-8') as f:
+        df_gpa_unpivot.collect().write_csv(f, include_header=False, separator='\t')
 
 
 if __name__ == '__main__':
@@ -49,4 +43,4 @@ if __name__ == '__main__':
         panaroo_gpa=snakemake.input[0],
         output_file=snakemake.output[0],
     )
-    smk_val.binary_gpa_panaroo()
+    binary_gpa_panaroo(smk_val)
