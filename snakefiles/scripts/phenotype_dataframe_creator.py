@@ -26,43 +26,55 @@ class SnakemakeHandler(BaseModel):
     )
 
 
-    def phenotype_dataframe_creator(self) -> None:
-        """Add Gene Presence/Absence information to the binary mutation table."""
-        files_df = pl.read_csv(
-            self.all_files_tsv,
-            has_header=True,
-            columns=('checksum', 'filepath'),
-            separator='\t',
-        )
+def phenotype_dataframe_creator(handler: SnakemakeHandler) -> None:
+    """Creates a binary table of checksum\tantibiotic(s) from a file containing checksum\tfilepath."""
 
-        df_path_split = files_df.with_columns(
+    files_df = pl.scan_csv(
+        handler.all_files_tsv,
+        schema={'checksum': pl.String, 'filepath': pl.String},
+        separator='\t',
+    )
+
+    df_path_split = (
+        files_df
+        .with_columns(
             pl.col('filepath') # 'path/to/antibiotic/resistance_status/strain.fna'
             .str.split(os.sep) # ['path', 'to', 'antibiotic', 'resistance_status', 'strain.fna']
             .list.slice(-3, 2) # ['antibiotic', 'resistance_status']
             .list.to_struct(fields=('antibiotic', 'resistance_status')) # {'antibiotic': ..., 'resistance_status': ...}
-        ).unnest('filepath') # explode
+        )
+        .unnest('filepath') # explode
+    )
 
-        df_path_split_binary = df_path_split.with_columns(
+    df_path_split_binary = (
+        df_path_split
+        .with_columns(
             pl.col('resistance_status')
             .replace_strict(
-                self.resistance_status_mapping,
+                handler.resistance_status_mapping,
                 default=None,
                 return_dtype=pl.UInt8
             )
         )
+    )
 
-        df_resistance_binary = df_path_split_binary.pivot(
+    df_resistance_binary = (
+        df_path_split_binary
+        .collect()
+        .pivot(
             on='antibiotic',
             index='checksum',
             values='resistance_status',
         )
+        .fill_null(0)
+    )
 
-        with open(self.output_file, 'w', encoding='utf-8') as f:
-            df_resistance_binary.write_csv(
-                f,
-                include_header=True,
-                separator='\t',
-            )
+    with open(handler.output_file, 'w', encoding='utf-8') as f:
+        df_resistance_binary.write_csv(
+            f,
+            separator='\t',
+            null_value=0,
+        )
 
 
 if __name__ == '__main__':
@@ -71,4 +83,4 @@ if __name__ == '__main__':
         output_file=snakemake.output[0],
         resistance_status_mapping=snakemake.params['resistance_status_mapping'],
     )
-    smk_val.phenotype_dataframe_creator()
+    phenotype_dataframe_creator(smk_val)
