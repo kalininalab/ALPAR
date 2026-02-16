@@ -66,15 +66,10 @@ def phenotype_dataframe_creator(handler: SnakemakeHandler) -> None:
             index='checksum',
             values='resistance_status',
         )
-        .fill_null(0)
     )
 
     with open(handler.output_file, 'w', encoding='utf-8') as f:
-        df_resistance_binary.write_csv(
-            f,
-            separator='\t',
-            null_value=0,
-        )
+        df_resistance_binary.write_csv(f, separator='\t')
 
 
 if __name__ == '__main__':

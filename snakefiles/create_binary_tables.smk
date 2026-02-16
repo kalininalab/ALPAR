@@ -67,6 +67,7 @@ def get_sample_names() -> list[str]:
 # Phenotype
 # -----------------------
 
+# TODO: Should strains not present in an antibiotic, be assumed susceptible?
 rule phenotype_dataframe_creator:
     input: rules.rename_files.output.mapping
     output: OUT_DIR / "phenotype_table.tsv"
