@@ -11,62 +11,53 @@ warnings.filterwarnings("ignore")
 csv.field_size_limit(sys.maxsize)
 
 def binary_table_threshold_with_percentage(binary_table, output_folder, threshold_percentage):
-
+    # 1. First Pass: Count '1's for each column
+    col_counts = []
+    num_strains = 0
+    
     with open(binary_table, 'r') as f:
         reader = csv.reader(f, delimiter='\t')
         headers = next(reader)
-        header_indices = {name: index for index, name in enumerate(headers[1:], start=1)}
-        binary_table_dict = {}
-        for row in reader:
-            strain = row[0]
-            mutations = row[1:]
-            binary_table_dict[strain] = {mutation_name: mutations[header_indices[mutation_name]-1] for mutation_name in headers[1:]}
-            
-    print(f"Number of mutations in the table: {len(headers[1:])}")
-
-    cols_to_be_dropped = []
-
-    amount_of_strains = len(binary_table_dict)
-
-    threshold_value = (threshold_percentage / 100) * amount_of_strains
-
-    threshold_value = int(threshold_value)
-
-    if threshold_value < 1:
-        threshold_value = 1
-
-    print(f"Threshold value: {threshold_value}")
-
-    cols_to_be_dropped = []
-
-    for col in headers[1:]:
-        count_ones = sum(binary_table_dict[strain][col] == '1' for strain in binary_table_dict)
-        if count_ones <= threshold_value:
-            cols_to_be_dropped.append(col)
-
-    print(f"Number of mutations to be dropped: {len(cols_to_be_dropped)}")
-
-    cols_to_be_dropped_set = set(cols_to_be_dropped)
-
-    for col in cols_to_be_dropped:
-        for strain in binary_table_dict.keys():
-            del binary_table_dict[strain][col]
-
-    headers = [header for header in headers if header not in cols_to_be_dropped_set]
-
-    print(f"Number of mutations in the table after dropping: {len(headers) - 1}")
-
-    if "with_gene_presence_absence" in binary_table:
-        output_file = os.path.join(output_folder, f"binary_mutation_table_with_gene_presence_absence_threshold_{threshold_percentage}_percent.tsv")
-    else:
-        output_file = os.path.join(output_folder, f"binary_mutation_table_threshold_{threshold_percentage}_percent.tsv")
-
-    with open(f"{output_file}", 'w') as file:
-        headers = ['Strain'] + list(next(iter(binary_table_dict.values())).keys())
-        file.write('\t'.join(headers) + '\n')
+        mutation_names = headers[1:]
+        # Initialize counts with zeros for each mutation
+        col_counts = [0] * len(mutation_names)
         
-        for strain, mutations in binary_table_dict.items():
-            row = [strain] + [mutations[mutation] for mutation in headers[1:]]
-            file.write('\t'.join(row) + '\n')
+        for row in reader:
+            num_strains += 1
+            # Using enumerate is faster than dictionary lookups here
+            for i, val in enumerate(row[1:]):
+                if val == '1' or val == '1.0':
+                    col_counts[i] += 1
+
+    # 2. Calculate Threshold
+    threshold_value = max(1, int((threshold_percentage / 100) * num_strains))
+    
+    # Identify indices of columns to KEEP
+    keep_indices = [i for i, count in enumerate(col_counts) if count > threshold_value]
+    
+    print(f"Total strains: {num_strains}")
+    print(f"Threshold: {threshold_value}")
+    print(f"Mutations dropped: {len(mutation_names) - len(keep_indices)}")
+
+    # 3. Second Pass: Filter and Write
+    file_suffix = "with_gene_presence_absence" if "with_gene_presence_absence" in binary_table else ""
+    output_filename = f"binary_mutation_table_{file_suffix}_threshold_{threshold_percentage}_percent.tsv"
+    output_file = os.path.join(output_folder, output_filename.replace("__", "_"))
+
+    with open(binary_table, 'r') as infile, open(output_file, 'w') as outfile:
+        reader = csv.reader(infile, delimiter='\t')
+        writer = csv.writer(outfile, delimiter='\t')
+        
+        # Write filtered headers
+        original_headers = next(reader)
+        # Strain column + only the mutations that passed the threshold
+        new_headers = [original_headers[0]] + [mutation_names[i] for i in keep_indices]
+        writer.writerow(new_headers)
+        
+        # Write filtered rows
+        for row in reader:
+            # Construct new row by grabbing only the kept indices (+1 to offset Strain)
+            new_row = [row[0]] + [row[i+1] for i in keep_indices]
+            writer.writerow(new_row)
 
     return output_file

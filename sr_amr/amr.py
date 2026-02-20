@@ -823,7 +823,7 @@ def binary_table_pipeline(args):
         print("Creating binary mutation table...")
         # Create the binary table
         binary_table_creator(snippy_output, os.path.join(
-            args.output, "binary_mutation_table.tsv"), args.threads, strains_to_be_processed)
+            args.output, "binary_mutation_table.tsv"), args.threads, strains_to_be_processed, args.temp)
 
         print("Creating annotation table...")
 
@@ -2088,7 +2088,7 @@ def prediction_pipeline(args):
         print("Creating binary mutation table...")
         # Create the binary table
         binary_table_creator(snippy_output, os.path.join(
-            args.output, "binary_mutation_table.tsv"), args.threads, strains_to_be_processed)
+            args.output, "binary_mutation_table.tsv"), args.threads, strains_to_be_processed, args.temp)
 
         print("Creating annotation table...")
 
