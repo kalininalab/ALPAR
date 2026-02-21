@@ -440,6 +440,7 @@ checkpoint split_cluster_fasta:
     script:
         "scripts/split_cluster_fasta.py"
 
+
 # -----------------------
 # Multiple Sequence Alignment: MAFFT
 # -----------------------
@@ -507,6 +508,25 @@ rule gather_align_clusters:
 
 
 # -----------------------
+# Cluster True Variants: MAFFT
+# -----------------------
+
+rule split_cluster_by_phenotype:
+    input:
+        clstr_sequences = lambda wc: get_cluster_files(),
+        phenotypes = rules.phenotype_dataframe_creator.output[0],
+    output: directory(OUT_DIR / "clusters_by_phenotype")
+    log: TEMP_DIR / "logs" / "split_cluster_by_phenotype.log"
+    benchmark: TEMP_DIR / "benchmarks" / "split_cluster_by_phenotype.py.tsv"
+    params:
+        resistance_status_mapping = RESISTANCE_STATUS_MAPPING
+    conda: "envs/python312.yaml"
+    threads: MAX_PYTHON_THREADS
+    script:
+        "scripts/split_cluster_by_phenotype.py"
+
+
+# -----------------------
 # Panproteome Graph: PanPA
 # -----------------------
 
@@ -519,7 +539,6 @@ rule panpa_build_index:
         kmer_size = 10,
         window_size = 15,
         seed_limit = 0,
-    group: "mafft_alignment"
     conda: "envs/panpa.yaml"
     threads: 1
     shell:
