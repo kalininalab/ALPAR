@@ -403,7 +403,7 @@ rule gather_align_clusters:
 # Cluster True Variants: MAFFT
 # -----------------------
 
-rule split_cluster_by_phenotype:
+checkpoint split_cluster_by_phenotype:
     input:
         clstr_sequences = lambda wc: get_cluster_files(),
         phenotypes = rules.phenotype_dataframe_creator.output[0],
@@ -417,6 +417,71 @@ rule split_cluster_by_phenotype:
     script:
         "scripts/split_cluster_by_phenotype.py"
 
+def input_align_clusters_by_phenotype_and_map_variants(resistance_status: str, wildcards) -> Path:
+    cluster_checkpoint = checkpoints.split_cluster_by_phenotype.get()
+    cluster_folder = Path(cluster_checkpoint.output[0])
+    return cluster_folder / wildcards.antibiotic / resistance_status
+
+rule align_clusters_by_phenotype_and_map_variants:
+    input:
+        clstr_susceptible = lambda wc: input_align_clusters_by_phenotype_and_map_variants("Susceptible", wc),
+        clstr_resistant = lambda wc: input_align_clusters_by_phenotype_and_map_variants("Resistant", wc),
+    output: directory(OUT_DIR / "cluster_antibiotic_alignment" / "{antibiotic}")
+    log: TEMP_DIR / "logs" / "align_clusters_by_phenotype_and_map_variants" / "{antibiotic}.log"
+    benchmark: TEMP_DIR / "benchmarks" / "align_clusters_by_phenotype_and_map_variants_{antibiotic}.tsv"
+    conda: "envs/mafft.yaml"
+    threads: 1
+    shell:
+        r"""
+        # Create output directory if it doesn't exist
+        mkdir -p {output}
+        mkdir -p $(dirname {log})
+
+        for i in {input.clstr_susceptible}/*.faa; do
+            SUSCEPTIBLE_FILE=$i
+            CLSTR_NAME="$(basename ${{SUSCEPTIBLE_FILE%.faa}})"
+            RESISTANT_FILE="{input.clstr_resistant}/$CLSTR_NAME.faa"
+            BASE_ALN="{output}/${{CLSTR_NAME}}_only_susceptible.fasta"
+            ALL_ALN="{output}/${{CLSTR_NAME}}_all.fasta"
+
+            echo ">>Aligning Susceptibles: $CLSTR_NAME" >> {log}
+            mafft \
+                --auto \
+                --thread {threads} \
+                $SUSCEPTIBLE_FILE \
+                > $BASE_ALN \
+                2>> {log}
+
+            echo ">>Aligning Resistant: $CLSTR_NAME" >> {log}
+            mafft \
+                --auto \
+                --thread {threads} \
+                --add $RESISTANT_FILE \
+                --mapout \
+                --keeplength \
+                $BASE_ALN \
+                > $ALL_ALN \
+                2>> {log}
+            mv $RESISTANT_FILE.map $ALL_ALN.map
+        done
+        """
+
+def get_all_clustered_antibiotics() -> tuple[Path]:
+    cluster_checkpoint = checkpoints.split_cluster_by_phenotype.get()
+    cluster_folder = Path(cluster_checkpoint.output[0])
+    antibiotics = (
+        antibiotic_folder.name
+        for antibiotic_folder in cluster_folder.iterdir()
+        if antibiotic_folder.name != ".snakemake_timestamp"
+    )
+    return antibiotics
+
+rule gather_align_clusters_by_phenotype_and_map_variants:
+    input:
+        lambda wc: expand(
+            rules.align_clusters_by_phenotype_and_map_variants.output,
+            antibiotic = get_all_clustered_antibiotics()
+        )
 
 # -----------------------
 # Panproteome Graph: PanPA
