@@ -466,6 +466,56 @@ rule align_clusters_by_phenotype_and_map_variants:
         done
         """
 
+# -----------------------
+# Cluster Variants: PanPA
+# -----------------------
+
+def input_panpa_by_phenotype(wildcards) -> list[Path]:
+    clster_aln_folder = Path(
+        rules.align_clusters_by_phenotype_and_map_variants.output[0]
+        .format(antibiotic=wildcards.antibiotic)
+    )
+    return tuple(clster_aln_folder.glob("*_only_susceptible.fasta"))
+
+rule panpa_build_index_by_phenotype:
+    input: input_panpa_by_phenotype
+    output: OUT_DIR / "cluster_panpa" / "{antibiotic}" / "index.pickle"
+    log: TEMP_DIR / "logs" / "cluster_panpa_build_index_by_phenotype_{antibiotic}.log"
+    benchmark: TEMP_DIR / "benchmarks" / "cluster_panpa_build_index_by_phenotype_{antibiotic}.tsv"
+    params:
+        kmer_size = 10,
+        window_size = 15,
+        seed_limit = 0,
+    conda: "envs/panpa.yaml"
+    threads: 1
+    shell:
+        r"""
+        PanPA build_index \
+            --fasta_files {input} \
+            --out_index {output} \
+            --seeding_alg wk_min \
+            --kmer_size {params.kmer_size} \
+            --window {params.window_size} \
+            --seed_limit {params.seed_limit} \
+            >> {log} 2>&1
+        """
+
+rule panpa_build_gfa_by_phenotype:
+    input: input_panpa_by_phenotype
+    output: directory(OUT_DIR / "cluster_panpa" / "{antibiotic}" / "gfa")
+    log: TEMP_DIR / "logs" / "cluster_panpa_build_gfa_{antibiotic}.log"
+    benchmark: TEMP_DIR / "benchmarks" / "cluster_panpa_build_gfa_{antibiotic}.tsv"
+    conda: "envs/panpa.yaml"
+    threads: workflow.cores
+    shell:
+        r"""
+        PanPA build_gfa \
+            --fasta_files {input} \
+            --out_dir {output} \
+            --cores {threads} \
+            >> {log} 2>&1
+        """
+
 def get_all_clustered_antibiotics() -> tuple[Path]:
     cluster_checkpoint = checkpoints.split_cluster_by_phenotype.get()
     cluster_folder = Path(cluster_checkpoint.output[0])
@@ -476,10 +526,14 @@ def get_all_clustered_antibiotics() -> tuple[Path]:
     )
     return antibiotics
 
-rule gather_align_clusters_by_phenotype_and_map_variants:
+rule gather_panpa_all_clusters:
     input:
         lambda wc: expand(
-            rules.align_clusters_by_phenotype_and_map_variants.output,
+            rules.panpa_build_index_by_phenotype.output,
+            antibiotic = get_all_clustered_antibiotics()
+        ),
+        lambda wc: expand(
+            rules.panpa_build_gfa_by_phenotype.output,
             antibiotic = get_all_clustered_antibiotics()
         )
 
