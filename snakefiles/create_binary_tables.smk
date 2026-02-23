@@ -417,15 +417,15 @@ checkpoint split_cluster_by_phenotype:
     script:
         "scripts/split_cluster_by_phenotype.py"
 
-def input_align_clusters_by_phenotype_and_map_variants(resistance_status: str, wildcards) -> Path:
+def get_cluster_by_phenotype(resistance_status: str, wildcards) -> Path:
     cluster_checkpoint = checkpoints.split_cluster_by_phenotype.get()
     cluster_folder = Path(cluster_checkpoint.output[0])
     return cluster_folder / wildcards.antibiotic / resistance_status
 
 rule align_clusters_by_phenotype_and_map_variants:
     input:
-        clstr_susceptible = lambda wc: input_align_clusters_by_phenotype_and_map_variants("Susceptible", wc),
-        clstr_resistant = lambda wc: input_align_clusters_by_phenotype_and_map_variants("Resistant", wc),
+        clstr_susceptible = lambda wc: get_cluster_by_phenotype("Susceptible", wc),
+        clstr_resistant = lambda wc: get_cluster_by_phenotype("Resistant", wc),
     output: directory(OUT_DIR / "cluster_antibiotic_alignment" / "{antibiotic}")
     log: TEMP_DIR / "logs" / "align_clusters_by_phenotype_and_map_variants" / "{antibiotic}.log"
     benchmark: TEMP_DIR / "benchmarks" / "align_clusters_by_phenotype_and_map_variants_{antibiotic}.tsv"
@@ -480,7 +480,7 @@ def input_panpa_by_phenotype(wildcards) -> list[Path]:
 rule panpa_build_index_by_phenotype:
     input: input_panpa_by_phenotype
     output: OUT_DIR / "cluster_panpa" / "{antibiotic}" / "index.pickle"
-    log: TEMP_DIR / "logs" / "cluster_panpa_build_index_by_phenotype_{antibiotic}.log"
+    log: TEMP_DIR / "logs" / "cluster_panpa_build_index_by_phenotype" / "{antibiotic}.log"
     benchmark: TEMP_DIR / "benchmarks" / "cluster_panpa_build_index_by_phenotype_{antibiotic}.tsv"
     params:
         kmer_size = 10,
@@ -490,30 +490,68 @@ rule panpa_build_index_by_phenotype:
     threads: 1
     shell:
         r"""
-        PanPA build_index \
+        PanPA \
+            --log_file {log} \
+            build_index \
             --fasta_files {input} \
             --out_index {output} \
             --seeding_alg wk_min \
             --kmer_size {params.kmer_size} \
             --window {params.window_size} \
-            --seed_limit {params.seed_limit} \
-            >> {log} 2>&1
+            --seed_limit {params.seed_limit}
         """
 
 rule panpa_build_gfa_by_phenotype:
     input: input_panpa_by_phenotype
     output: directory(OUT_DIR / "cluster_panpa" / "{antibiotic}" / "gfa")
-    log: TEMP_DIR / "logs" / "cluster_panpa_build_gfa_{antibiotic}.log"
+    log: TEMP_DIR / "logs" / "cluster_panpa_build_gfa" / "{antibiotic}.log"
     benchmark: TEMP_DIR / "benchmarks" / "cluster_panpa_build_gfa_{antibiotic}.tsv"
     conda: "envs/panpa.yaml"
     threads: workflow.cores
     shell:
         r"""
-        PanPA build_gfa \
+        PanPA \
+            --log_file {log} \
+            build_gfa \
             --fasta_files {input} \
             --out_dir {output} \
-            --cores {threads} \
-            >> {log} 2>&1
+            --cores {threads}
+        """
+
+rule panpa_align_cluster_single_target:
+    input:
+        clstr_resistant = lambda wc: get_cluster_by_phenotype("Resistant", wc),
+        gfa_folder = rules.panpa_build_gfa_by_phenotype.output[0],
+    output: directory(OUT_DIR / "cluster_panpa_alignments" / "{antibiotic}")
+    log: TEMP_DIR / "logs" / "panpa_align_cluster_single_target" / "{antibiotic}.log"
+    benchmark: TEMP_DIR / "benchmarks" / "panpa_align_cluster_single_target_{antibiotic}.log"
+    conda: "envs/panpa.yaml"
+    threads: workflow.cores
+    shell:
+        r"""
+        # Create output directory if it doesn't exist
+        mkdir -p {output}
+        mkdir -p $(dirname {log})
+
+        for i in {input.clstr_resistant}/*.faa; do
+            CLSTR_NAME="$(basename ${{i%.faa}})"
+            TEMP_RENAME_INPUT={output}/$CLSTR_NAME.fasta
+            TEMP_LOG={log}.temp
+
+            ln -sr $i $TEMP_RENAME_INPUT
+
+            PanPA \
+                --log_file $TEMP_LOG \
+                align_single \
+                --gfa_files "{input.gfa_folder}/${{CLSTR_NAME}}_only_susceptible.fasta.gfa" \
+                --seqs $TEMP_RENAME_INPUT \
+                --cores {threads} \
+                --out_gaf {output}/$CLSTR_NAME.gaf
+            
+            cat $TEMP_LOG >> {log}
+            rm $TEMP_LOG
+            rm $TEMP_RENAME_INPUT
+        done
         """
 
 def get_all_clustered_antibiotics() -> tuple[Path]:
@@ -535,7 +573,11 @@ rule gather_panpa_all_clusters:
         lambda wc: expand(
             rules.panpa_build_gfa_by_phenotype.output,
             antibiotic = get_all_clustered_antibiotics()
-        )
+        ),
+        lambda wc: expand(
+            rules.panpa_align_cluster_single_target.output,
+            antibiotic = get_all_clustered_antibiotics()
+        ),
 
 # -----------------------
 # Panproteome Graph: PanPA
