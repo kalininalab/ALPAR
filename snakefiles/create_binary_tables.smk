@@ -42,8 +42,9 @@ checkpoint rename_files:
         mkdir -p {output.store}
         echo -e "checksum\tfilepath" > {output.mapping}
         
-        find {input} -type f -name "*.fna" -print0 | while read -r -d '' file; do
-
+        find {input} -type f \( -name "*.fna" -o -name "*.fasta" -o -name "*.faa" \) -print0 | \
+        while read -r -d '' file; do
+        
             checksum=$(shasum "$file" -a 1 | cut -d ' ' -f 1)
             ln -sr "$file" "{output.store}/$checksum"
             echo -e "$checksum\t$file" >> {output.mapping}
