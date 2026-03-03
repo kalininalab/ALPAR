@@ -596,7 +596,6 @@ def process_single_strain(args):
     local_positions = {}
     strain_path = os.path.join(prokka_folder, given_random_name)
     
-    # Skip if directory doesn't exist
     if not os.path.isdir(strain_path):
         return {}
 
@@ -606,7 +605,6 @@ def process_single_strain(args):
             
         full_path = os.path.join(strain_path, file)
         
-        # Combined Copy + Correct: Skip the intermediate shutil.copyfile
         if file.endswith(".faa"):
             output_faa = os.path.join(temp_folder, f"{given_random_name}_corrected.faa")
             cdhit_protein_name_corrector(full_path, output_faa)
@@ -620,7 +618,6 @@ def process_single_strain(args):
     return local_positions
 
 def cdhit_preprocessor(random_names_txt, prokka_folder, temp_folder, strains_to_be_processed):
-    # 1. Map strains to their data
     tasks = []
     with open(random_names_txt, "r") as f:
         for line in f:
@@ -629,16 +626,12 @@ def cdhit_preprocessor(random_names_txt, prokka_folder, temp_folder, strains_to_
             if name in strains_to_be_processed:
                 tasks.append((name, prokka_folder, temp_folder))
 
-    # 2. Parallel execution
     protein_positions = {}
     with Pool() as pool:
         results = pool.map(process_single_strain, tasks)
-        # Merge dictionaries
         for res in results:
             protein_positions.update(res)
 
-    # 3. Batch Write
-    # Writing one big block is faster than multiple appends
     pos_file = os.path.join(temp_folder, "protein_positions.csv")
     with open(pos_file, "w") as f:
         f.writelines(f"{k},{v}\n" for k, v in protein_positions.items())
