@@ -1,4 +1,4 @@
-# snakemake --use-conda --jobs 8 --resources mem_gb=4 --benchmark-extended --rerun-triggers mtime
+import functools
 from pathlib import Path
 
 workflow_dir = Path(workflow.basedir)
@@ -9,6 +9,7 @@ configfile: workflow_dir / "snakefiles" / "config" / "config.yaml"
 # -----------------------
 
 MAX_PYTHON_THREADS = min(workflow.cores, 32)
+JOB_BATCH_SIZE = 100
 
 GENUS = config.get("genus")
 RESISTANCE_STATUS_MAPPING = {
@@ -52,7 +53,7 @@ checkpoint rename_files:
         done
         """
 
-
+@functools.lru_cache
 def get_sample_names() -> list[str]:
     rename_checkpoint = checkpoints.rename_files.get()
     rename_folder = Path(rename_checkpoint.output.store)
@@ -338,8 +339,7 @@ checkpoint split_cluster_fasta:
 # Multiple Sequence Alignment: MAFFT
 # -----------------------
 
-CLUSTER_BATCH_SIZE = 100
-
+@functools.lru_cache
 def get_cluster_files() -> list[Path]:
     cluster_checkpoint = checkpoints.split_cluster_fasta.get()
     cluster_folder = Path(cluster_checkpoint.output[0])
@@ -353,8 +353,8 @@ def get_cluster_files() -> list[Path]:
 def batched_clusters(wildcards) -> list[Path]:
     cluster_files = get_cluster_files()
     batch_num = int(wildcards.batch_num)
-    start = batch_num * CLUSTER_BATCH_SIZE
-    end = min(start + CLUSTER_BATCH_SIZE, len(cluster_files))
+    start = batch_num * JOB_BATCH_SIZE
+    end = min(start + JOB_BATCH_SIZE, len(cluster_files))
     return cluster_files[start:end]
 
 rule batch_align_clusters:
@@ -386,7 +386,7 @@ rule gather_align_clusters:
     input:
         lambda wc: expand(
             rules.batch_align_clusters.output,
-            batch_num = range((len(get_cluster_files()) - 1) // CLUSTER_BATCH_SIZE + 1)
+            batch_num = range((len(get_cluster_files()) - 1) // JOB_BATCH_SIZE + 1)
         )
     output: directory(OUT_DIR / "cluster_alignments")
     shell:
@@ -394,6 +394,7 @@ rule gather_align_clusters:
         mkdir -p {output}
         for batch_dir in {input}; do
             for aln_file in $batch_dir/*.fasta; do
+                [ -f "$aln_file" ] || continue
                 ln -sr $aln_file {output}/$(basename $aln_file)
             done
         done
@@ -408,7 +409,7 @@ checkpoint split_cluster_by_phenotype:
     input:
         clstr_sequences = lambda wc: get_cluster_files(),
         phenotypes = rules.phenotype_dataframe_creator.output[0],
-    output: directory(OUT_DIR / "clusters_by_phenotype")
+    output: directory(TEMP_DIR / "clusters_by_phenotype")
     log: TEMP_DIR / "logs" / "split_cluster_by_phenotype.log"
     benchmark: TEMP_DIR / "benchmarks" / "split_cluster_by_phenotype.py.tsv"
     params:
@@ -418,18 +419,48 @@ checkpoint split_cluster_by_phenotype:
     script:
         "scripts/split_cluster_by_phenotype.py"
 
-def get_cluster_by_phenotype(resistance_status: str, wildcards) -> Path:
+@functools.lru_cache
+def get_cluster_by_phenotype_files(antibiotic: str, resistance_status: str) -> list[Path]:
     cluster_checkpoint = checkpoints.split_cluster_by_phenotype.get()
-    cluster_folder = Path(cluster_checkpoint.output[0])
-    return cluster_folder / wildcards.antibiotic / resistance_status
+    folder = Path(cluster_checkpoint.output[0]) / antibiotic / resistance_status
+    return sorted(f for f in folder.glob("*.faa"))
+
+def input_batched_cluster_by_phenotype(wildcards) -> dict[str, list[Path]]:
+    antibiotic = wildcards.antibiotic
+    batch_num = int(wildcards.batch_num)
+    
+    batch_susceptible_files = get_cluster_by_phenotype_files(antibiotic, "Susceptible")
+    batch_resistant_files = get_cluster_by_phenotype_files(antibiotic, "Resistant")
+
+    non_overlapping_files = set(f.name for f in batch_susceptible_files) - set(f.name for f in batch_resistant_files)
+    assert len(non_overlapping_files) == 0, f"{batch_num=} has non-overlapping cluster files: {non_overlapping_files}"
+
+    start = batch_num * JOB_BATCH_SIZE
+    end = min(start + JOB_BATCH_SIZE, len(batch_susceptible_files))
+
+    return {
+        'clstr_susceptible': batch_susceptible_files[start:end],
+        'clstr_resistant': batch_resistant_files[start:end],
+    }
+
+def output_batched_cluster_by_phenotype(wildcards, input, suffix: str) -> list[Path]:
+    antibiotic = wildcards.antibiotic
+    batch_num = int(wildcards.batch_num)
+
+    clstr_out_dir = TEMP_DIR / "cluster_antibiotic_alignment" / antibiotic / f"batch_{batch_num}"
+    batch_clstr = (Path(f).stem for f in input.clstr_susceptible)
+
+    return [clstr_out_dir / f"{clstr_name}_{suffix}" for clstr_name in batch_clstr]
 
 rule align_clusters_by_phenotype_and_map_variants:
-    input:
-        clstr_susceptible = lambda wc: get_cluster_by_phenotype("Susceptible", wc),
-        clstr_resistant = lambda wc: get_cluster_by_phenotype("Resistant", wc),
-    output: directory(OUT_DIR / "cluster_antibiotic_alignment" / "{antibiotic}")
-    log: TEMP_DIR / "logs" / "align_clusters_by_phenotype_and_map_variants" / "{antibiotic}.log"
-    benchmark: TEMP_DIR / "benchmarks" / "align_clusters_by_phenotype_and_map_variants_{antibiotic}.tsv"
+    input: unpack(input_batched_cluster_by_phenotype)
+    output: directory(TEMP_DIR / "cluster_antibiotic_alignment" / "{antibiotic}" / "batch_{batch_num}")
+    log: TEMP_DIR / "logs" / "align_clusters_by_phenotype_and_map_variants" / "{antibiotic}" / "batch_{batch_num}.log"
+    benchmark: TEMP_DIR / "benchmarks" / "align_clusters_by_phenotype_and_map_variants_{antibiotic}_batch_{batch_num}.tsv"
+    params:
+        aln_susceptible = lambda wc, input: output_batched_cluster_by_phenotype(wc, input, "only_susceptible.fasta"),
+        aln_resistant = lambda wc, input: output_batched_cluster_by_phenotype(wc, input, "all.fasta"),
+        map_files = lambda wc, input: output_batched_cluster_by_phenotype(wc, input, "all.fasta.map"),
     conda: "envs/mafft.yaml"
     threads: 1
     shell:
@@ -438,12 +469,20 @@ rule align_clusters_by_phenotype_and_map_variants:
         mkdir -p {output}
         mkdir -p $(dirname {log})
 
-        for i in {input.clstr_susceptible}/*.faa; do
-            SUSCEPTIBLE_FILE=$i
+        susceptible_array=({input.clstr_susceptible})
+        resistant_array=({input.clstr_resistant})
+        base_aln_array=({params.aln_susceptible})
+        all_aln_array=({params.aln_resistant})
+        all_map_array=({params.map_files})
+
+        for i in "${{!susceptible_array[@]}}"; do
+            SUSCEPTIBLE_FILE="${{susceptible_array[$i]}}"
+            RESISTANT_FILE="${{resistant_array[$i]}}"
+            BASE_ALN="${{base_aln_array[$i]}}"
+            ALL_ALN="${{all_aln_array[$i]}}"
+            ALL_MAP="${{all_map_array[$i]}}"
+
             CLSTR_NAME="$(basename ${{SUSCEPTIBLE_FILE%.faa}})"
-            RESISTANT_FILE="{input.clstr_resistant}/$CLSTR_NAME.faa"
-            BASE_ALN="{output}/${{CLSTR_NAME}}_only_susceptible.fasta"
-            ALL_ALN="{output}/${{CLSTR_NAME}}_all.fasta"
 
             echo ">>Aligning Susceptibles: $CLSTR_NAME" >> {log}
             mafft \
@@ -463,23 +502,60 @@ rule align_clusters_by_phenotype_and_map_variants:
                 $BASE_ALN \
                 > $ALL_ALN \
                 2>> {log}
-            mv $RESISTANT_FILE.map $ALL_ALN.map
+            mv $RESISTANT_FILE.map $ALL_MAP
         done
         """
+
+rule gather_align_and_map_clusters_by_batch:
+    input:
+        lambda wc: expand(
+            rules.align_clusters_by_phenotype_and_map_variants.output,
+            antibiotic = wc.antibiotic,
+            batch_num = range((len(get_cluster_by_phenotype_files(wc.antibiotic, "Susceptible")) - 1) // JOB_BATCH_SIZE + 1)
+        )
+    output:
+        susceptible_alignments = directory(OUT_DIR / "susceptible_alignments" / "{antibiotic}"),
+        all_alignments = directory(OUT_DIR / "all_alignments" / "{antibiotic}"),
+        map_files = directory(OUT_DIR / "map_files" / "{antibiotic}"),
+    threads: 1
+    shell:
+        r"""
+        mkdir -p {output.susceptible_alignments} {output.all_alignments} {output.map_files}
+
+        for batch_dir in {input}; do
+            for file in "$batch_dir"/*; do
+                [ -f "$file" ] || continue
+                case "$file" in
+                    *_only_susceptible.fasta)
+                        ln -sr "$file" {output.susceptible_alignments}/$(basename "$file") ;;
+                    *_all.fasta)
+                        ln -sr "$file" {output.all_alignments}/$(basename "$file") ;;
+                    *.map)
+                        ln -sr "$file" {output.map_files}/$(basename "$file") ;;
+                esac
+            done
+        done
+        """
+
+
+def get_all_clustered_antibiotics() -> tuple[Path]:
+    cluster_checkpoint = checkpoints.split_cluster_by_phenotype.get()
+    cluster_folder = Path(cluster_checkpoint.output[0])
+    antibiotics = tuple(
+        antibiotic_folder.name
+        for antibiotic_folder in cluster_folder.iterdir()
+        if antibiotic_folder.name != ".snakemake_timestamp"
+    )
+    return antibiotics
+
 
 # -----------------------
 # Cluster Variants: PanPA
 # -----------------------
 
-def input_panpa_by_phenotype(wildcards) -> list[Path]:
-    clster_aln_folder = Path(
-        rules.align_clusters_by_phenotype_and_map_variants.output[0]
-        .format(antibiotic=wildcards.antibiotic)
-    )
-    return tuple(clster_aln_folder.glob("*_only_susceptible.fasta"))
 
 rule panpa_build_index_by_phenotype:
-    input: input_panpa_by_phenotype
+    input: rules.gather_align_and_map_clusters_by_batch.output.susceptible_alignments
     output: OUT_DIR / "cluster_panpa" / "{antibiotic}" / "index.pickle"
     log: TEMP_DIR / "logs" / "cluster_panpa_build_index_by_phenotype" / "{antibiotic}.log"
     benchmark: TEMP_DIR / "benchmarks" / "cluster_panpa_build_index_by_phenotype_{antibiotic}.tsv"
@@ -494,7 +570,7 @@ rule panpa_build_index_by_phenotype:
         PanPA \
             --log_file {log} \
             build_index \
-            --fasta_files {input} \
+            --in_dir {input} \
             --out_index {output} \
             --seeding_alg wk_min \
             --kmer_size {params.kmer_size} \
@@ -503,7 +579,7 @@ rule panpa_build_index_by_phenotype:
         """
 
 rule panpa_build_gfa_by_phenotype:
-    input: input_panpa_by_phenotype
+    input: rules.gather_align_and_map_clusters_by_batch.output.susceptible_alignments
     output: directory(OUT_DIR / "cluster_panpa" / "{antibiotic}" / "gfa")
     log: TEMP_DIR / "logs" / "cluster_panpa_build_gfa" / "{antibiotic}.log"
     benchmark: TEMP_DIR / "benchmarks" / "cluster_panpa_build_gfa_{antibiotic}.tsv"
@@ -514,16 +590,16 @@ rule panpa_build_gfa_by_phenotype:
         PanPA \
             --log_file {log} \
             build_gfa \
-            --fasta_files {input} \
+            --in_dir {input} \
             --out_dir {output} \
             --cores {threads}
         """
 
 rule panpa_align_cluster_single_target:
     input:
-        clstr_resistant = lambda wc: get_cluster_by_phenotype("Resistant", wc),
+        clstr_resistant = lambda wc: get_cluster_by_phenotype_files(wc.antibiotic, "Resistant"),
         gfa_folder = rules.panpa_build_gfa_by_phenotype.output[0],
-    output: directory(OUT_DIR / "cluster_panpa_alignments" / "{antibiotic}")
+    output: directory(TEMP_DIR / "cluster_panpa_alignments" / "{antibiotic}")
     log: TEMP_DIR / "logs" / "panpa_align_cluster_single_target" / "{antibiotic}.log"
     benchmark: TEMP_DIR / "benchmarks" / "panpa_align_cluster_single_target_{antibiotic}.log"
     conda: "envs/panpa.yaml"
@@ -534,7 +610,7 @@ rule panpa_align_cluster_single_target:
         mkdir -p {output}
         mkdir -p $(dirname {log})
 
-        for i in {input.clstr_resistant}/*.faa; do
+        for i in {input.clstr_resistant}; do
             CLSTR_NAME="$(basename ${{i%.faa}})"
             TEMP_RENAME_INPUT={output}/$CLSTR_NAME.fasta
             TEMP_LOG={log}.temp
@@ -554,16 +630,6 @@ rule panpa_align_cluster_single_target:
             rm $TEMP_RENAME_INPUT
         done
         """
-
-def get_all_clustered_antibiotics() -> tuple[Path]:
-    cluster_checkpoint = checkpoints.split_cluster_by_phenotype.get()
-    cluster_folder = Path(cluster_checkpoint.output[0])
-    antibiotics = (
-        antibiotic_folder.name
-        for antibiotic_folder in cluster_folder.iterdir()
-        if antibiotic_folder.name != ".snakemake_timestamp"
-    )
-    return antibiotics
 
 rule gather_panpa_all_clusters:
     input:
