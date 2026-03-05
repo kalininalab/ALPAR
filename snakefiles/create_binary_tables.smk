@@ -327,9 +327,10 @@ checkpoint split_cluster_fasta:
         cdhit_clstr = rules.cdhit_runner.output.clstr,
         combined_proteins = rules.combine_faa_files.output[0],
     output: directory(OUT_DIR / "cluster_sequences"),
+    log: TEMP_DIR / "logs" / "split_cluster_fasta.log"
     benchmark: TEMP_DIR / "benchmarks" / "split_cluster_fasta.py.tsv"
     params:
-        resistance_status_mapping = RESISTANCE_STATUS_MAPPING
+        file_ext = ".fasta"
     conda: "envs/python312.yaml"
     threads: 8
     script:
@@ -344,11 +345,8 @@ checkpoint split_cluster_fasta:
 def get_cluster_files(wildcards) -> list[Path]:
     cluster_checkpoint = checkpoints.split_cluster_fasta.get(**wildcards)
     cluster_folder = Path(cluster_checkpoint.output[0])
-    cluster_files = [
-        f
-        for f in cluster_folder.iterdir()
-        if f.name != ".snakemake_timestamp"
-    ]
+    file_ext = rules.split_cluster_fasta.params.file_ext
+    cluster_files = cluster_folder.glob(f"*{file_ext}")
     return sorted(cluster_files)
 
 def batched_clusters(wildcards) -> list[Path]:
@@ -359,7 +357,9 @@ def batched_clusters(wildcards) -> list[Path]:
     return cluster_files[start:end]
 
 rule batch_align_clusters:
-    input: batched_clusters
+    input:
+        cluster_store = rules.split_cluster_fasta.output,
+        batched_clusters = batched_clusters
     output: directory(TEMP_DIR / "batch_align_clusters" / "batch_{batch_num}")
     log: TEMP_DIR / "logs" / "batch_align_clusters" / "batch_{batch_num}.log"
     benchmark: TEMP_DIR / "benchmarks" / "batch_align_clusters_batch_{batch_num}.tsv"
@@ -369,8 +369,8 @@ rule batch_align_clusters:
         r"""
         mkdir -p {output}
 
-        for i in {input}; do
-            OUT_FILE="{output}/$(basename ${{i%.faa}}).fasta"
+        for i in {input.batched_clusters}; do
+            OUT_FILE="{output}/$(basename $i)"
             FASTA_COUNT=$(grep -c "^>" $i)
 
             if [ $FASTA_COUNT -eq 1 ]; then
@@ -408,7 +408,7 @@ rule gather_align_clusters:
 
 checkpoint split_cluster_by_phenotype:
     input:
-        clstr_sequences = lambda wc: get_cluster_files(wc),
+        clstr_sequences = get_cluster_files,
         phenotypes = rules.phenotype_dataframe_creator.output[0],
     output: directory(TEMP_DIR / "clusters_by_phenotype")
     log: TEMP_DIR / "logs" / "split_cluster_by_phenotype.log"
@@ -799,5 +799,6 @@ rule create_binary_tables:
         rules.cdhit_protein_positions.output,
         rules.panpa_build_index.output,
         rules.panpa_build_gfa.output,
+        rules.gather_panpa_all_clusters.output,
     default_target: True
 

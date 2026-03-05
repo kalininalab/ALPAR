@@ -1,55 +1,20 @@
-import itertools
-import operator
 import os
 
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
-from functools import reduce
-from pathlib import Path
-from typing import Mapping, Generator
+from typing import Annotated
 
 import polars as pl
-from pydantic import BaseModel, Field, FilePath, NewPath, PositiveInt
+from loguru import logger
+from pydantic import BaseModel, Field, FilePath, NewPath, PositiveInt, BeforeValidator
+
 with suppress(ImportError):
     from snakemake.script import snakemake
 
+from scripts._commons import write_to_file, zip_header_and_concat_content, force_new_file
 
-def reverse_mapping[K, V](mapping: Mapping[K, V]) -> Mapping[V, K]:
-    """Reverse a dictionary mapping."""
-    assert len(mapping) == len(set(mapping.values())), "Mapping values are not unique."
-    return {v: k for k, v in mapping.items()}
 
-def zip_header_and_content(file: Path) -> Generator[tuple[str, str], None, None]:
-    header = ''
-    with open(file, 'r', encoding='utf-8') as f:
-        for line in iter(f):
-            line = line.strip()
-            if line.startswith('>'):
-                header = line
-                continue
-            yield header, line
-
-def zip_header_and_concat_content(file: Path, sep: str = '') -> Generator[tuple[str, str], None, None]:
-    header = ''
-    content = []
-    with open(file, 'r', encoding='utf-8') as f:
-        for line in iter(f):
-            line = line.strip()
-            if line.startswith('>'):
-                if header:
-                    yield header, sep.join(content)
-                header = line
-                content = []
-            else:
-                content.append(line.strip())
-        else:
-            yield header, sep.join(content)
-
-def write_cluster_file(output_dir: Path, row: tuple[str, str]) -> None:
-    filename, fasta_content = row
-    output_file = output_dir / filename
-    output_file.parent.mkdir(parents=True, exist_ok=True)
-    output_file.write_text(fasta_content)
+PROTEIN_RAW_REGEX = r'^\d+\t+\d+aa, (?P<protein>>\w+)\.{3} (?:\*|at \d+\.\d+%)$'
 
 
 class CdhitHandler(BaseModel):
@@ -84,6 +49,9 @@ class CdhitHandler(BaseModel):
     output_dir: NewPath = Field(
         description="Path to folder where the output files will be saved."
     )
+    log_file: Annotated[NewPath, BeforeValidator(force_new_file)] = Field(
+        description="Path to file for dumping python logs."
+    )
     threads: PositiveInt = Field(
         default=1,
         description="Number of threads to use for parallel processing."
@@ -95,76 +63,88 @@ class CdhitHandler(BaseModel):
         },
         description="Mapping for resistance status to binary values."
     )
+    file_ext: str = Field(
+        default=".fasta",
+        description="File extension for the output fasta files."
+    )
 
-    def split_cluster_fasta(self) -> None:
-        """Aggregate with sequence and write fasta file per cluster."""
 
-        df_clusters_cdhit = pl.LazyFrame(
-            zip_header_and_content(self.cdhit_clstr),
-            schema=(('cluster_raw', pl.String), ('protein_raw', pl.String)),
-            orient='row',
+@logger.catch
+def split_cluster_fasta(handler: CdhitHandler) -> None:
+    """Aggregate with sequence and write fasta file per cluster."""
+
+    df_clusters_cdhit = pl.LazyFrame(
+        zip_header_and_concat_content(handler.cdhit_clstr, sep=None),
+        schema={'cluster_raw': pl.String, 'protein_raw': pl.String},
+        orient='row',
+    )
+
+    df_regex = (
+        df_clusters_cdhit
+        .with_columns(
+            protein_name=pl.col('protein_raw').str.extract(PROTEIN_RAW_REGEX),
         )
+    )
 
-        protein_raw_regex = r'^\d+\t+\d+aa, (?P<protein>>\w+)\.{3} (?:\*|at \d+\.\d+%)$'
-        df_regex = (
-            df_clusters_cdhit
-            .with_columns(
-                protein_name=pl.col('protein_raw').str.extract(protein_raw_regex),
-            )
+    df_fasta_cdhit = pl.LazyFrame(
+        zip_header_and_concat_content(handler.combined_proteins, sep='\n'),
+        schema={'protein_name': pl.String, 'protein_seq': pl.String},
+        orient='row',
+    )
+
+    df_join = (
+        df_regex
+        .join(
+            df_fasta_cdhit,
+            on='protein_name',
+            how='left',
+            validate='m:1',
         )
+    )
 
-        df_fasta_cdhit = pl.LazyFrame(
-            zip_header_and_concat_content(self.combined_proteins, sep='\n'),
-            schema=(('protein_name', pl.String), ('protein_seq', pl.String)),
-            orient='row',
-        )
-
-        df_join = (
-            df_regex
-            .join(
-                df_fasta_cdhit,
-                on='protein_name',
-                how='left',
-                validate='m:1',
-            )
-        )
-
-        df_to_write = (
-            df_join
-            .with_columns(
-                filename = (
+    df_to_write = (
+        df_join
+        .with_columns(
+            filename = pl.concat_str(
+                pl.lit(str(handler.output_dir)),
+                (
                     pl.col('cluster_raw')
                     .str.slice(1)
-                    .str.replace(' ', '_', literal=True) + '.faa'
+                    .str.replace(' ', '_', literal=True) + handler.file_ext
                 ),
-                fasta_content = pl.concat_str(
-                    (
-                        pl.col('protein_name'),
-                        pl.col('protein_seq'),
-                    ),
-                    separator='\n'
-                )
-            )
-            .group_by('filename')
-            .agg(
-                pl.col('fasta_content').str.join('\n'),
+                separator=os.sep
+            ),
+            fasta_content = pl.concat_str(
+                (
+                    pl.col('protein_name'),
+                    pl.col('protein_seq'),
+                ),
+                separator='\n'
             )
         )
+        .group_by('filename')
+        .agg(
+            pl.col('fasta_content').str.join('\n'),
+        )
+    )
 
-        with ThreadPoolExecutor(max_workers=self.threads) as executor:
-            executor.map(
-                write_cluster_file,
-                itertools.repeat(self.output_dir),
-                df_to_write.collect().iter_rows()
-            )
+    with ThreadPoolExecutor(max_workers=handler.threads) as executor:
+        futures = executor.map(
+            write_to_file,
+            df_to_write.collect().iter_rows()
+        )
+        tuple(futures) # Gather futures to get Exceptions
 
 
 if __name__ == '__main__':
-    smk_val = CdhitHandler(
+    handler = CdhitHandler(
         cdhit_clstr=snakemake.input['cdhit_clstr'],
         combined_proteins=snakemake.input['combined_proteins'],
         output_dir=snakemake.output[0],
+        log_file=snakemake.log[0],
         threads=snakemake.threads,
-        resistance_status_mapping=snakemake.params['resistance_status_mapping'],
+        file_ext=snakemake.params['file_ext'],
     )
-    smk_val.split_cluster_fasta()
+    logger.remove()
+    logger.add(handler.log_file, backtrace=True, diagnose=True, enqueue=True)
+    split_cluster_fasta(handler)

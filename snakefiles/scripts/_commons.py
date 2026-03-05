@@ -60,7 +60,7 @@ def reverse_mapping[K, V](mapping: Mapping[K, V]) -> Mapping[V, K]:
     return {v: k for k, v in mapping.items()}
 
 
-def zip_header_and_concat_content(file: Path, sep: str = '') -> Generator[tuple[str, str], None, None]:
+def zip_header_and_concat_content(file: Path, sep: str | None = '') -> Generator[tuple[str, str], None, None]:
     """Zip headers and concatenated content from a FASTA file.
     
     Parameters
@@ -69,7 +69,8 @@ def zip_header_and_concat_content(file: Path, sep: str = '') -> Generator[tuple[
         The Path object to the FASTA file.
     sep : str, optional
         The separator to use when concatenating content lines, by default ''.
-    
+        If the separator is None, content will be yielded at every line instead of being concatenated.
+
     Yields
     ------
     Generator[tuple[str, str], None, None]
@@ -81,14 +82,18 @@ def zip_header_and_concat_content(file: Path, sep: str = '') -> Generator[tuple[
         for line in iter(f):
             line = line.strip()
             if line.startswith('>'):
-                if header:
+                if header and (sep is not None):
                     yield header, sep.join(content)
                 header = line
                 content = []
             else:
-                content.append(line)
+                if sep is None:
+                    yield header, line
+                else:
+                    content.append(line)
         else:
-            yield header, sep.join(content)
+            if sep is not None:
+                yield header, sep.join(content)
 
 
 @overload
