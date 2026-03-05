@@ -210,7 +210,7 @@ if __name__ == "__main__":
     handler = SnakemakeHandler(
         clstr_files=snakemake.input['clstr_sequences'],
         phenotypes=snakemake.input['phenotypes'],
-        output_dir=snakemake.output[0],
+        output_dir=snakemake.output['store'],
         log_file=snakemake.log[0],
         resistance_status_mapping=snakemake.params['resistance_status_mapping'],
         threads=snakemake.threads,
