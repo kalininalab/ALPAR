@@ -89,7 +89,7 @@ rule phenotype_dataframe_creator:
 rule cd_hit_create_db:
     input: FASTA_FILE
     output: TEMP_DIR / GENUS / GENUS
-    log: TEMP_DIR / "prokka_db.log"
+    log: TEMP_DIR / "logs" / "cd_hit_create_db.log"
     benchmark: TEMP_DIR / "benchmarks" / "cdhit_create_db.tsv"
     conda: "envs/cd-hit.yaml"
     threads: workflow.cores
@@ -114,7 +114,7 @@ rule cd_hit_create_db:
 rule makeblastdb:
     input: rules.cd_hit_create_db.output
     output: touch(TEMP_DIR / "flags" / "makeblastdb")
-    log: TEMP_DIR / "makeblastdb.log"
+    log: TEMP_DIR / "logs" / "makeblastdb.log"
     benchmark: TEMP_DIR / "benchmarks" / "makeblastdb.tsv"
     conda: "envs/makeblastdb.yaml"
     shell:
@@ -154,7 +154,7 @@ rule prokka_runner:
         gff = OUT_DIR / "prokka" / "{sample}" / "{sample}.gff",
         faa = OUT_DIR / "prokka" / "{sample}" / "{sample}.faa",
         gbk = OUT_DIR / "prokka" / "{sample}" / "{sample}.gbk",
-    log: TEMP_DIR / "prokka" / "{sample}.log"
+    log: TEMP_DIR / "logs" / "prokka_runner" / "{sample}.log"
     benchmark: TEMP_DIR / "benchmarks" / "prokka_{sample}.tsv"
     params:
         genus = GENUS,
@@ -192,7 +192,7 @@ rule panaroo_runner:
     output:
         gpa = OUT_DIR / "panaroo" / "gene_presence_absence.csv",
         gene_data = OUT_DIR / "panaroo" / "gene_data.csv",
-    log: TEMP_DIR / "panaroo.log"
+    log: TEMP_DIR / "logs" / "panaroo_runner.log"
     benchmark: TEMP_DIR / "benchmarks" / "panaroo.tsv"
     params:
         outdir = subpath(output.gpa, parent=True),
@@ -261,7 +261,7 @@ rule cdhit_protein_positions:
     input: 
         lambda wc: expand(
             rules.prokka_runner.output.gbk,
-            sample = get_sample_names()
+            sample = get_sample_names(wc)
         )
     output: OUT_DIR / "cd-hit" / "protein_positions.csv",
     benchmark: TEMP_DIR / "benchmarks" / "cdhit_protein_positions.py.tsv"
@@ -643,6 +643,7 @@ rule gather_panpa_all_clusters:
             rules.panpa_align_cluster_single_target.output,
             antibiotic = get_all_clustered_antibiotics()
         ),
+    output: touch(OUT_DIR / "flags" / "gather_panpa_all_clusters")
 
 # -----------------------
 # Panproteome Graph: PanPA
@@ -719,7 +720,7 @@ rule snippy_runner:
     output:
         vcf = OUT_DIR / "snippy" / "{sample}" / "snps.vcf",
         tab = OUT_DIR / "snippy" / "{sample}" / "snps.tab",
-    log: TEMP_DIR / "snippy" / "{sample}.log"
+    log: TEMP_DIR / "logs" / "snippy_runner" / "{sample}.log"
     benchmark: TEMP_DIR / "benchmarks" / "snippy_{sample}.tsv"
     params:
         out_dir = subpath(output.vcf, parent=True)
@@ -794,5 +795,8 @@ rule create_binary_tables:
         rules.merge_binary_features.output,
         rules.phenotype_dataframe_creator.output,
         rules.annotation_file_from_snippy.output,
+        rules.cdhit_protein_positions.output,
+        rules.panpa_build_index.output,
+        rules.panpa_build_gfa.output,
     default_target: True
 
