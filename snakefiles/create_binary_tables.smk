@@ -54,8 +54,8 @@ checkpoint rename_files:
         """
 
 @functools.lru_cache
-def get_sample_names() -> list[str]:
-    rename_checkpoint = checkpoints.rename_files.get()
+def get_sample_names(wildcards) -> list[str]:
+    rename_checkpoint = checkpoints.rename_files.get(**wildcards)
     rename_folder = Path(rename_checkpoint.output.store)
     sample_names = [
         f.name 
@@ -187,7 +187,7 @@ rule panaroo_runner:
     input: 
         lambda wc: expand(
             rules.prokka_runner.output.gff,
-            sample = get_sample_names()
+            sample = get_sample_names(wc)
         ),
     output:
         gpa = OUT_DIR / "panaroo" / "gene_presence_absence.csv",
@@ -248,7 +248,7 @@ rule combine_faa_files:
     input: 
         lambda wc: expand(
             rules.cdhit_protein_name_corrector.output,
-            sample = get_sample_names()
+            sample = get_sample_names(wc)
         )
     output: OUT_DIR / "cd-hit" / "combined_proteins.faa",
     shell:
@@ -340,8 +340,8 @@ checkpoint split_cluster_fasta:
 # -----------------------
 
 @functools.lru_cache
-def get_cluster_files() -> list[Path]:
-    cluster_checkpoint = checkpoints.split_cluster_fasta.get()
+def get_cluster_files(wildcards) -> list[Path]:
+    cluster_checkpoint = checkpoints.split_cluster_fasta.get(**wildcards)
     cluster_folder = Path(cluster_checkpoint.output[0])
     cluster_files = [
         f
@@ -351,7 +351,7 @@ def get_cluster_files() -> list[Path]:
     return sorted(cluster_files)
 
 def batched_clusters(wildcards) -> list[Path]:
-    cluster_files = get_cluster_files()
+    cluster_files = get_cluster_files(wildcards)
     batch_num = int(wildcards.batch_num)
     start = batch_num * JOB_BATCH_SIZE
     end = min(start + JOB_BATCH_SIZE, len(cluster_files))
@@ -386,7 +386,7 @@ rule gather_align_clusters:
     input:
         lambda wc: expand(
             rules.batch_align_clusters.output,
-            batch_num = range((len(get_cluster_files()) - 1) // JOB_BATCH_SIZE + 1)
+            batch_num = range((len(get_cluster_files(wc)) - 1) // JOB_BATCH_SIZE + 1)
         )
     output: directory(OUT_DIR / "cluster_alignments")
     shell:
@@ -407,7 +407,7 @@ rule gather_align_clusters:
 
 checkpoint split_cluster_by_phenotype:
     input:
-        clstr_sequences = lambda wc: get_cluster_files(),
+        clstr_sequences = lambda wc: get_cluster_files(wc),
         phenotypes = rules.phenotype_dataframe_creator.output[0],
     output: directory(TEMP_DIR / "clusters_by_phenotype")
     log: TEMP_DIR / "logs" / "split_cluster_by_phenotype.log"
@@ -420,17 +420,16 @@ checkpoint split_cluster_by_phenotype:
         "scripts/split_cluster_by_phenotype.py"
 
 @functools.lru_cache
-def get_cluster_by_phenotype_files(antibiotic: str, resistance_status: str) -> list[Path]:
-    cluster_checkpoint = checkpoints.split_cluster_by_phenotype.get()
-    folder = Path(cluster_checkpoint.output[0]) / antibiotic / resistance_status
+def get_cluster_by_phenotype_files(wildcards, resistance_status: str) -> list[Path]:
+    cluster_checkpoint = checkpoints.split_cluster_by_phenotype.get(**wildcards)
+    folder = Path(cluster_checkpoint.output[0]) / wildcards.antibiotic / resistance_status
     return sorted(f for f in folder.glob("*.faa"))
 
 def input_batched_cluster_by_phenotype(wildcards) -> dict[str, list[Path]]:
-    antibiotic = wildcards.antibiotic
     batch_num = int(wildcards.batch_num)
     
-    batch_susceptible_files = get_cluster_by_phenotype_files(antibiotic, "Susceptible")
-    batch_resistant_files = get_cluster_by_phenotype_files(antibiotic, "Resistant")
+    batch_susceptible_files = get_cluster_by_phenotype_files(wildcards, "Susceptible")
+    batch_resistant_files = get_cluster_by_phenotype_files(wildcards, "Resistant")
 
     non_overlapping_files = set(f.name for f in batch_susceptible_files) - set(f.name for f in batch_resistant_files)
     assert len(non_overlapping_files) == 0, f"{batch_num=} has non-overlapping cluster files: {non_overlapping_files}"
@@ -444,10 +443,9 @@ def input_batched_cluster_by_phenotype(wildcards) -> dict[str, list[Path]]:
     }
 
 def output_batched_cluster_by_phenotype(wildcards, input, suffix: str) -> list[Path]:
-    antibiotic = wildcards.antibiotic
     batch_num = int(wildcards.batch_num)
 
-    clstr_out_dir = TEMP_DIR / "cluster_antibiotic_alignment" / antibiotic / f"batch_{batch_num}"
+    clstr_out_dir = TEMP_DIR / "cluster_antibiotic_alignment" / wildcards.antibiotic / f"batch_{batch_num}"
     batch_clstr = (Path(f).stem for f in input.clstr_susceptible)
 
     return [clstr_out_dir / f"{clstr_name}_{suffix}" for clstr_name in batch_clstr]
@@ -746,7 +744,7 @@ rule binary_mutation_table:
     input:
         lambda wc: expand(
             rules.snippy_runner.output.vcf,
-            sample = get_sample_names()
+            sample = get_sample_names(wc)
         )
     output: OUT_DIR / "binary_mutation_table.tsv"
     benchmark: TEMP_DIR / "benchmarks" / "binary_mutation_table.py.tsv"
@@ -764,7 +762,7 @@ rule annotation_file_from_snippy:
     input:
         lambda wc: expand(
             rules.snippy_runner.output.tab,
-            sample = get_sample_names()
+            sample = get_sample_names(wc)
         )
     output: OUT_DIR / "mutations_annotations.tsv"
     benchmark: TEMP_DIR / "benchmarks" / "annotation_file_from_snippy.py.tsv"
