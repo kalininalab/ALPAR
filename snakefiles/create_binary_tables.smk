@@ -148,9 +148,10 @@ rule prokka_listdb:
 rule prokka_runner:
     input:
         rules.prokka_listdb.output,
-        sample = CHECKSUM_DIR / "{sample}",
+        sample_store = rules.rename_files.output.store,
+        sample = Path(rules.rename_files.output.store) / "{sample}",
         reference = GBFF_FILE,
-    output: 
+    output:
         gff = OUT_DIR / "prokka" / "{sample}" / "{sample}.gff",
         faa = OUT_DIR / "prokka" / "{sample}" / "{sample}.faa",
         gbk = OUT_DIR / "prokka" / "{sample}" / "{sample}.gbk",
