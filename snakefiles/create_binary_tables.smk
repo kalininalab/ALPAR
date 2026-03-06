@@ -709,7 +709,8 @@ rule binary_gpa:
 
 rule snippy_runner:
     input:
-        sample = CHECKSUM_DIR / "{sample}",
+        sample_store = rules.rename_files.output.store,
+        sample = Path(rules.rename_files.output.store) / "{sample}",
         reference = GBFF_FILE,
     output:
         vcf = OUT_DIR / "snippy" / "{sample}" / "snps.vcf",
