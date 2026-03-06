@@ -1,0 +1,14 @@
+name: python313
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - biopython=1.86
+  - pip=26.0.1
+  - pydantic=2.12.5
+  - python=3.13
+  - snakemake=9.16.2
+  - pip:
+      - loguru==0.7.3
+      - polars==1.38.1

@@ -42,15 +42,14 @@ def get_sample_names(wildcards) -> list[str]:
 # Phenotype
 # -----------------------
 
-# TODO: Should strains not present in an antibiotic, be assumed susceptible?
 rule phenotype_dataframe_creator:
     input: rules.rename_files.output.mapping
     output: OUT_DIR / "phenotype_table.tsv"
     benchmark: TEMP_DIR / "benchmarks" / "phenotype_dataframe_creator.tsv"
     log: LOGS_DIR / "phenotype_dataframe_creator.log"
-    conda: "envs/python312.yaml"
+    conda: ENVS_DIR / "python313.yaml"
     params:
-        resistance_status_mapping = RESISTANCE_STATUS_MAPPING
+        resistance_status_mapping = RESISTANCE_STATUS_MAPPING,
         antibiotics = ANTIBIOTICS,
     threads: 1
     script:
@@ -196,7 +195,7 @@ rule binary_gpa_panaroo:
     input: rules.panaroo_runner.output.gpa,
     output: OUT_DIR / "binary_gpa_panaroo.tsv"
     benchmark: BENCHMARKS_DIR / "binary_gpa_panaroo.py.tsv"
-    conda: ENVS_DIR / "python312.yaml"
+    conda: ENVS_DIR / "python313.yaml"
     threads: 1
     script:
         SCRIPTS_DIR / "binary_gpa_panaroo.py"
@@ -243,7 +242,7 @@ rule cdhit_protein_positions:
         )
     output: OUT_DIR / "cd-hit" / "protein_positions.csv",
     benchmark: BENCHMARKS_DIR / "cdhit_protein_positions.py.tsv"
-    conda: ENVS_DIR / "python312.yaml"
+    conda: ENVS_DIR / "python313.yaml"
     threads: MAX_PYTHON_THREADS
     script:
         SCRIPTS_DIR / "cdhit_protein_positions.py"
@@ -289,7 +288,7 @@ rule binary_gpa_cdhit:
         rules.cdhit_runner.output.clstr,
     output: OUT_DIR / "binary_gpa_cdhit.tsv"
     benchmark: BENCHMARKS_DIR / "binary_gpa_cdhit.py.tsv"
-    conda: ENVS_DIR / "python312.yaml"
+    conda: ENVS_DIR / "python313.yaml"
     threads: 1
     script:
         SCRIPTS_DIR / "binary_gpa_cdhit.py"
@@ -308,7 +307,7 @@ checkpoint split_cluster_fasta:
     benchmark: BENCHMARKS_DIR / "split_cluster_fasta.py.tsv"
     params:
         file_ext = ".fasta"
-    conda: ENVS_DIR / "python312.yaml"
+    conda: ENVS_DIR / "python313.yaml"
     threads: 8
     script:
         SCRIPTS_DIR / "split_cluster_fasta.py"
@@ -466,7 +465,7 @@ rule annotation_file_from_snippy:
         )
     output: OUT_DIR / "mutations_annotations.tsv"
     benchmark: BENCHMARKS_DIR / "annotation_file_from_snippy.py.tsv"
-    conda: ENVS_DIR / "python312.yaml"
+    conda: ENVS_DIR / "python313.yaml"
     threads: MAX_PYTHON_THREADS
     script:
         SCRIPTS_DIR / "annotation_file_from_snippy.py"
@@ -499,7 +498,7 @@ rule binary_mutation_table:
         )
     output: OUT_DIR / "binary_mutation_table.tsv"
     benchmark: BENCHMARKS_DIR / "binary_mutation_table.py.tsv"
-    conda: ENVS_DIR / "python312.yaml"
+    conda: ENVS_DIR / "python313.yaml"
     threads: MAX_PYTHON_THREADS
     script:
         SCRIPTS_DIR / "binary_mutation_table.py"

@@ -1,7 +1,6 @@
 import itertools
 import operator
 import os
-import sys
 
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress

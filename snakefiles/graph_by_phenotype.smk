@@ -16,20 +16,10 @@ checkpoint split_cluster_by_phenotype:
     benchmark: BENCHMARKS_DIR / "split_cluster_by_phenotype.tsv"
     params:
         resistance_status_mapping = RESISTANCE_STATUS_MAPPING
-    conda: "envs/python312.yaml"
+    conda: "envs/python313.yaml"
     threads: MAX_PYTHON_THREADS
     script:
         "scripts/split_cluster_by_phenotype.py"
-
-def get_all_clustered_antibiotics(wildcards) -> tuple[Path]:
-    cluster_checkpoint = checkpoints.split_cluster_by_phenotype.get(**wildcards)
-    cluster_folder = Path(cluster_checkpoint.output.store)
-    antibiotics = tuple(
-        antibiotic_folder.name
-        for antibiotic_folder in cluster_folder.iterdir()
-        if antibiotic_folder.is_dir()
-    )
-    return antibiotics
 
 def get_cluster_by_phenotype_files(resistance_status: str, wildcards) -> list[Path]:
     cluster_checkpoint = checkpoints.split_cluster_by_phenotype.get(**wildcards)
