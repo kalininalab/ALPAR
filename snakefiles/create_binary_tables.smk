@@ -10,6 +10,8 @@ checkpoint rename_files:
     output:
         store = directory(TEMP_DIR / "data_checksum"),
         mapping = OUT_DIR / "all_files.tsv",
+    benchmark: BENCHMARKS_DIR / "rename_files.tsv"
+    threads: 1
     shell:
         r"""
         mkdir -p {output.store}
@@ -44,13 +46,15 @@ def get_sample_names(wildcards) -> list[str]:
 rule phenotype_dataframe_creator:
     input: rules.rename_files.output.mapping
     output: OUT_DIR / "phenotype_table.tsv"
-    benchmark: TEMP_DIR / "benchmarks" / "phenotype_dataframe_creator.py.tsv"
+    benchmark: TEMP_DIR / "benchmarks" / "phenotype_dataframe_creator.tsv"
+    log: LOGS_DIR / "phenotype_dataframe_creator.log"
     conda: "envs/python312.yaml"
     params:
         resistance_status_mapping = RESISTANCE_STATUS_MAPPING
+        antibiotics = ANTIBIOTICS,
     threads: 1
     script:
-        "scripts/phenotype_dataframe_creator.py"
+        SCRIPTS_DIR / "phenotype_dataframe_creator.py"
 
 
 # -----------------------
@@ -60,9 +64,9 @@ rule phenotype_dataframe_creator:
 rule cd_hit_create_db:
     input: FASTA_FILE
     output: TEMP_DIR / GENUS / GENUS
-    log: TEMP_DIR / "logs" / "cd_hit_create_db.log"
-    benchmark: TEMP_DIR / "benchmarks" / "cdhit_create_db.tsv"
-    conda: "envs/cd-hit.yaml"
+    log: LOGS_DIR / "cd_hit_create_db.log"
+    benchmark: BENCHMARKS_DIR / "cdhit_create_db.tsv"
+    conda: ENVS_DIR / "cd-hit.yaml"
     threads: workflow.cores
     shell:
         r"""
@@ -85,9 +89,9 @@ rule cd_hit_create_db:
 rule makeblastdb:
     input: rules.cd_hit_create_db.output
     output: touch(TEMP_DIR / "flags" / "makeblastdb.done")
-    log: TEMP_DIR / "logs" / "makeblastdb.log"
-    benchmark: TEMP_DIR / "benchmarks" / "makeblastdb.tsv"
-    conda: "envs/makeblastdb.yaml"
+    log: LOGS_DIR / "makeblastdb.log"
+    benchmark: BENCHMARKS_DIR / "makeblastdb.tsv"
+    conda: ENVS_DIR / "makeblastdb.yaml"
     shell:
         r"""
         makeblastdb \
@@ -103,15 +107,17 @@ rule prokka_listdb:
         rules.makeblastdb.output,
         db_dir = rules.cd_hit_create_db.output
     output: touch(TEMP_DIR / "flags" / "prokka_listdb.done"),
-    params:
-        prokka_listdb = TEMP_DIR / "db_path.txt"
-    conda: "envs/prokka.yaml"
+    log: LOGS_DIR / "prokka_listdb.log"
+    benchmark: BENCHMARKS_DIR / "prokka_listdb.tsv"
+    conda: ENVS_DIR / "prokka.yaml"
     shell:
         r"""
         DB_DIR=$(dirname {input.db_dir})
         PROKKA_DB_DIR="$(dirname $(dirname $(which prokka)))/db/genus"
         cp -a "$DB_DIR/." $PROKKA_DB_DIR
-        prokka --listdb > {params.prokka_listdb} 2>&1
+
+        echo $PROKKA_DB_DIR > {log}
+        prokka --listdb >> {log} 2>&1
         """
 
 
@@ -126,15 +132,15 @@ rule prokka_runner:
         gff = OUT_DIR / "prokka" / "{sample}" / "{sample}.gff",
         faa = OUT_DIR / "prokka" / "{sample}" / "{sample}.faa",
         gbk = OUT_DIR / "prokka" / "{sample}" / "{sample}.gbk",
-    log: TEMP_DIR / "logs" / "prokka_runner" / "{sample}.log"
-    benchmark: TEMP_DIR / "benchmarks" / "prokka_{sample}.tsv"
+    log: LOGS_DIR / "prokka_runner" / "{sample}.log"
+    benchmark: BENCHMARKS_DIR / "prokka_{sample}.tsv"
     params:
         genus = GENUS,
         outdir = subpath(output.gff, parent=True),
     threads: 1
     resources:
         mem_mb = 600
-    conda: "envs/prokka.yaml"
+    conda: ENVS_DIR / "prokka.yaml"
     shell:
         r"""
         input_file=$(readlink -f {input.sample})
@@ -164,13 +170,13 @@ rule panaroo_runner:
     output:
         gpa = OUT_DIR / "panaroo" / "gene_presence_absence.csv",
         gene_data = OUT_DIR / "panaroo" / "gene_data.csv",
-    log: TEMP_DIR / "logs" / "panaroo_runner.log"
-    benchmark: TEMP_DIR / "benchmarks" / "panaroo.tsv"
+    log: LOGS_DIR / "panaroo_runner.log"
+    benchmark: BENCHMARKS_DIR / "panaroo.tsv"
     params:
         outdir = subpath(output.gpa, parent=True),
         seq_identity_threshold = 0.8,
         seq_len_diff_cutoff = 0.8,
-    conda: "envs/panaroo.yaml"
+    conda: ENVS_DIR / "panaroo.yaml"
     threads: 30
     shell:
         r"""
@@ -189,11 +195,11 @@ rule panaroo_runner:
 rule binary_gpa_panaroo:
     input: rules.panaroo_runner.output.gpa,
     output: OUT_DIR / "binary_gpa_panaroo.tsv"
-    benchmark: TEMP_DIR / "benchmarks" / "binary_gpa_panaroo.py.tsv"
-    conda: "envs/python312.yaml"
+    benchmark: BENCHMARKS_DIR / "binary_gpa_panaroo.py.tsv"
+    conda: ENVS_DIR / "python312.yaml"
     threads: 1
     script:
-        "scripts/binary_gpa_panaroo.py"
+        SCRIPTS_DIR / "binary_gpa_panaroo.py"
 
 
 # -----------------------
@@ -236,11 +242,11 @@ rule cdhit_protein_positions:
             sample = get_sample_names(wc)
         )
     output: OUT_DIR / "cd-hit" / "protein_positions.csv",
-    benchmark: TEMP_DIR / "benchmarks" / "cdhit_protein_positions.py.tsv"
-    conda: "envs/python312.yaml"
+    benchmark: BENCHMARKS_DIR / "cdhit_protein_positions.py.tsv"
+    conda: ENVS_DIR / "python312.yaml"
     threads: MAX_PYTHON_THREADS
     script:
-        "scripts/cdhit_protein_positions.py"
+        SCRIPTS_DIR / "cdhit_protein_positions.py"
 
 
 rule cdhit_runner:
@@ -248,8 +254,8 @@ rule cdhit_runner:
     output: 
         faa = OUT_DIR / "cd-hit" / "cdhit_output.faa",
         clstr = OUT_DIR / "cd-hit" / "cdhit_output.faa.clstr",
-    log: TEMP_DIR / "logs" / "cdhit_runner.log"
-    benchmark: TEMP_DIR / "benchmarks" / "cdhit.tsv"
+    log: LOGS_DIR / "cdhit_runner.log"
+    benchmark: BENCHMARKS_DIR / "cdhit.tsv"
     params:
         seq_identity_threshold = 0.7,
         length_difference_cutoff = 0.0, # (%)
@@ -259,7 +265,7 @@ rule cdhit_runner:
         aln_cov_control_shorter_seq = 99_999_999, # alignment coverage control for the shorter sequence
         unlimited_memory = 0, # memory limit (in MB) for the program; 0 for unlimited;
     threads: workflow.cores
-    conda: "envs/cd-hit.yaml"
+    conda: ENVS_DIR / "cd-hit.yaml"
     shell:
         r"""
         cd-hit \
@@ -282,11 +288,11 @@ rule binary_gpa_cdhit:
     input: 
         rules.cdhit_runner.output.clstr,
     output: OUT_DIR / "binary_gpa_cdhit.tsv"
-    benchmark: TEMP_DIR / "benchmarks" / "binary_gpa_cdhit.py.tsv"
-    conda: "envs/python312.yaml"
+    benchmark: BENCHMARKS_DIR / "binary_gpa_cdhit.py.tsv"
+    conda: ENVS_DIR / "python312.yaml"
     threads: 1
     script:
-        "scripts/binary_gpa_cdhit.py"
+        SCRIPTS_DIR / "binary_gpa_cdhit.py"
 
 
 # ------------------------
@@ -298,14 +304,14 @@ checkpoint split_cluster_fasta:
         cdhit_clstr = rules.cdhit_runner.output.clstr,
         combined_proteins = rules.combine_faa_files.output[0],
     output: directory(OUT_DIR / "cluster_sequences"),
-    log: TEMP_DIR / "logs" / "split_cluster_fasta.log"
-    benchmark: TEMP_DIR / "benchmarks" / "split_cluster_fasta.py.tsv"
+    log: LOGS_DIR / "split_cluster_fasta.log"
+    benchmark: BENCHMARKS_DIR / "split_cluster_fasta.py.tsv"
     params:
         file_ext = ".fasta"
-    conda: "envs/python312.yaml"
+    conda: ENVS_DIR / "python312.yaml"
     threads: 8
     script:
-        "scripts/split_cluster_fasta.py"
+        SCRIPTS_DIR / "split_cluster_fasta.py"
 
 
 # -----------------------
@@ -330,9 +336,9 @@ rule batch_align_clusters:
         cluster_store = rules.split_cluster_fasta.output,
         batched_clusters = batched_clusters
     output: directory(TEMP_DIR / "batch_align_clusters" / "batch_{batch_num}")
-    log: TEMP_DIR / "logs" / "batch_align_clusters" / "batch_{batch_num}.log"
-    benchmark: TEMP_DIR / "benchmarks" / "batch_align_clusters_batch_{batch_num}.tsv"
-    conda: "envs/mafft.yaml"
+    log: LOGS_DIR / "batch_align_clusters" / "batch_{batch_num}.log"
+    benchmark: BENCHMARKS_DIR / "batch_align_clusters_batch_{batch_num}.tsv"
+    conda: ENVS_DIR / "mafft.yaml"
     threads: 1
     shell:
         r"""
@@ -378,13 +384,13 @@ rule gather_align_clusters:
 rule panpa_build_index:
     input: rules.gather_align_clusters.output
     output: OUT_DIR / "panpa" / "index.pickle"
-    log: TEMP_DIR / "logs" / "panpa_build_index.log"
-    benchmark: TEMP_DIR / "benchmarks" / "panpa_build_index.tsv"
+    log: LOGS_DIR / "panpa_build_index.log"
+    benchmark: BENCHMARKS_DIR / "panpa_build_index.tsv"
     params:
         kmer_size = 10,
         window_size = 15,
         seed_limit = 0,
-    conda: "envs/panpa.yaml"
+    conda: ENVS_DIR / "panpa.yaml"
     threads: 1
     shell:
         r"""
@@ -401,9 +407,9 @@ rule panpa_build_index:
 rule panpa_build_gfa:
     input: rules.gather_align_clusters.output
     output: directory(OUT_DIR / "panpa" / "gfa")
-    log: TEMP_DIR / "logs" / "panpa_build_gfa.log"
-    benchmark: TEMP_DIR / "benchmarks" / "panpa_build_gfa.tsv"
-    conda: "envs/panpa.yaml"
+    log: LOGS_DIR / "panpa_build_gfa.log"
+    benchmark: BENCHMARKS_DIR / "panpa_build_gfa.tsv"
+    conda: ENVS_DIR / "panpa.yaml"
     threads: workflow.cores
     shell:
         r"""
@@ -427,11 +433,11 @@ rule snippy_runner:
     output:
         vcf = OUT_DIR / "snippy" / "{sample}" / "snps.vcf",
         tab = OUT_DIR / "snippy" / "{sample}" / "snps.tab",
-    log: TEMP_DIR / "logs" / "snippy_runner" / "{sample}.log"
-    benchmark: TEMP_DIR / "benchmarks" / "snippy_{sample}.tsv"
+    log: LOGS_DIR / "snippy_runner" / "{sample}.log"
+    benchmark: BENCHMARKS_DIR / "snippy_{sample}.tsv"
     params:
         out_dir = subpath(output.vcf, parent=True)
-    conda: "envs/snippy.yaml"
+    conda: ENVS_DIR / "snippy.yaml"
     threads: 1
     resources:
         mem_gb = 1
@@ -459,11 +465,11 @@ rule annotation_file_from_snippy:
             sample = get_sample_names(wc)
         )
     output: OUT_DIR / "mutations_annotations.tsv"
-    benchmark: TEMP_DIR / "benchmarks" / "annotation_file_from_snippy.py.tsv"
-    conda: "envs/python312.yaml"
+    benchmark: BENCHMARKS_DIR / "annotation_file_from_snippy.py.tsv"
+    conda: ENVS_DIR / "python312.yaml"
     threads: MAX_PYTHON_THREADS
     script:
-        "scripts/annotation_file_from_snippy.py"
+        SCRIPTS_DIR / "annotation_file_from_snippy.py"
 
 
 # -----------------------
@@ -492,11 +498,11 @@ rule binary_mutation_table:
             sample = get_sample_names(wc)
         )
     output: OUT_DIR / "binary_mutation_table.tsv"
-    benchmark: TEMP_DIR / "benchmarks" / "binary_mutation_table.py.tsv"
-    conda: "envs/python312.yaml"
+    benchmark: BENCHMARKS_DIR / "binary_mutation_table.py.tsv"
+    conda: ENVS_DIR / "python312.yaml"
     threads: MAX_PYTHON_THREADS
     script:
-        "scripts/binary_mutation_table.py"
+        SCRIPTS_DIR / "binary_mutation_table.py"
 
 rule merge_binary_features:
     input:
@@ -514,7 +520,7 @@ rule merge_binary_features:
 # Snakefile Target
 # -----------------------
 
-include: "./graph_by_phenotype.smk"
+include: SNAKEFILES_DIR / "graph_by_phenotype.smk"
 
 rule create_binary_tables:
     input:

@@ -5,8 +5,25 @@ from pathlib import Path
 # Config
 # -----------------------
 
-workflow_dir = Path(workflow.basedir)
-configfile: workflow_dir / "snakefiles" / "config" / "config.yaml"
+WORKFLOW_DIR = Path(workflow.basedir)
+configfile: WORKFLOW_DIR / "snakefiles" / "config" / "config.yaml"
+
+
+# -----------------------
+# Directories and Files
+# -----------------------
+
+IN_DIR = Path(config.get("input_dir", "./data"))
+OUT_DIR = Path(config.get("output_dir", "./out"))
+TEMP_DIR = Path(config.get("temp_dir", "./temp"))
+GBFF_FILE = Path(config.get("gbff_file"))
+FASTA_FILE = Path(config.get("fasta_file"))
+
+SNAKEFILES_DIR = WORKFLOW_DIR / "snakefiles"
+SCRIPTS_DIR = SNAKEFILES_DIR / "scripts"
+ENVS_DIR = SNAKEFILES_DIR / "envs"
+LOGS_DIR = TEMP_DIR / "logs"
+BENCHMARKS_DIR = TEMP_DIR / "benchmarks"
 
 
 # -----------------------
@@ -21,24 +38,14 @@ RESISTANCE_STATUS_MAPPING = {
     'Resistant': 1,
     'Susceptible': 0,
 }
-
-
-# -----------------------
-# Directories and Files
-# -----------------------
-
-IN_DIR = Path(config.get("input_dir", "./data"))
-OUT_DIR = Path(config.get("output_dir", "./out"))
-TEMP_DIR = Path(config.get("temp_dir", "./temp"))
-GBFF_FILE = Path(config.get("gbff_file"))
-FASTA_FILE = Path(config.get("fasta_file"))
+ANTIBIOTICS = tuple(antibiotic.name for antibiotic in IN_DIR.iterdir())
 
 
 # -----------------------
 # Auxiliary snakefiles
 # -----------------------
 
-include: "snakefiles/create_binary_tables.smk"
+include: SNAKEFILES_DIR / "create_binary_tables.smk"
 
 
 # -----------------------
@@ -48,15 +55,15 @@ include: "snakefiles/create_binary_tables.smk"
 onsuccess:
     shell(
         r"""
-        mkdir -p {TEMP_DIR}/logs/.snakemake
-        cp {log} {TEMP_DIR}/logs/.snakemake
+        mkdir -p {LOGS_DIR}/.snakemake
+        cp {log} {LOGS_DIR}/.snakemake
         """
     )
 
 onerror:
     shell(
         r"""
-        mkdir -p {TEMP_DIR}/logs/.snakemake
-        cp {log} {TEMP_DIR}/logs/.snakemake
+        mkdir -p {LOGS_DIR}/.snakemake
+        cp {log} {LOGS_DIR}/.snakemake
         """
     )

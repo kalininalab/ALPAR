@@ -12,8 +12,8 @@ checkpoint split_cluster_by_phenotype:
         phenotypes = rules.phenotype_dataframe_creator.output[0],
     output:
         store = directory(TEMP_DIR / "clusters_by_phenotype")
-    log: TEMP_DIR / "logs" / "split_cluster_by_phenotype.log"
-    benchmark: TEMP_DIR / "benchmarks" / "split_cluster_by_phenotype.py.tsv"
+    log: LOGS_DIR / "split_cluster_by_phenotype.log"
+    benchmark: BENCHMARKS_DIR / "split_cluster_by_phenotype.tsv"
     params:
         resistance_status_mapping = RESISTANCE_STATUS_MAPPING
     conda: "envs/python312.yaml"
@@ -31,7 +31,6 @@ def get_all_clustered_antibiotics(wildcards) -> tuple[Path]:
     )
     return antibiotics
 
-@functools.lru_cache
 def get_cluster_by_phenotype_files(resistance_status: str, wildcards) -> list[Path]:
     cluster_checkpoint = checkpoints.split_cluster_by_phenotype.get(**wildcards)
     folder = Path(cluster_checkpoint.output.store) / wildcards.antibiotic / resistance_status
@@ -57,8 +56,8 @@ rule align_clusters_by_phenotype_and_map_variants:
         clstr_susceptible = lambda wc: input_batched_cluster_by_phenotype("Susceptible", wc),
         clstr_resistant = lambda wc: input_batched_cluster_by_phenotype("Resistant", wc),
     output: directory(TEMP_DIR / "cluster_antibiotic_alignment" / "{antibiotic}" / "batch_{batch_num}")
-    log: TEMP_DIR / "logs" / "align_clusters_by_phenotype_and_map_variants" / "{antibiotic}" / "batch_{batch_num}.log"
-    benchmark: TEMP_DIR / "benchmarks" / "align_clusters_by_phenotype_and_map_variants_{antibiotic}_batch_{batch_num}.tsv"
+    log: LOGS_DIR / "align_clusters_by_phenotype_and_map_variants" / "{antibiotic}" / "batch_{batch_num}.log"
+    benchmark: BENCHMARKS_DIR / "align_clusters_by_phenotype_and_map_variants_{antibiotic}_batch_{batch_num}.tsv"
     params:
         aln_susceptible = lambda wc, input: output_batched_cluster_by_phenotype("only_susceptible.fasta", wc, input),
         aln_resistant = lambda wc, input: output_batched_cluster_by_phenotype("all.fasta", wc, input),
@@ -148,8 +147,8 @@ rule gather_align_and_map_clusters_by_batch:
 rule panpa_build_index_by_phenotype:
     input: rules.gather_align_and_map_clusters_by_batch.output.susceptible_alignments
     output: OUT_DIR / "cluster_panpa" / "{antibiotic}" / "index.pickle"
-    log: TEMP_DIR / "logs" / "cluster_panpa_build_index_by_phenotype" / "{antibiotic}.log"
-    benchmark: TEMP_DIR / "benchmarks" / "cluster_panpa_build_index_by_phenotype_{antibiotic}.tsv"
+    log: LOGS_DIR / "cluster_panpa_build_index_by_phenotype" / "{antibiotic}.log"
+    benchmark: BENCHMARKS_DIR / "cluster_panpa_build_index_by_phenotype_{antibiotic}.tsv"
     params:
         kmer_size = 10,
         window_size = 15,
@@ -172,8 +171,8 @@ rule panpa_build_index_by_phenotype:
 rule panpa_build_gfa_by_phenotype:
     input: rules.gather_align_and_map_clusters_by_batch.output.susceptible_alignments
     output: directory(OUT_DIR / "cluster_panpa" / "{antibiotic}" / "gfa")
-    log: TEMP_DIR / "logs" / "cluster_panpa_build_gfa" / "{antibiotic}.log"
-    benchmark: TEMP_DIR / "benchmarks" / "cluster_panpa_build_gfa_{antibiotic}.tsv"
+    log: LOGS_DIR / "cluster_panpa_build_gfa" / "{antibiotic}.log"
+    benchmark: BENCHMARKS_DIR / "cluster_panpa_build_gfa_{antibiotic}.tsv"
     conda: "envs/panpa.yaml"
     threads: workflow.cores
     shell:
@@ -191,8 +190,8 @@ rule panpa_align_cluster_single_target:
         clstr_resistant = lambda wc: get_cluster_by_phenotype_files("Resistant", wc),
         gfa_folder = rules.panpa_build_gfa_by_phenotype.output[0],
     output: directory(TEMP_DIR / "cluster_panpa_alignments" / "{antibiotic}")
-    log: TEMP_DIR / "logs" / "panpa_align_cluster_single_target" / "{antibiotic}.log"
-    benchmark: TEMP_DIR / "benchmarks" / "panpa_align_cluster_single_target_{antibiotic}.log"
+    log: LOGS_DIR / "panpa_align_cluster_single_target" / "{antibiotic}.log"
+    benchmark: BENCHMARKS_DIR / "panpa_align_cluster_single_target_{antibiotic}.log"
     conda: "envs/panpa.yaml"
     threads: workflow.cores
     shell:
@@ -226,14 +225,14 @@ rule gather_panpa_all_clusters:
     input:
         lambda wc: expand(
             rules.panpa_build_index_by_phenotype.output,
-            antibiotic = get_all_clustered_antibiotics(wc)
+            antibiotic = ANTIBIOTICS
         ),
         lambda wc: expand(
             rules.panpa_build_gfa_by_phenotype.output,
-            antibiotic = get_all_clustered_antibiotics(wc)
+            antibiotic = ANTIBIOTICS
         ),
         lambda wc: expand(
             rules.panpa_align_cluster_single_target.output,
-            antibiotic = get_all_clustered_antibiotics(wc)
+            antibiotic = ANTIBIOTICS
         ),
     output: touch(TEMP_DIR / "flags" / "gather_panpa_all_clusters.done")
