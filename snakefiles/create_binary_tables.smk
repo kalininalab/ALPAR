@@ -287,7 +287,7 @@ rule binary_gpa_cdhit:
     input: 
         rules.cdhit_runner.output.clstr,
     output: OUT_DIR / "binary_gpa_cdhit.tsv"
-    benchmark: BENCHMARKS_DIR / "binary_gpa_cdhit.py.tsv"
+    benchmark: BENCHMARKS_DIR / "binary_gpa_cdhit.tsv"
     log: LOGS_DIR / "binary_gpa_cdhit.log"
     conda: ENVS_DIR / "python313.yaml"
     threads: 1
@@ -305,7 +305,7 @@ checkpoint split_cluster_fasta:
         combined_proteins = rules.combine_faa_files.output[0],
     output: directory(OUT_DIR / "cluster_sequences"),
     log: LOGS_DIR / "split_cluster_fasta.log"
-    benchmark: BENCHMARKS_DIR / "split_cluster_fasta.py.tsv"
+    benchmark: BENCHMARKS_DIR / "split_cluster_fasta.tsv"
     params:
         file_ext = ".fasta"
     conda: ENVS_DIR / "python313.yaml"
@@ -467,7 +467,8 @@ rule annotation_file_from_snippy:
             sample = get_sample_names(wc)
         )
     output: OUT_DIR / "mutations_annotations.tsv"
-    benchmark: BENCHMARKS_DIR / "annotation_file_from_snippy.py.tsv"
+    benchmark: BENCHMARKS_DIR / "annotation_file_from_snippy.tsv"
+    log: LOGS_DIR / "annotation_file_from_snippy.log"
     conda: ENVS_DIR / "python313.yaml"
     threads: MAX_PYTHON_THREADS
     script:
