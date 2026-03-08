@@ -3,10 +3,15 @@ import csv
 import itertools
 import re
 from contextlib import suppress
+from typing import Annotated
 
-from pydantic import BaseModel, Field, FilePath, NewPath
+from loguru import logger
+from pydantic import BaseModel, Field, FilePath, NewPath, BeforeValidator
+
 with suppress(ImportError):
     from snakemake.script import snakemake
+
+from scripts._commons import force_new_file
 
 
 class SnakemakeHandler(BaseModel):
@@ -28,8 +33,12 @@ class SnakemakeHandler(BaseModel):
     output_file: NewPath = Field(
         description='Path to where the output file will be saved.'
     )
+    log_file: Annotated[NewPath, BeforeValidator(force_new_file)] = Field(
+        description="Path to file for dumping python logs."
+    )
 
 
+@logger.catch
 def binary_gpa_cdhit(handler: SnakemakeHandler) -> None:
     """Create Protein Presence/Absence information as a binary table.
     
@@ -41,8 +50,8 @@ def binary_gpa_cdhit(handler: SnakemakeHandler) -> None:
     pattern = re.compile(r'^\d+\t+\d+aa, >(?P<protein>(?P<strain>[a-f0-9]+)\w+)\.{3} (?:at \d+\.\d+%|(?P<is_ref>\*))$')
 
     with (
-        open(handler.clstr_file, 'r', encoding='utf-8') as infile,
-        open(handler.output_file, 'w', encoding='utf-8', newline='') as outfile
+        handler.clstr_file.open('r', encoding='utf-8') as infile,
+        handler.output_file.open('w', encoding='utf-8', newline='') as outfile
     ):
         csv_writer = csv.writer(outfile, delimiter='\t')
 
@@ -65,6 +74,8 @@ def binary_gpa_cdhit(handler: SnakemakeHandler) -> None:
 
                 clstr_strains.add(match.group('strain'))
                 if match.group('is_ref'):
+                    if clstr_ref_prot:
+                        logger.warning(f'Multiple reference proteins found in cluster. Previous: {clstr_ref_prot}, New: {match.group("protein")}. Using the second one.')
                     clstr_ref_prot = match.group('protein')
 
         else:
@@ -73,8 +84,11 @@ def binary_gpa_cdhit(handler: SnakemakeHandler) -> None:
 
 
 if __name__ == '__main__':
-    smk_val = SnakemakeHandler(
+    handler = SnakemakeHandler(
         clstr_file=snakemake.input[0],
         output_file=snakemake.output[0],
+        log_file=snakemake.log[0],
     )
-    binary_gpa_cdhit(smk_val)
+    logger.remove()
+    logger.add(handler.log_file, backtrace=True, diagnose=True, enqueue=True)
+    binary_gpa_cdhit(handler)

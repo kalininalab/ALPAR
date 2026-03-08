@@ -288,6 +288,7 @@ rule binary_gpa_cdhit:
         rules.cdhit_runner.output.clstr,
     output: OUT_DIR / "binary_gpa_cdhit.tsv"
     benchmark: BENCHMARKS_DIR / "binary_gpa_cdhit.py.tsv"
+    log: LOGS_DIR / "binary_gpa_cdhit.log"
     conda: ENVS_DIR / "python313.yaml"
     threads: 1
     script:
