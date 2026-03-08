@@ -501,7 +501,8 @@ rule binary_mutation_table:
             sample = get_sample_names(wc)
         )
     output: OUT_DIR / "binary_mutation_table.tsv"
-    benchmark: BENCHMARKS_DIR / "binary_mutation_table.py.tsv"
+    benchmark: BENCHMARKS_DIR / "binary_mutation_table.tsv"
+    log: LOGS_DIR / "binary_mutation_table.log"
     conda: ENVS_DIR / "python313.yaml"
     threads: MAX_PYTHON_THREADS
     script:

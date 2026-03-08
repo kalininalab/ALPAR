@@ -7,9 +7,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import BaseModel, Field, FilePath, NewPath, PositiveInt
+from pydantic import BaseModel, Field, FilePath, NewPath, PositiveInt, BeforeValidator
+from loguru import logger
+
 with suppress(ImportError):
     from snakemake.script import snakemake
+
+from scripts._commons import force_new_file
 
 
 class Snakemakehandler(BaseModel):
@@ -25,8 +29,12 @@ class Snakemakehandler(BaseModel):
         default=1,
         description='Number of threads to use for parallel processing.'
     )
+    log_file = Annotated[NewPath, BeforeValidator(force_new_file)] = Field(
+        description='Path to file for dumping python logs.'
+    )
 
 
+@logger.catch
 def binary_mutation(handler: Snakemakehandler) -> None:
     """Create binary tables from VCF files.
     
@@ -104,9 +112,11 @@ def read_vcf_and_return_snp_class_list(
 
 
 if __name__ == '__main__':
-    smk_val = Snakemakehandler(
+    handler = Snakemakehandler(
         input=snakemake.input,
         output=snakemake.output[0],
         threads=snakemake.threads
     )
-    binary_mutation(smk_val)
+    logger.remove()
+    logger.add(handler.log_file, backtrace=True, diagnose=True, enqueue=True)
+    binary_mutation(handler)
