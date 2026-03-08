@@ -394,14 +394,15 @@ rule panpa_build_index:
     threads: 1
     shell:
         r"""
-        PanPA build_index \
+        PanPA \
+            --log_file {log} \
+            build_index \
             --in_dir {input} \
             --out_index {output} \
             --seeding_alg wk_min \
             --kmer_size {params.kmer_size} \
             --window {params.window_size} \
-            --seed_limit {params.seed_limit} \
-            >> {log} 2>&1
+            --seed_limit {params.seed_limit}
         """
 
 rule panpa_build_gfa:
@@ -413,11 +414,12 @@ rule panpa_build_gfa:
     threads: workflow.cores
     shell:
         r"""
-        PanPA build_gfa \
+        PanPA \
+            --log_file {log} \
+            build_gfa \
             --in_dir {input} \
             --out_dir {output} \
-            --cores {threads} \
-            >> {log} 2>&1
+            --cores {threads}
         """
 
 
