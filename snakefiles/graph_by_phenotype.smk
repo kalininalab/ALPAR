@@ -52,6 +52,7 @@ rule align_clusters_by_phenotype_and_map_variants:
         aln_susceptible = lambda wc, input: output_batched_cluster_by_phenotype("only_susceptible.fasta", wc, input),
         aln_resistant = lambda wc, input: output_batched_cluster_by_phenotype("all.fasta", wc, input),
         map_files = lambda wc, input: output_batched_cluster_by_phenotype("all.fasta.map", wc, input),
+        file_ext = rules.split_cluster_fasta.params.file_ext,
     conda: "envs/mafft.yaml"
     threads: 1
     shell:
@@ -73,7 +74,7 @@ rule align_clusters_by_phenotype_and_map_variants:
             ALL_ALN="${{all_aln_array[$i]}}"
             ALL_MAP="${{all_map_array[$i]}}"
 
-            CLSTR_NAME="$(basename ${{SUSCEPTIBLE_FILE%.faa}})"
+            CLSTR_NAME="$(basename ${{SUSCEPTIBLE_FILE%{params.file_ext}}})"
 
             echo ">>Aligning Susceptibles: $CLSTR_NAME" >> {log}
             mafft \
@@ -184,6 +185,8 @@ rule panpa_align_cluster_single_target:
     output: directory(OUT_DIR / "cluster_panpa_alignments" / "{antibiotic}")
     log: LOGS_DIR / "panpa_align_cluster_single_target" / "{antibiotic}.log"
     benchmark: BENCHMARKS_DIR / "panpa_align_cluster_single_target_{antibiotic}.log"
+    params:
+        file_ext = rules.split_cluster_fasta.params.file_ext,
     conda: "envs/panpa.yaml"
     threads: workflow.cores
     shell:
@@ -193,7 +196,7 @@ rule panpa_align_cluster_single_target:
         mkdir -p $(dirname {log})
 
         for i in {input.clstr_resistant}; do
-            CLSTR_NAME="$(basename ${{i%.faa}})"
+            CLSTR_NAME="$(basename ${{i%{params.file_ext}}})"
             TEMP_RENAME_INPUT={output}/$CLSTR_NAME.fasta
             TEMP_LOG={log}.temp
 
