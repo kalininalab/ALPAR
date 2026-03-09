@@ -115,7 +115,8 @@ if __name__ == '__main__':
     handler = Snakemakehandler(
         input=snakemake.input,
         output=snakemake.output[0],
-        threads=snakemake.threads
+        threads=snakemake.threads,
+        log_file=snakemake.log[0],
     )
     logger.remove()
     logger.add(handler.log_file, backtrace=True, diagnose=True, enqueue=True)
