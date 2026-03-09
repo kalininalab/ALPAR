@@ -29,7 +29,7 @@ class Snakemakehandler(BaseModel):
         default=1,
         description='Number of threads to use for parallel processing.'
     )
-    log_file = Annotated[NewPath, BeforeValidator(force_new_file)] = Field(
+    log_file: Annotated[NewPath, BeforeValidator(force_new_file)] = Field(
         description='Path to file for dumping python logs.'
     )
 
