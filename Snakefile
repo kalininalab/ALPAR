@@ -21,7 +21,8 @@ FASTA_FILE = Path(config.get("fasta_file"))
 
 SNAKEFILES_DIR = WORKFLOW_DIR / "snakefiles"
 SCRIPTS_DIR = SNAKEFILES_DIR / "scripts"
-ENVS_DIR = SNAKEFILES_DIR / "envs"
+#ENVS_DIR = SNAKEFILES_DIR / "envs"
+ENVS_DIR = Path("/home/ayu21/miniconda3/envs")
 LOGS_DIR = OUT_DIR / "logs"
 BENCHMARKS_DIR = OUT_DIR / "benchmarks"
 
