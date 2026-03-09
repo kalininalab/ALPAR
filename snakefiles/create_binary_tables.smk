@@ -128,9 +128,9 @@ rule prokka_runner:
         sample = Path(rules.rename_files.output.store) / "{sample}",
         reference = GBFF_FILE,
     output:
-        gff = OUT_DIR / "prokka" / "{sample}" / "{sample}.gff",
-        faa = OUT_DIR / "prokka" / "{sample}" / "{sample}.faa",
-        gbk = OUT_DIR / "prokka" / "{sample}" / "{sample}.gbk",
+        gff = TEMP_DIR / "prokka" / "{sample}" / "{sample}.gff",
+        faa = TEMP_DIR / "prokka" / "{sample}" / "{sample}.faa",
+        gbk = TEMP_DIR / "prokka" / "{sample}" / "{sample}.gbk",
     log: LOGS_DIR / "prokka_runner" / "{sample}.log"
     benchmark: BENCHMARKS_DIR / "prokka_{sample}.tsv"
     params:
@@ -167,8 +167,8 @@ rule panaroo_runner:
             sample = get_sample_names(wc)
         ),
     output:
-        gpa = OUT_DIR / "panaroo" / "gene_presence_absence.csv",
-        gene_data = OUT_DIR / "panaroo" / "gene_data.csv",
+        gpa = TEMP_DIR / "panaroo" / "gene_presence_absence.csv",
+        gene_data = TEMP_DIR / "panaroo" / "gene_data.csv",
     log: LOGS_DIR / "panaroo_runner.log"
     benchmark: BENCHMARKS_DIR / "panaroo.tsv"
     params:
@@ -227,7 +227,7 @@ rule combine_faa_files:
             rules.cdhit_protein_name_corrector.output,
             sample = get_sample_names(wc)
         )
-    output: OUT_DIR / "cd-hit" / "combined_proteins.faa",
+    output: TEMP_DIR / "cd-hit" / "combined_proteins.faa",
     shell:
         r"""
         cat {input} > {output}
@@ -251,8 +251,8 @@ rule cdhit_protein_positions:
 rule cdhit_runner:
     input: rules.combine_faa_files.output
     output: 
-        faa = OUT_DIR / "cd-hit" / "cdhit_output.faa",
-        clstr = OUT_DIR / "cd-hit" / "cdhit_output.faa.clstr",
+        faa = TEMP_DIR / "cd-hit" / "cdhit_output.faa",
+        clstr = TEMP_DIR / "cd-hit" / "cdhit_output.faa.clstr",
     log: LOGS_DIR / "cdhit_runner.log"
     benchmark: BENCHMARKS_DIR / "cdhit.tsv"
     params:
@@ -303,7 +303,7 @@ checkpoint split_cluster_fasta:
     input:
         cdhit_clstr = rules.cdhit_runner.output.clstr,
         combined_proteins = rules.combine_faa_files.output[0],
-    output: directory(OUT_DIR / "cluster_sequences"),
+    output: directory(TEMP_DIR / "cluster_sequences"),
     log: LOGS_DIR / "split_cluster_fasta.log"
     benchmark: BENCHMARKS_DIR / "split_cluster_fasta.tsv"
     params:
@@ -365,13 +365,15 @@ rule gather_align_clusters:
             batch_num = range((len(get_cluster_files(wc)) - 1) // JOB_BATCH_SIZE + 1)
         )
     output: directory(OUT_DIR / "cluster_alignments")
+    log: LOGS_DIR / "gather_align_clusters.log"
     shell:
         r"""
         mkdir -p {output}
         for batch_dir in {input}; do
             for aln_file in $batch_dir/*.fasta; do
                 [ -f "$aln_file" ] || continue
-                ln -sr $aln_file {output}/$(basename $aln_file)
+                cp -v $aln_file {output}/$(basename $aln_file) >> {log} 2>&1
+                # ln -srv $aln_file {output}/$(basename $aln_file) >> {log} 2>&1
             done
         done
         """
@@ -433,8 +435,8 @@ rule snippy_runner:
         sample = Path(rules.rename_files.output.store) / "{sample}",
         reference = GBFF_FILE,
     output:
-        vcf = OUT_DIR / "snippy" / "{sample}" / "snps.vcf",
-        tab = OUT_DIR / "snippy" / "{sample}" / "snps.tab",
+        vcf = TEMP_DIR / "snippy" / "{sample}" / "snps.vcf",
+        tab = TEMP_DIR / "snippy" / "{sample}" / "snps.tab",
     log: LOGS_DIR / "snippy_runner" / "{sample}.log"
     benchmark: BENCHMARKS_DIR / "snippy_{sample}.tsv"
     params:
@@ -466,7 +468,7 @@ rule annotation_file_from_snippy:
             rules.snippy_runner.output.tab,
             sample = get_sample_names(wc)
         )
-    output: OUT_DIR / "mutations_annotations.tsv"
+    output: TEMP_DIR / "mutations_annotations.tsv"
     benchmark: BENCHMARKS_DIR / "annotation_file_from_snippy.tsv"
     log: LOGS_DIR / "annotation_file_from_snippy.log"
     conda: ENVS_DIR / "python313.yaml"
@@ -488,10 +490,11 @@ rule binary_gpa:
                 "panaroo": rules.binary_gpa_panaroo.output,
             }
         )
-    output: OUT_DIR / "binary_gpa.tsv"
+    output: TEMP_DIR / "binary_gpa.tsv"
+    log: LOGS_DIR / "binary_gpa.log"
     shell:
         r"""
-        ln -sr {input} {output}
+        ln -srv {input} {output} >> {log} 2>&1
         """
 
 rule binary_mutation_table:
@@ -500,7 +503,7 @@ rule binary_mutation_table:
             rules.snippy_runner.output.vcf,
             sample = get_sample_names(wc)
         )
-    output: OUT_DIR / "binary_mutation_table.tsv"
+    output: TEMP_DIR / "binary_mutation_table.tsv"
     benchmark: BENCHMARKS_DIR / "binary_mutation_table.tsv"
     log: LOGS_DIR / "binary_mutation_table.log"
     conda: ENVS_DIR / "python313.yaml"

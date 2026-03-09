@@ -22,8 +22,8 @@ FASTA_FILE = Path(config.get("fasta_file"))
 SNAKEFILES_DIR = WORKFLOW_DIR / "snakefiles"
 SCRIPTS_DIR = SNAKEFILES_DIR / "scripts"
 ENVS_DIR = SNAKEFILES_DIR / "envs"
-LOGS_DIR = TEMP_DIR / "logs"
-BENCHMARKS_DIR = TEMP_DIR / "benchmarks"
+LOGS_DIR = OUT_DIR / "logs"
+BENCHMARKS_DIR = OUT_DIR / "benchmarks"
 
 
 # -----------------------

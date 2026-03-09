@@ -443,7 +443,8 @@ def binary_table_pipeline(args):
         'snakemake',
         'create_binary_tables',
         '--use-conda',
-        '--benchmark-extended'
+        '--benchmark-extended',
+        '--snakefile', str((pathlib.Path(__file__).parent.parent / 'Snakefile').resolve()),
     ]
 
     # Add defaults
@@ -469,9 +470,9 @@ def binary_table_pipeline(args):
         f'input_dir={args.input}',
         f'output_dir={args.output}',
         f'gbff_file={args.reference}',
-        f'fasta_file={args.custom_database[0]}'
+        f'fasta_file={args.custom_database[0]}',
         f'temp_dir={args.temp}' if args.temp else f'temp_dir={os.path.join(args.output, "temp")}',
-        f'genus={args.custom_database[1]}'
+        f'genus={args.custom_database[1]}',
         f'gpa_method=panaroo' if args.use_panaroo else 'gpa_method=cd-hit',
     ]
 
@@ -482,15 +483,14 @@ def binary_table_pipeline(args):
     #TODO handle args.verbosity
 
     print(snakemake_cmd)
-    smk_process = subprocess.run(
-        snakemake_cmd,
-        stdout=subprocess.STDOUT,
-        stderr=subprocess.STDOUT,
-    )
+    smk_process = subprocess.run(snakemake_cmd)
 
     end_time = time.time()
 
     print(time_function(start_time, end_time))
+
+    if smk_process.returncode != 0:
+        print(f"Snakemake failed with return code {smk_process.returncode}")
 
 
 def panacota_pipeline(args):

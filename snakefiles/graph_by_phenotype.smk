@@ -105,9 +105,10 @@ rule gather_align_and_map_clusters_by_batch:
             batch_num = range((len(get_cluster_by_phenotype_files("Susceptible", wc)) - 1) // JOB_BATCH_SIZE + 1)
         )
     output:
-        susceptible_alignments = directory(OUT_DIR / "susceptible_alignments" / "{antibiotic}"),
-        all_alignments = directory(OUT_DIR / "all_alignments" / "{antibiotic}"),
+        susceptible_alignments = directory(TEMP_DIR / "susceptible_alignments" / "{antibiotic}"),
+        all_alignments = directory(TEMP_DIR / "all_alignments" / "{antibiotic}"),
         map_files = directory(OUT_DIR / "map_files" / "{antibiotic}"),
+    log: LOGS_DIR / "gather_align_and_map_clusters_by_batch" / "{antibiotic}.log"
     threads: 1
     shell:
         r"""
@@ -118,11 +119,12 @@ rule gather_align_and_map_clusters_by_batch:
                 [ -f "$file" ] || continue
                 case "$file" in
                     *_only_susceptible.fasta)
-                        ln -sr "$file" {output.susceptible_alignments}/$(basename "$file") ;;
+                        ln -srv "$file" {output.susceptible_alignments}/$(basename "$file") >> {log} 2>&1 ;;
                     *_all.fasta)
-                        ln -sr "$file" {output.all_alignments}/$(basename "$file") ;;
+                        ln -srv "$file" {output.all_alignments}/$(basename "$file") >> {log} 2>&1 ;;
                     *.map)
-                        ln -sr "$file" {output.map_files}/$(basename "$file") ;;
+                        cp -v "$file" {output.map_files}/$(basename "$file") >> {log} 2>&1 ;;
+                        # ln -srv "$file" {output.map_files}/$(basename "$file") >> {log} 2>&1 ;;
                 esac
             done
         done
@@ -179,7 +181,7 @@ rule panpa_align_cluster_single_target:
     input:
         clstr_resistant = lambda wc: get_cluster_by_phenotype_files("Resistant", wc),
         gfa_folder = rules.panpa_build_gfa_by_phenotype.output[0],
-    output: directory(TEMP_DIR / "cluster_panpa_alignments" / "{antibiotic}")
+    output: directory(OUT_DIR / "cluster_panpa_alignments" / "{antibiotic}")
     log: LOGS_DIR / "panpa_align_cluster_single_target" / "{antibiotic}.log"
     benchmark: BENCHMARKS_DIR / "panpa_align_cluster_single_target_{antibiotic}.log"
     conda: "envs/panpa.yaml"
