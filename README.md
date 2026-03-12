@@ -27,7 +27,7 @@ pip install panacota
 
 Example files can be downloaded from:
 
-[Example files](https://github.com/kalininalab/ALPAR-Example/blob/main/example.zip)
+[Example files](https://www.bv-brc.org/)
 
 ## Automatic Pipeline
 
