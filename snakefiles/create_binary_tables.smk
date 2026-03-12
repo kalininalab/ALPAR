@@ -47,7 +47,7 @@ rule phenotype_dataframe_creator:
     output: OUT_DIR / "phenotype_table.tsv"
     benchmark: TEMP_DIR / "benchmarks" / "phenotype_dataframe_creator.tsv"
     log: LOGS_DIR / "phenotype_dataframe_creator.log"
-    conda: ENVS_DIR / "python313"
+    conda: ENVS_DIR.format("python313")
     params:
         resistance_status_mapping = RESISTANCE_STATUS_MAPPING,
         antibiotics = ANTIBIOTICS,
@@ -65,7 +65,7 @@ rule cd_hit_create_db:
     output: TEMP_DIR / GENUS / GENUS
     log: LOGS_DIR / "cd_hit_create_db.log"
     benchmark: BENCHMARKS_DIR / "cdhit_create_db.tsv"
-    conda: ENVS_DIR / "cd-hit"
+    conda: ENVS_DIR.format("cd-hit")
     threads: workflow.cores
     shell:
         r"""
@@ -90,7 +90,7 @@ rule makeblastdb:
     output: touch(TEMP_DIR / "flags" / "makeblastdb.done")
     log: LOGS_DIR / "makeblastdb.log"
     benchmark: BENCHMARKS_DIR / "makeblastdb.tsv"
-    conda: ENVS_DIR / "makeblastdb"
+    conda: ENVS_DIR.format("makeblastdb")
     shell:
         r"""
         makeblastdb \
@@ -108,7 +108,7 @@ rule prokka_listdb:
     output: touch(TEMP_DIR / "flags" / "prokka_listdb.done"),
     log: LOGS_DIR / "prokka_listdb.log"
     benchmark: BENCHMARKS_DIR / "prokka_listdb.tsv"
-    conda: ENVS_DIR / "prokka"
+    conda: ENVS_DIR.format("prokka")
     shell:
         r"""
         DB_DIR=$(dirname {input.db_dir})
@@ -139,7 +139,7 @@ rule prokka_runner:
     threads: 1
     resources:
         mem_mb = 600
-    conda: ENVS_DIR / "prokka"
+    conda: ENVS_DIR.format("prokka")
     shell:
         r"""
         input_file=$(readlink -f {input.sample})
@@ -175,7 +175,7 @@ rule panaroo_runner:
         outdir = subpath(output.gpa, parent=True),
         seq_identity_threshold = 0.8,
         seq_len_diff_cutoff = 0.8,
-    conda: ENVS_DIR / "panaroo"
+    conda: ENVS_DIR.format("panaroo")
     threads: 30
     shell:
         r"""
@@ -195,7 +195,7 @@ rule binary_gpa_panaroo:
     input: rules.panaroo_runner.output.gpa,
     output: OUT_DIR / "binary_gpa_panaroo.tsv"
     benchmark: BENCHMARKS_DIR / "binary_gpa_panaroo.py.tsv"
-    conda: ENVS_DIR / "python313"
+    conda: ENVS_DIR.format("python313")
     threads: 1
     script:
         SCRIPTS_DIR / "binary_gpa_panaroo.py"
@@ -242,7 +242,7 @@ rule cdhit_protein_positions:
         )
     output: OUT_DIR / "cd-hit" / "protein_positions.csv",
     benchmark: BENCHMARKS_DIR / "cdhit_protein_positions.py.tsv"
-    conda: ENVS_DIR / "python313"
+    conda: ENVS_DIR.format("python313")
     threads: MAX_PYTHON_THREADS
     script:
         SCRIPTS_DIR / "cdhit_protein_positions.py"
@@ -264,7 +264,7 @@ rule cdhit_runner:
         aln_cov_control_shorter_seq = 99_999_999, # alignment coverage control for the shorter sequence
         unlimited_memory = 0, # memory limit (in MB) for the program; 0 for unlimited;
     threads: workflow.cores
-    conda: ENVS_DIR / "cd-hit"
+    conda: ENVS_DIR.format("cd-hit")
     shell:
         r"""
         cd-hit \
@@ -289,7 +289,7 @@ rule binary_gpa_cdhit:
     output: OUT_DIR / "binary_gpa_cdhit.tsv"
     benchmark: BENCHMARKS_DIR / "binary_gpa_cdhit.tsv"
     log: LOGS_DIR / "binary_gpa_cdhit.log"
-    conda: ENVS_DIR / "python313"
+    conda: ENVS_DIR.format("python313")
     threads: 1
     script:
         SCRIPTS_DIR / "binary_gpa_cdhit.py"
@@ -308,7 +308,7 @@ checkpoint split_cluster_fasta:
     benchmark: BENCHMARKS_DIR / "split_cluster_fasta.tsv"
     params:
         file_ext = ".fasta"
-    conda: ENVS_DIR / "python313"
+    conda: ENVS_DIR.format("python313")
     threads: 8
     script:
         SCRIPTS_DIR / "split_cluster_fasta.py"
@@ -338,7 +338,7 @@ rule batch_align_clusters:
     output: directory(TEMP_DIR / "batch_align_clusters" / "batch_{batch_num}")
     log: LOGS_DIR / "batch_align_clusters" / "batch_{batch_num}.log"
     benchmark: BENCHMARKS_DIR / "batch_align_clusters_batch_{batch_num}.tsv"
-    conda: ENVS_DIR / "mafft"
+    conda: ENVS_DIR.format("mafft")
     threads: 1
     shell:
         r"""
@@ -392,7 +392,7 @@ rule panpa_build_index:
         kmer_size = 10,
         window_size = 15,
         seed_limit = 0,
-    conda: ENVS_DIR / "panpa"
+    conda: ENVS_DIR.format("panpa")
     threads: 1
     shell:
         r"""
@@ -412,7 +412,7 @@ rule panpa_build_gfa:
     output: directory(OUT_DIR / "panpa" / "gfa")
     log: LOGS_DIR / "panpa_build_gfa.log"
     benchmark: BENCHMARKS_DIR / "panpa_build_gfa.tsv"
-    conda: ENVS_DIR / "panpa"
+    conda: ENVS_DIR.format("panpa")
     threads: workflow.cores
     shell:
         r"""
@@ -441,7 +441,7 @@ rule snippy_runner:
     benchmark: BENCHMARKS_DIR / "snippy_{sample}.tsv"
     params:
         out_dir = subpath(output.vcf, parent=True)
-    conda: ENVS_DIR / "snippy"
+    conda: ENVS_DIR.format("snippy")
     threads: 1
     resources:
         mem_gb = 1
@@ -471,7 +471,7 @@ rule annotation_file_from_snippy:
     output: TEMP_DIR / "mutations_annotations.tsv"
     benchmark: BENCHMARKS_DIR / "annotation_file_from_snippy.tsv"
     log: LOGS_DIR / "annotation_file_from_snippy.log"
-    conda: ENVS_DIR / "python313"
+    conda: ENVS_DIR.format("python313")
     threads: MAX_PYTHON_THREADS
     script:
         SCRIPTS_DIR / "annotation_file_from_snippy.py"
@@ -506,7 +506,7 @@ rule binary_mutation_table:
     output: TEMP_DIR / "binary_mutation_table.tsv"
     benchmark: BENCHMARKS_DIR / "binary_mutation_table.tsv"
     log: LOGS_DIR / "binary_mutation_table.log"
-    conda: ENVS_DIR / "python313"
+    conda: ENVS_DIR.format("python313")
     threads: MAX_PYTHON_THREADS
     script:
         SCRIPTS_DIR / "binary_mutation_table.py"

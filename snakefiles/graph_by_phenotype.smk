@@ -16,7 +16,7 @@ checkpoint split_cluster_by_phenotype:
     benchmark: BENCHMARKS_DIR / "split_cluster_by_phenotype.tsv"
     params:
         resistance_status_mapping = RESISTANCE_STATUS_MAPPING
-    conda: ENVS_DIR / "python313"
+    conda: ENVS_DIR.format("python313")
     threads: MAX_PYTHON_THREADS
     script:
         SCRIPTS_DIR / "split_cluster_by_phenotype.py"
@@ -53,7 +53,7 @@ rule align_clusters_by_phenotype_and_map_variants:
         aln_resistant = lambda wc, input: output_batched_cluster_by_phenotype("all.fasta", wc, input),
         map_files = lambda wc, input: output_batched_cluster_by_phenotype("all.fasta.map", wc, input),
         file_ext = rules.split_cluster_fasta.params.file_ext,
-    conda: ENVS_DIR / "mafft"
+    conda: ENVS_DIR.format("mafft")
     threads: 1
     shell:
         r"""
@@ -146,7 +146,7 @@ rule panpa_build_index_by_phenotype:
         kmer_size = 10,
         window_size = 15,
         seed_limit = 0,
-    conda: ENVS_DIR / "panpa"
+    conda: ENVS_DIR.format("panpa")
     threads: 1
     shell:
         r"""
@@ -166,7 +166,7 @@ rule panpa_build_gfa_by_phenotype:
     output: directory(OUT_DIR / "cluster_panpa" / "{antibiotic}" / "gfa")
     log: LOGS_DIR / "cluster_panpa_build_gfa" / "{antibiotic}.log"
     benchmark: BENCHMARKS_DIR / "cluster_panpa_build_gfa_{antibiotic}.tsv"
-    conda: ENVS_DIR / "panpa"
+    conda: ENVS_DIR.format("panpa")
     threads: workflow.cores
     shell:
         r"""
@@ -187,7 +187,7 @@ rule panpa_align_cluster_single_target:
     benchmark: BENCHMARKS_DIR / "panpa_align_cluster_single_target_{antibiotic}.log"
     params:
         file_ext = rules.split_cluster_fasta.params.file_ext,
-    conda: ENVS_DIR / "panpa"
+    conda: ENVS_DIR.format("panpa")
     threads: workflow.cores
     shell:
         r"""

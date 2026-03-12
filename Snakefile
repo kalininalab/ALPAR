@@ -13,19 +13,23 @@ configfile: WORKFLOW_DIR / "snakefiles" / "config" / "config.yaml"
 # Directories and Files
 # -----------------------
 
-IN_DIR = Path(config.get("input_dir", "./data"))
-OUT_DIR = Path(config.get("output_dir", "./out"))
-TEMP_DIR = Path(config.get("temp_dir", "./temp"))
+IN_DIR = Path(config.get("input_dir"))
+OUT_DIR = Path(config.get("output_dir"))
+TEMP_DIR = Path(config.get("temp_dir"))
 GBFF_FILE = Path(config.get("gbff_file"))
 FASTA_FILE = Path(config.get("fasta_file"))
 
 SNAKEFILES_DIR = WORKFLOW_DIR / "snakefiles"
 SCRIPTS_DIR = SNAKEFILES_DIR / "scripts"
-#ENVS_DIR = SNAKEFILES_DIR / "envs"
-ENVS_DIR = Path("/home/ayu21/miniconda3/envs")
 LOGS_DIR = OUT_DIR / "logs"
 BENCHMARKS_DIR = OUT_DIR / "benchmarks"
 
+if config_env := config.get("env_dir", None):
+    # Use local environments from the specified path
+    ENVS_DIR = str(Path(config_env) / "{0}")
+else:
+    # Download environments from files at snakefiles/envs
+    ENVS_DIR = str(SNAKEFILES_DIR / "envs" / "{0}.yaml")
 
 # -----------------------
 # Global Variables
