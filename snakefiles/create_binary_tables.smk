@@ -27,10 +27,11 @@ checkpoint rename_files:
 
             if [ ! -e "{output.store}/$checksum" ]; then
                 ln -srv "$resolved_path" "{output.store}/$checksum" >> {log} 2>&1
-                echo -e "$checksum\t$file" >> {output.mapping}
             else
                 echo "Checksum file $checksum already exists, skipping" >> {log}
             fi
+
+            echo -e "$checksum\t$file" >> {output.mapping}
         
         done
         """
