@@ -21,12 +21,15 @@ checkpoint rename_files:
         find -L {input} -type f \( -name "*.fna" -o -name "*.fasta" -o -name "*.faa" \) -print0 | \
         while read -r -d '' file; do
         
+            resolved_path=$(readlink -f "$file")
             checksum=$(shasum "$file" -a 1 | cut -d ' ' -f 1)
+            echo "Resolving $file to $resolved_path with checksum $checksum" >> {log}
+
             if [ ! -e "{output.store}/$checksum" ]; then
-                ln -srv "$(readlink -f "$file")" "{output.store}/$checksum" >> {log} 2>&1
+                ln -srv "$resolved_path" "{output.store}/$checksum" >> {log} 2>&1
                 echo -e "$checksum\t$file" >> {output.mapping}
             else
-                echo "File $file with checksum $checksum already exists, skipping" >> {log}
+                echo "Checksum file $checksum already exists, skipping" >> {log}
             fi
         
         done
