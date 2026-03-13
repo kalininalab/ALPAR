@@ -11,17 +11,18 @@ checkpoint rename_files:
         store = directory(TEMP_DIR / "data_checksum"),
         mapping = OUT_DIR / "all_files.tsv",
     benchmark: BENCHMARKS_DIR / "rename_files.tsv"
+    log: LOGS_DIR / "rename_files.log"
     threads: 1
     shell:
         r"""
         mkdir -p {output.store}
         echo -e "checksum\tfilepath" > {output.mapping}
         
-        find {input} -type f \( -name "*.fna" -o -name "*.fasta" -o -name "*.faa" \) -print0 | \
+        find -L {input} -type f \( -name "*.fna" -o -name "*.fasta" -o -name "*.faa" \) -print0 | \
         while read -r -d '' file; do
         
             checksum=$(shasum "$file" -a 1 | cut -d ' ' -f 1)
-            ln -sr "$file" "{output.store}/$checksum"
+            ln -srv "$(readlink -f "$file")" "{output.store}/$checksum" >> {log} 2>&1
             echo -e "$checksum\t$file" >> {output.mapping}
 
         done

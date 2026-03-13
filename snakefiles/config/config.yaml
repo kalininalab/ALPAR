@@ -6,6 +6,7 @@ output_dir: "out"
 temp_dir: "temp"
 gbff_file: "db/Escherichia_coli.gbff"
 fasta_file: "db/Escherichia_coli.fasta"
+env_dir: "/home/ayu21/miniconda3/envs"
 
 # ----------------
 # Parameters
