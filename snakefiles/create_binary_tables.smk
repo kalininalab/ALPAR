@@ -22,9 +22,13 @@ checkpoint rename_files:
         while read -r -d '' file; do
         
             checksum=$(shasum "$file" -a 1 | cut -d ' ' -f 1)
-            ln -srv "$(readlink -f "$file")" "{output.store}/$checksum" >> {log} 2>&1
-            echo -e "$checksum\t$file" >> {output.mapping}
-
+            if [ ! -e "{output.store}/$checksum" ]; then
+                ln -srv "$(readlink -f "$file")" "{output.store}/$checksum" >> {log} 2>&1
+                echo -e "$checksum\t$file" >> {output.mapping}
+            else
+                echo "File $file with checksum $checksum already exists, skipping" >> {log}
+            fi
+        
         done
         """
 
