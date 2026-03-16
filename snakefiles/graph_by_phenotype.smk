@@ -75,14 +75,21 @@ rule align_clusters_by_phenotype_and_map_variants:
             ALL_MAP="${{all_map_array[$i]}}"
 
             CLSTR_NAME="$(basename ${{SUSCEPTIBLE_FILE%{params.file_ext}}})"
+            FASTA_COUNT=$(grep -c "^>" $SUSCEPTIBLE_FILE)
 
-            echo ">>Aligning Susceptibles: $CLSTR_NAME" >> {log}
-            mafft \
-                --auto \
-                --thread {threads} \
-                $SUSCEPTIBLE_FILE \
-                > $BASE_ALN \
-                2>> {log}
+            if [ $FASTA_COUNT -eq 1 ]; then
+                echo ">>Cluster: $CLSTR_NAME has only one susceptible sequence. Skipping alignment and and just linking the file." >> {log}
+                ln -srv "$SUSCEPTIBLE_FILE" "$BASE_ALN" >> {log} 2>&1
+            else
+                echo ">>Processing cluster: $CLSTR_NAME with $FASTA_COUNT sequences." >> {log}
+                echo ">>Aligning Susceptibles: $CLSTR_NAME" >> {log}
+                mafft \
+                    --auto \
+                    --thread {threads} \
+                    $SUSCEPTIBLE_FILE \
+                    > $BASE_ALN \
+                    2>> {log}
+            fi
 
             echo ">>Aligning Resistant: $CLSTR_NAME" >> {log}
             mafft \
