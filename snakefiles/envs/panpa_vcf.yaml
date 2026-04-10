@@ -1,0 +1,15 @@
+# v2
+name: panpa
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.13
+  - cython=3.2.4
+  - setuptools=80.10.2
+  - gxx_linux-64
+  - gcc_linux-64
+  - libxcrypt
+  - pip=26.0.1
+  - pip:
+      - git+https://github.com/kalininalab/PanPA-Variants.git@feat/vcf

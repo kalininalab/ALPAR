@@ -153,7 +153,7 @@ rule panpa_build_index_by_phenotype:
         kmer_size = 10,
         window_size = 15,
         seed_limit = 0,
-    conda: ENVS_DIR.format("panpa")
+    conda: ENVS_DIR.format("panpa_vcf")
     threads: 1
     shell:
         r"""
@@ -173,7 +173,7 @@ rule panpa_build_gfa_by_phenotype:
     output: directory(OUT_DIR / "cluster_panpa" / "{antibiotic}" / "gfa")
     log: LOGS_DIR / "cluster_panpa_build_gfa" / "{antibiotic}.log"
     benchmark: BENCHMARKS_DIR / "cluster_panpa_build_gfa_{antibiotic}.tsv"
-    conda: ENVS_DIR.format("panpa")
+    conda: ENVS_DIR.format("panpa_vcf")
     threads: workflow.cores
     shell:
         r"""
@@ -194,8 +194,9 @@ rule panpa_align_cluster_single_target:
     benchmark: BENCHMARKS_DIR / "panpa_align_cluster_single_target_{antibiotic}.log"
     params:
         file_ext = rules.split_cluster_fasta.params.file_ext,
-    conda: ENVS_DIR.format("panpa")
-    threads: workflow.cores
+        seq_identity_threshold = rules.cdhit_runner.params.seq_identity_threshold,
+    conda: ENVS_DIR.format("panpa_vcf")
+    threads: workflow.cores // len(ANTIBIOTICS)
     shell:
         r"""
         # Create output directory if it doesn't exist
@@ -204,22 +205,20 @@ rule panpa_align_cluster_single_target:
 
         for i in {input.clstr_resistant}; do
             CLSTR_NAME="$(basename ${{i%{params.file_ext}}})"
-            TEMP_RENAME_INPUT={output}/$CLSTR_NAME.fasta
             TEMP_LOG={log}.temp
-
-            ln -sr $i $TEMP_RENAME_INPUT
 
             PanPA \
                 --log_file $TEMP_LOG \
                 align_single \
                 --gfa_files "{input.gfa_folder}/${{CLSTR_NAME}}_only_susceptible.fasta.gfa" \
-                --seqs $TEMP_RENAME_INPUT \
+                --seqs $i \
                 --cores {threads} \
-                --out_gaf {output}/$CLSTR_NAME.gaf
-            
+                --out_gaf {output}/$CLSTR_NAME.gaf \
+                --min_id_score {params.seq_identity_threshold} \
+                --vcf
+
             cat $TEMP_LOG >> {log}
             rm $TEMP_LOG
-            rm $TEMP_RENAME_INPUT
         done
         """
 
