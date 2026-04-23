@@ -401,7 +401,7 @@ rule panpa_build_index:
         kmer_size = 10,
         window_size = 15,
         seed_limit = 0,
-    conda: ENVS_DIR.format("panpa")
+    conda: ENVS_DIR.format("panpa_vcf")
     threads: 1
     shell:
         r"""
@@ -416,12 +416,12 @@ rule panpa_build_index:
             --seed_limit {params.seed_limit}
         """
 
-rule panpa_build_gfa:
+checkpoint panpa_build_gfa:
     input: rules.gather_align_clusters.output
     output: directory(OUT_DIR / "panpa" / "gfa")
     log: LOGS_DIR / "panpa_build_gfa.log"
     benchmark: BENCHMARKS_DIR / "panpa_build_gfa.tsv"
-    conda: ENVS_DIR.format("panpa")
+    conda: ENVS_DIR.format("panpa_vcf")
     threads: workflow.cores
     shell:
         r"""
@@ -431,6 +431,78 @@ rule panpa_build_gfa:
             --in_dir {input} \
             --out_dir {output} \
             --cores {threads}
+        """
+
+
+# -----------------------
+# Bubble Annotation
+# -----------------------
+
+def get_panpa_graphs(wildcards) -> list[Path]:
+    panpa_checkpoint = checkpoints.panpa_build_gfa.get(**wildcards)
+    panpa_folder = Path(panpa_checkpoint.output[0])
+    return sorted(panpa_folder.glob(f"*.gfa"))
+
+def batched_bubblegun(wildcards) -> list[Path]:
+    panpa_graphs = get_panpa_graphs(wildcards)
+    batch_num = int(wildcards.batch_num)
+    start = batch_num * JOB_BATCH_SIZE
+    end = min(start + JOB_BATCH_SIZE, len(panpa_graphs))
+    return panpa_graphs[start:end]
+
+rule batched_bubblegun_runner:
+    input:
+        panpa_graph_folder = rules.panpa_build_gfa.output,
+        batch_graphs = batched_bubblegun
+    output: directory(TEMP_DIR / "bubblegun_batches" / "batch_{batch_num}")
+    log: LOGS_DIR / "batched_bubblegun_runner" / "batch_{batch_num}.log"
+    benchmark: BENCHMARKS_DIR / "batched_bubblegun_runner_batch_{batch_num}.tsv"
+    conda: ENVS_DIR.format("bubblegun")
+    threads: 1
+    shell:
+        r"""
+        mkdir -p {output}
+        mkdir -p $(dirname {log})
+
+        for i in {input.batch_graphs}; do
+            OUT_FILE="{output}/$(basename ${{i%.gfa}}).json"
+            TEMP_LOG=$(mktemp --suffix .log)
+            echo ">> Processing $i" >> $TEMP_LOG
+
+            BubbleGun \
+                --log_file $TEMP_LOG \
+                --in_graph $i \
+                bchains \
+                --bubble_json $OUT_FILE \
+                >> $TEMP_LOG 2>&1
+
+            if [ ! -f "$OUT_FILE" ]; then
+                echo "No bubbles found in $i." >> $TEMP_LOG
+                echo '{{}}' > "$OUT_FILE"
+            fi
+
+            cat $TEMP_LOG >> {log}
+            rm $TEMP_LOG
+        done
+        """
+
+rule bubblegun_gather:
+    input:
+        lambda wc: expand(
+            rules.batched_bubblegun_runner.output,
+            batch_num = range((len(get_panpa_graphs(wc)) - 1) // JOB_BATCH_SIZE + 1)
+        )
+    output: directory(TEMP_DIR / "bubblegun")
+    log: LOGS_DIR / "bubblegun_gather.log"
+    shell:
+        r"""
+        mkdir -p {output}
+        for batch_dir in {input}; do
+            for json_file in $batch_dir/*.json; do
+                [ -f "$json_file" ] || continue
+                ln -srv $json_file {output}/$(basename $json_file) >> {log} 2>&1
+            done
+        done
         """
 
 
@@ -545,6 +617,6 @@ rule create_binary_tables:
         rules.annotation_file_from_snippy.output,
         rules.cdhit_protein_positions.output,
         rules.panpa_build_index.output,
-        rules.panpa_build_gfa.output,
-        rules.gather_panpa_all_clusters.output,
+        rules.bubblegun_gather.output,
+        # rules.gather_panpa_all_clusters.output,
     default_target: True
