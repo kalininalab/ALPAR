@@ -17,12 +17,13 @@ from sr_amr.version import __version__
 
 from sr_amr.panacota import panacota_pre_processor, panacota_post_processor, panacota_pipeline_runner
 from sr_amr.gwas import pyseer_runner, pyseer_similarity_matrix_creator, pyseer_phenotype_file_creator, pyseer_genotype_matrix_creator, pyseer_post_processor, pyseer_gwas_graph_creator, decision_tree_input_creator
-from sr_amr.binary_tables import snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, binary_mutation_table_gpa_information_adder_panaroo, phenotype_dataframe_creator, phenotype_dataframe_creator_post_processor, prokka_create_database, snippy_processed_file_creator, annotation_file_from_snippy, cdhit_preprocessor, cdhit_runner, gene_presence_absence_file_creator
+from sr_amr.binary_tables import snippy_runner, prokka_runner, bakta_runner, check_and_download_bakta_db, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, binary_mutation_table_gpa_information_adder_panaroo, phenotype_dataframe_creator, phenotype_dataframe_creator_post_processor, prokka_create_database, snippy_processed_file_creator, annotation_file_from_snippy, cdhit_preprocessor, cdhit_runner, gene_presence_absence_file_creator
 from sr_amr.binary_table_threshold import binary_table_threshold_with_percentage
 from sr_amr.phylogeny_tree import mash_preprocessor, mash_distance_runner
 from sr_amr.prps import PRPS_runner, PRPS_runner_continuous, PRPS_binary_check
 from sr_amr.ds import datasail_runner, datasail_pre_precessor
 from sr_amr.ml import prps_ml_preprecessor, combined_ml
+from sr_amr.qc import run_qc_pipeline
 from sr_amr.full_automatix import automatix_runner
 from sr_amr.ml_common_files import fia_file_annotation
 from sr_amr.structman import structman_input_creator, annotation_function
@@ -71,12 +72,17 @@ def main():
     parser_automatix.add_argument('--overwrite', action='store_true',
                                   help='overwrite the output and temp folder if exists, default=False')
     parser_automatix.add_argument('--ml_algorithm', nargs='+',
-                              help='classification algorithm to be used, available selections: [rf, svm, gb, histgb], default=[rf, svm, gb, histgb]', default=["rf", "svm", "gb", "histgb"])
+                              help='classification algorithm to be used, available selections: [rf, svm, gb, histgb, lr, xgb], default=[rf, svm, gb, histgb, lr, xgb]', default=["rf", "svm", "gb", "histgb", "lr", "xgb"])
     parser_automatix.add_argument('--no_ml', action='store_true', help='do not run machine learning analysis, default=False')
     parser_automatix.add_argument('--fast', action='store_true', help='fast mode, does not run PanACoTA pipeline for phylogenetic tree analysis, default=False')
     parser_automatix.add_argument('--checkpoint', action='store_true',
                                   help='continues run from the checkpoint, default=False')
     parser_automatix.add_argument('--use_panaroo', action='store_true',help='use panaroo for gene presence absence analysis, WARNING: REQUIRES A LOT OF MEMORY, default=False')
+    parser_automatix.add_argument('--use_bakta', action='store_true', help='use bakta instead of prokka for annotation, default=False')
+    parser_automatix.add_argument('--bakta_db', type=str, help='path to bakta database, default=None')
+    parser_automatix.add_argument('--run_qc', action='store_true', help='run automated QC on input genomes, default=False')
+    parser_automatix.add_argument('--qc_length_threshold', type=float, help='fraction of median length allowed, default=0.1', default=0.1)
+    parser_automatix.add_argument('--qc_max_contigs', type=int, help='maximum allowed number of contigs, default=500', default=500)
     parser_automatix.add_argument('--no_datasail', action='store_true', help='splits data randomly instead of using genomic distances, default=False')
     parser_automatix.add_argument('--verbosity', type=int,
                                   help='verbosity level, default=1', default=1)
@@ -113,6 +119,11 @@ def main():
         '--no_gene_annotation', action='store_true', help='do not run gene annotation, default=False')
     parser_main_pipeline.add_argument(
         '--use_panaroo', action='store_true', help='use panaroo for gene presence absence analysis, WARNING: REQUIRES A LOT OF MEMORY, default=False')
+    parser_main_pipeline.add_argument('--use_bakta', action='store_true', help='use bakta instead of prokka for annotation, default=False')
+    parser_main_pipeline.add_argument('--bakta_db', type=str, help='path to bakta database, default=None')
+    parser_main_pipeline.add_argument('--run_qc', action='store_true', help='run automated QC on input genomes, default=False')
+    parser_main_pipeline.add_argument('--qc_length_threshold', type=float, help='fraction of median length allowed, default=0.1', default=0.1)
+    parser_main_pipeline.add_argument('--qc_max_contigs', type=int, help='maximum allowed number of contigs, default=500', default=500)
     parser_main_pipeline.add_argument('--checkpoint', action='store_true',
                                       help='continues run from the checkpoint, default=False')
     parser_main_pipeline.add_argument('--verbosity', type=int,
@@ -429,8 +440,15 @@ def run_snippy_and_prokka(strain, random_names, snippy_output, prokka_output, ar
         snippy_runner(strain, random_names[os.path.splitext(strain.split("/")[-1].strip())[
                       0]], snippy_output, args.reference, f"{args.temp}/snippy_log.txt", 1, args.ram)
     if prokka_flag:
-        prokka_runner(strain, random_names[os.path.splitext(strain.split("/")[-1].strip())[
-                      0]], prokka_output, args.reference, f"{args.temp}/prokka_log.txt", 1, custom_db)
+        if args.use_bakta:
+            # Note: The DB check is also done in the main pipeline before starting parallel runs
+            # to avoid multiple threads trying to download the same DB.
+            db_path = check_and_download_bakta_db(args.bakta_db, f"{args.temp}/bakta_db.log")
+            bakta_runner(strain, random_names[os.path.splitext(strain.split("/")[-1].strip())[
+                        0]], prokka_output, f"{args.temp}/bakta_log.txt", 1, db_path)
+        else:
+            prokka_runner(strain, random_names[os.path.splitext(strain.split("/")[-1].strip())[
+                        0]], prokka_output, args.reference, f"{args.temp}/prokka_log.txt", 1, custom_db)
 
 
 def binary_table_pipeline(args):
@@ -444,7 +462,12 @@ def binary_table_pipeline(args):
     if args.verbosity > 3:
         print("Checking the installed tools...")
     # Check if the tools are installed
-    tool_list = ["snippy", "prokka", "panaroo"]
+    tool_list = ["snippy", "panaroo"]
+
+    if args.use_bakta:
+        tool_list.append("bakta")
+    else:
+        tool_list.append("prokka")
 
     for tool in tool_list:
         if not is_tool_installed(tool):
@@ -633,6 +656,14 @@ def binary_table_pipeline(args):
     if not os.path.exists(os.path.join(args.temp, "cdhit")):
         os.mkdir(os.path.join(args.temp, "cdhit"))
 
+    # If bakta is used, check/download DB once here to avoid race conditions in parallel runs
+    if args.use_bakta:
+        print("Checking Bakta database...")
+        args.bakta_db = check_and_download_bakta_db(args.bakta_db, f"{args.temp}/bakta_db_init.log")
+        if args.bakta_db is None:
+            print("Error: Could not find or download Bakta database. Exiting.")
+            sys.exit(1)
+
     if status < 0:
 
         if os.path.exists(os.path.join(args.output, "strains.txt")):
@@ -714,6 +745,18 @@ def binary_table_pipeline(args):
 
             if args.verbosity > 3:
                 print(f"Strains.txt file created: {input_file}")
+
+        if args.run_qc:
+            strains_to_qc = []
+            with open(os.path.join(args.output, "strains.txt"), "r") as infile:
+                for line in infile:
+                    strains_to_qc.append(line.strip())
+            
+            passed_strains = run_qc_pipeline(strains_to_qc, args.output, args.qc_length_threshold, args.qc_max_contigs)
+            
+            with open(os.path.join(args.output, "strains.txt"), "w") as outfile:
+                for strain in passed_strains:
+                    outfile.write(f"{strain}\n")
 
         if input_file is not None:
             random_names = random_name_giver(
@@ -1813,7 +1856,12 @@ def fully_automated_pipeline(args):
 
     start_time = time.time()
 
-    tool_list = ["PanACoTA", "snippy", "prokka", "panaroo", "pyseer"]
+    tool_list = ["PanACoTA", "snippy", "panaroo", "pyseer"]
+
+    if args.use_bakta:
+        tool_list.append("bakta")
+    else:
+        tool_list.append("prokka")
 
     for tool in tool_list:
         if not is_tool_installed(tool):
@@ -1837,13 +1885,12 @@ def fully_automated_pipeline(args):
             print("Error: Output folder is not empty.")
             print("Please provide an empty output folder or use the --overwrite option.")
             sys.exit(1)
-    
+
     if args.ml_algorithm:
         for algorithm in args.ml_algorithm:
-            if algorithm not in ["rf", "svm", "gb", "histgb", "xgb"]:
+            if algorithm not in ["rf", "svm", "gb", "histgb", "xgb", "lr"]:
                 print("Error: ML algorithm is not accepted.")
                 sys.exit(1)
-
     automatix_runner(args)
 
     end_time = time.time()

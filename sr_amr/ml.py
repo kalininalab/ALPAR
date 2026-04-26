@@ -9,6 +9,7 @@ import numpy as np
 import pickle
 from random import randint
 import os
+from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
 from sklearn.svm import SVC
 from sklearn.model_selection import GridSearchCV
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, HistGradientBoostingClassifier
@@ -31,65 +32,37 @@ def output_file_writer(outfile, y_test, y_hat, cls=None, best_c=None):
         if best_c:
             ofile.write("C: " + str(best_c))
             ofile.write("\n")
-        ofile.write("Accuracy score: " +
-                    str(sklearn.metrics.accuracy_score(y_test, y_hat)))
-        ofile.write("\n")
-        ofile.write("Balanced Accuracy score: " +
-                    str(sklearn.metrics.balanced_accuracy_score(y_test, y_hat)))
-        ofile.write("\n")
-        ofile.write("Brier score loss: " +
-                    str(sklearn.metrics.brier_score_loss(y_test, y_hat)))
-        ofile.write("\n")
-        ofile.write("F1 score macro: " +
-                    str(sklearn.metrics.f1_score(y_test, y_hat, average='macro')))
-        ofile.write("\n")
-        ofile.write("F1 score micro: " +
-                    str(sklearn.metrics.f1_score(y_test, y_hat, average='micro')))
-        ofile.write("\n")
-        ofile.write("F1 score weighted: " +
-                    str(sklearn.metrics.f1_score(y_test, y_hat, average='weighted')))
-        ofile.write("\n")
-        ofile.write("F1 score binary: " +
-                    str(sklearn.metrics.f1_score(y_test, y_hat, average='binary')))
-        ofile.write("\n")
-        ofile.write("Precision score: " +
-                    str(sklearn.metrics.precision_score(y_test, y_hat, average='binary')))
-        ofile.write("\n")
-        ofile.write("Recall score: " +
-                    str(sklearn.metrics.recall_score(y_test, y_hat, average='binary')))
-        ofile.write("\n")
-        ofile.write("Confussion matrix: " +
-                    str(sklearn.metrics.confusion_matrix(y_test, y_hat)))
-        ofile.write("\n")
-        ofile.write("ROC Curve: " +
-                    str(sklearn.metrics.roc_curve(y_test, y_hat)))
-        ofile.write("\n")
-        ofile.write("ROC AUC Score: " +
-                    str(sklearn.metrics.roc_auc_score(y_test, y_hat)))
-        ofile.write("\n")
-        ofile.write("Jaccard score: " +
-                    str(sklearn.metrics.jaccard_score(y_test, y_hat)))
-        ofile.write("\n")
-        ofile.write("Hinge loss: " +
-                    str(sklearn.metrics.hinge_loss(y_test, y_hat)))
-        ofile.write("\n")
-        ofile.write("Hamming loss: " +
-                    str(sklearn.metrics.hamming_loss(y_test, y_hat)))
-        ofile.write("\n")
-        ofile.write(
-            "Fbeta score macro: " + str(sklearn.metrics.fbeta_score(y_test, y_hat, average='macro', beta=0.5)))
-        ofile.write("\n")
-        ofile.write(
-            "Fbeta score micro: " + str(sklearn.metrics.fbeta_score(y_test, y_hat, average='micro', beta=0.5)))
-        ofile.write("\n")
-        ofile.write("Fbeta score weighted: " + str(
-            sklearn.metrics.fbeta_score(y_test, y_hat, average='weighted', beta=0.5)))
-        ofile.write("\n")
-        ofile.write("Log loss: " +
-                    str(sklearn.metrics.log_loss(y_test, y_hat)))
-        ofile.write("\n")
-        ofile.write("Matthews correlation coefficient: " +
-                    str(sklearn.metrics.matthews_corrcoef(y_test, y_hat)))
+        
+        # Accuracy metrics
+        acc = sklearn.metrics.accuracy_score(y_test, y_hat)
+        bal_acc = sklearn.metrics.balanced_accuracy_score(y_test, y_hat)
+        mcc = sklearn.metrics.matthews_corrcoef(y_test, y_hat)
+        f1 = sklearn.metrics.f1_score(y_test, y_hat, average='binary')
+        precision = sklearn.metrics.precision_score(y_test, y_hat, average='binary')
+        recall = sklearn.metrics.recall_score(y_test, y_hat, average='binary')
+        
+        ofile.write(f"Accuracy score: {acc}\n")
+        ofile.write(f"Balanced Accuracy score: {bal_acc}\n")
+        ofile.write(f"Matthews correlation coefficient: {mcc}\n")
+        ofile.write(f"F1 score binary: {f1}\n")
+        ofile.write(f"Precision score: {precision}\n")
+        ofile.write(f"Recall score: {recall}\n")
+        
+        # Confusion Matrix
+        cm = sklearn.metrics.confusion_matrix(y_test, y_hat)
+        ofile.write(f"Confusion matrix:\n{cm}\n")
+        
+        # Additional metrics
+        try:
+            roc_auc = sklearn.metrics.roc_auc_score(y_test, y_hat)
+            ofile.write(f"ROC AUC Score: {roc_auc}\n")
+        except:
+            pass
+
+        ofile.write(f"Brier score loss: {sklearn.metrics.brier_score_loss(y_test, y_hat)}\n")
+        ofile.write(f"Jaccard score: {sklearn.metrics.jaccard_score(y_test, y_hat)}\n")
+        ofile.write(f"Log loss: {sklearn.metrics.log_loss(y_test, y_hat)}\n")
+
 
 
 def prps_ml_preprecessor(binary_mutation_table, prps_score_file, prps_percentage, temp_path):
@@ -666,6 +639,16 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
             histgb_cls.fit(X_train, y_train)
             y_hat = histgb_cls.predict(X_test)
 
+    elif model_type == "lr":
+        if resampling_strategy == "cv":
+            lr_cls = LogisticRegressionCV(cv=cv_split, random_state=random_seed, class_weight='balanced', max_iter=1000)
+            lr_cls.fit(X_train, y_train)
+            y_hat = lr_cls.predict(X_test)
+        else:
+            lr_cls = LogisticRegression(random_state=random_seed, class_weight='balanced', max_iter=1000)
+            lr_cls.fit(X_train, y_train)
+            y_hat = lr_cls.predict(X_test)
+
     outfile = os.path.join(output_folder, f"{output_file_template}_Result")
 
     output_file_writer(outfile, y_test, y_hat)
@@ -691,6 +674,10 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
             model_file = os.path.join(
                 output_folder, f"{output_file_template}_model.sav")
             pickle.dump(bst, open(model_file, 'wb'))
+        elif model_type == "lr":
+            model_file = os.path.join(
+                output_folder, f"{output_file_template}_model.sav")
+            pickle.dump(lr_cls, open(model_file, 'wb'))
 
     if feature_importance_analysis:
 

@@ -316,3 +316,46 @@ def decision_tree_input_creator(binary_table, phenotype_file_path, pyseer_output
 
             os.makedirs(os.path.join(output_folder, 'decision_tree'), exist_ok=True)
             decision_tree(os.path.join(output_folder, 'gwas_top_results.tsv'), phenotype_file_path, gwas_sorted_file.split('.')[0], 42, 0.2, os.path.join(output_folder, 'decision_tree'))
+
+def compare_gwas_ml(pyseer_file, ml_feature_importance_file, output_file, top_n=50):
+    """
+    Compares GWAS (Pyseer) results with ML Feature Importance results.
+    """
+    # Load Pyseer results (assuming it has 'variant' and 'lrt-pvalue')
+    # Or 'Gene' and 'log10(p)' depending on the file
+    try:
+        gwas_df = pd.read_csv(pyseer_file, sep="\t")
+        # Identify p-value column (it varies in Pyseer)
+        p_col = None
+        for col in ['lrt-pvalue', 'p-value', 'filter-pvalue']:
+            if col in gwas_df.columns:
+                p_col = col
+                break
+        
+        if p_col:
+            gwas_df = gwas_df.sort_values(by=p_col).head(top_n)
+            gwas_features = set(gwas_df['variant' if 'variant' in gwas_df.columns else gwas_df.columns[0]])
+        else:
+            gwas_features = set()
+    except Exception as e:
+        print(f"Error reading GWAS file {pyseer_file}: {e}")
+        gwas_features = set()
+
+    # Load ML results
+    try:
+        ml_df = pd.read_csv(ml_feature_importance_file, sep="\t")
+        ml_df = ml_df.sort_values(by="Importance", ascending=False).head(top_n)
+        ml_features = set(ml_df['Feature'])
+    except Exception as e:
+        print(f"Error reading ML file {ml_feature_importance_file}: {e}")
+        ml_features = set()
+
+    common = gwas_features.intersection(ml_features)
+    
+    with open(output_file, 'w') as f:
+        f.write(f"Common features found in both GWAS and ML (Top {top_n}):\n")
+        for feature in common:
+            f.write(f"{feature}\n")
+        f.write(f"\nTotal common: {len(common)}\n")
+        
+    return common

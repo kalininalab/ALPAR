@@ -144,6 +144,50 @@ def prokka_runner(input, strain_random_name, output, reference, log_file, cpus=1
 
     os.system(run_command)
 
+def bakta_runner(input, strain_random_name, output, log_file, cpus=1, db_path=None):
+    """
+    input (str): Path to the input file
+    output (str): Path to the output directory
+    cpus (int): Number of cpus to use
+    db_path (str): Path to the bakta database
+    """
+
+    run_command = f"bakta --cpus {cpus} --output {output}/{strain_random_name} --prefix {strain_random_name} --force"
+    
+    if db_path:
+        run_command = f"{run_command} --db {db_path}"
+        
+    run_command = f"{run_command} {input} >> {log_file} 2>&1"
+
+    os.system(run_command)
+
+def check_and_download_bakta_db(db_path=None, log_file=None):
+    """
+    Checks if bakta database exists, if not downloads it.
+    """
+    if db_path and os.path.exists(db_path):
+        return db_path
+
+    # Default path in user's home directory if not provided
+    if db_path is None:
+        db_path = os.path.expanduser("~/.bakta_db")
+
+    if not os.path.exists(db_path):
+        print(f"Bakta database not found at {db_path}. Starting download...")
+        os.makedirs(db_path, exist_ok=True)
+        # Using bakta_db download command which is standard with bakta installation
+        download_command = f"bakta_db download --output {db_path}"
+        if log_file:
+            download_command += f" >> {log_file} 2>&1"
+        
+        exit_code = os.system(download_command)
+        if exit_code != 0:
+            print("Error: Bakta database download failed. Please check your internet connection or install it manually.")
+            return None
+        print(f"Bakta database downloaded successfully to {db_path}")
+    
+    return db_path
+
 
 def generate_random_key():
     return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(8))
