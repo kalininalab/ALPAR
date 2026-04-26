@@ -11,4 +11,5 @@ dependencies:
   - snakemake=9.16.2
   - pip:
       - loguru==0.7.3
-      - polars==1.38.1
+      - polars==1.40.0
+      - rustworkx==0.17.1
