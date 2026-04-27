@@ -1,8 +1,16 @@
 from setuptools import setup, find_packages
-from sr_amr.version import __version__
+import re
 
 with open("README.md", "r") as desc_file:
     long_description = desc_file.read()
+
+with open("sr_amr/version.py", "r") as version_file:
+    version_content = version_file.read()
+    version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]", version_content, re.M)
+    if version_match:
+        __version__ = version_match.group(1)
+    else:
+        raise RuntimeError("Unable to find version string.")
 
 setup(
     name="ALPAR",
@@ -15,7 +23,7 @@ setup(
     maintainer="Alper Yurtseven",
     classifiers=[
         "Development Status :: 4 - Beta",
-        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.12",
         "Intended Audience :: Science/Research",
         "Natural Language :: English",
         "Topic :: Scientific/Engineering :: Bio-Informatics",
@@ -25,6 +33,11 @@ setup(
     include_package_data=False,
     install_requires=[],
     package_data={},
-    python_requires=">=3.13",
+    python_requires=">=3.12",
     keywords="bioinformatics",
-)
+    entry_points={
+        'console_scripts': [
+            'alpar=sr_amr.amr:main',
+        ],
+    },
+    )

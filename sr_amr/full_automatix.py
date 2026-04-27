@@ -11,6 +11,12 @@ warnings.filterwarnings("ignore")
 def generate_random_key():
     return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(4))
 
+def run_command(command, error_message):
+    exit_code = os.system(command)
+    if exit_code != 0:
+        print(f"Error: {error_message}")
+        sys.exit(1)
+
 def automatix_runner(args):    
 
     if args.temp == None:
@@ -54,7 +60,7 @@ def automatix_runner(args):
     # Run all steps here before ml:
 
     print("Creating binary tables...")
-    os.system(create_binary_tables_script)
+    run_command(create_binary_tables_script, "Creating binary tables failed!")
 
     if args.just_mutations:
         files_to_be_checked_list = ["binary_mutation_table.tsv", "mutations_annotations.tsv"]
@@ -73,6 +79,7 @@ def automatix_runner(args):
 
     print("Thresholding binary tables...")
 
+    binary_table_threshold_script = ""
     if "binary_mutation_table_with_gene_presence_absence.tsv" not in os.listdir(args.output):
         if "binary_mutation_table.tsv" in os.listdir(args.output):
             binary_table_threshold_script = f"alpar binary_table_threshold -i '{args.output}/binary_mutation_table.tsv' -o '{args.output}'"
@@ -80,13 +87,17 @@ def automatix_runner(args):
     else:
         binary_table_threshold_script = f"alpar binary_table_threshold -i '{args.output}/binary_mutation_table_with_gene_presence_absence.tsv' -o '{args.output}'"
 
+    if binary_table_threshold_script == "":
+        print("Error: Could not find binary mutation tables for thresholding!")
+        sys.exit(1)
+
     if args.keep_temp_files:
                 binary_table_threshold_script += " --keep_temp_files"
     
     if args.overwrite:
         binary_table_threshold_script += " --overwrite"
 
-    os.system(binary_table_threshold_script)
+    run_command(binary_table_threshold_script, "Thresholding binary tables failed!")
 
     run_status_writer(f"{args.output}/status.txt", "Binary tables thresholded")
 
@@ -103,7 +114,7 @@ def automatix_runner(args):
         if args.overwrite:
             panacota_script += " --overwrite"
 
-        os.system(panacota_script)
+        run_command(panacota_script, "PanACoTA failed!")
 
     files_to_be_checked_list = ["phylogenetic_tree.newick"]
 
@@ -124,7 +135,7 @@ def automatix_runner(args):
     if args.overwrite:
         phylogenetic_tree_script += " --overwrite"
 
-    os.system(phylogenetic_tree_script)
+    run_command(phylogenetic_tree_script, "Creating phylogenetic tree failed!")
 
     files_to_be_checked_list = ["phylogenetic_tree.tree"]
 
@@ -138,6 +149,7 @@ def automatix_runner(args):
 
     print("Running PRPS...")
 
+    binary_mutation_table_for_prps = None
     for file in os.listdir(f"{args.output}/binary_table_threshold/"):
         if file.endswith(".tsv"):
             binary_mutation_table_for_prps =  os.path.join(f"{args.output}/binary_table_threshold/", file)
@@ -169,7 +181,7 @@ def automatix_runner(args):
     if args.overwrite:
         prps_script += " --overwrite"
 
-    os.system(prps_script)
+    run_command(prps_script, "PRPS calculation failed!")
 
     files_to_be_checked_list = ["prps_score.tsv"]
 
@@ -183,6 +195,7 @@ def automatix_runner(args):
 
     print("Running GWAS...")
 
+    binary_mutation_table_for_gwas = None
     for file in os.listdir(f"{args.output}/binary_table_threshold/"):
         if file.endswith(".tsv"):
             binary_mutation_table_for_gwas =  os.path.join(f"{args.output}/binary_table_threshold/", file)
@@ -211,7 +224,7 @@ def automatix_runner(args):
     if args.overwrite:
         gwas_script += " --overwrite"
 
-    os.system(gwas_script)
+    run_command(gwas_script, "GWAS failed!")
 
     files_to_be_checked_list = ["genotype_matrix.tsv", "similarity_matrix.tsv"]
 
@@ -236,6 +249,7 @@ def automatix_runner(args):
                 if not i.startswith("."):
                     antibiotics_list.append(i.strip())
 
+        binary_mutation_table_for_ml = None
         for file in os.listdir(f"{args.output}/binary_table_threshold/"):
             if file.endswith(".tsv"):
                 binary_mutation_table_for_ml =  os.path.join(f"{args.output}/binary_table_threshold/", file)
@@ -265,7 +279,7 @@ def automatix_runner(args):
                     ml_script += f" --sail '{args.output}/strains.txt'"
 
                 print(f"Running {algorithm} for {abiotic}...")
-                os.system(ml_script)
+                run_command(ml_script, f"Running {algorithm} for {abiotic} failed!")
                 run_status_writer(f"{args.output}/status.txt", f"{algorithm} done for {abiotic}")
 
         # After ML and GWAS are done, compare them

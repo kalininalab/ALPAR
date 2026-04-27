@@ -1,4 +1,4 @@
-from sr_amr.amr import main
+from .amr import main
 
 
 if __name__ == '__main__':
