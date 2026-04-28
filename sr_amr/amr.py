@@ -930,6 +930,53 @@ def binary_table_pipeline(args):
     print(time_function(start_time, end_time))
 
 
+def nextflow_pipeline_wrapper(args):
+    import subprocess
+    import shutil
+
+    if not shutil.which("nextflow"):
+        print("Error: Nextflow is not installed or not in PATH.")
+        sys.exit(1)
+
+    # Path to the main.nf file relative to the alpar installation
+    # Assuming it's in the 'nextflow' directory of the project root
+    base_dir = pathlib.Path(__file__).parent.parent.resolve()
+    nf_script = base_dir / "nextflow" / "main.nf"
+
+    if not nf_script.exists():
+        print(f"Error: Nextflow script not found at {nf_script}")
+        sys.exit(1)
+
+    cmd = [
+        "nextflow", "run", str(nf_script),
+        "--input", args.input,
+        "--output", args.output,
+        "--reference", args.reference,
+        "--annotation_tool", args.annotation_tool,
+        "--gpa_tool", args.gpa_tool,
+        "--threads", str(args.threads),
+        "--ram", str(args.ram)
+    ]
+
+    if args.bakta_db:
+        cmd.extend(["--bakta_db", args.bakta_db])
+    if args.run_qc:
+        cmd.append("--run_qc")
+    if args.no_ml:
+        cmd.append("--no_ml")
+    if args.fast:
+        cmd.append("--fast")
+    if args.resume:
+        cmd.append("-resume")
+
+    print(f"Executing: {' '.join(cmd)}")
+    try:
+        subprocess.run(cmd, check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Nextflow pipeline failed with exit code {e.returncode}")
+        sys.exit(e.returncode)
+
+
 def panacota_pipeline(args):
 
     start_time = time.time()
@@ -2224,6 +2271,12 @@ def prediction_pipeline(args):
             print("You can remove the temp folder manually. Temp folder path: ",
                   os.path.join(args.temp))
              
+    end_time = time.time()
+    print(time_function(start_time, end_time))
+
+if __name__ == "__main__":
+    main()
+           
     end_time = time.time()
     print(time_function(start_time, end_time))
 
