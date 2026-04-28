@@ -1,0 +1,8 @@
+name: alpar-bakta
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python>=3.8
+  - bakta
