@@ -10,7 +10,6 @@ dependencies:
   - numpy
   - scikit-learn
   - joblib
-  - snakemake-minimal # sometimes useful
   - pip
   - pip:
     - . # This will install the local alpar package
