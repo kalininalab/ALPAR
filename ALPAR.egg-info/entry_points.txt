@@ -1,2 +1,0 @@
-[console_scripts]
-alpar = sr_amr.amr:main
