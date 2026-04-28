@@ -7,3 +7,10 @@ dependencies:
   - python>=3.12
   - pandas
   - numpy
+  - pip
+  - pip:
+    - psutil
+    - seaborn
+    - matplotlib
+    - scikit-learn
+    

@@ -1,22 +1,9 @@
 import sys
-import sklearn.model_selection
-import sklearn.datasets
-import sklearn.metrics
-from sklearn.inspection import permutation_importance
 import pandas as pd
-from pprint import pprint
 import numpy as np
 import pickle
-from random import randint
 import os
-from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
-from sklearn.svm import SVC
-from sklearn.model_selection import GridSearchCV
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, HistGradientBoostingClassifier
-from sklearn import tree
-from sklearn.metrics import matthews_corrcoef, make_scorer, accuracy_score, f1_score, roc_auc_score
 import csv
-import xgboost as xgb
 import secrets
 
 import warnings
@@ -26,6 +13,7 @@ warnings.filterwarnings("ignore")
 csv.field_size_limit(sys.maxsize)
 
 def output_file_writer(outfile, y_test, y_hat, cls=None, best_c=None):
+    import sklearn.metrics
 
     with open(outfile, "w") as ofile:
 
@@ -139,6 +127,8 @@ def prps_ml_preprecessor(binary_mutation_table, prps_score_file, prps_percentage
 
 
 def decision_tree(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_size, output_folder, stratify=True):
+    import sklearn.model_selection
+    from sklearn import tree
 
     output_file_template = f"{output_folder}/{antibiotic}_decision_tree"
 
@@ -196,6 +186,15 @@ def decision_tree(binary_mutation_table, phenotype_table, antibiotic, random_see
 
 
 def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, temp_folder, ram, model_type, feature_importance_analysis=False, save_model=False, resampling_strategy="holdout", custom_scorer="MCC", fia_repeats=5, n_estimators=100, max_depth=2, min_samples_leaf=1, min_samples_split=2, kernel="linear", optimization=False, train=[], test=[], validation=[], same_setup_run_count=1, stratify=True, feature_importance_analysis_strategy="gini", important_feature_limit = 10, param_grid_size = "small", param_grid_low_memory_mode = False, device= "cpu", parameter_search_strategy="grid_search", parameter_search_n_iter=20):
+    import sklearn.model_selection
+    import sklearn.metrics
+    from sklearn.inspection import permutation_importance
+    from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
+    from sklearn.svm import SVC
+    from sklearn.model_selection import GridSearchCV
+    from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, HistGradientBoostingClassifier
+    from sklearn.metrics import matthews_corrcoef, make_scorer, accuracy_score, f1_score, roc_auc_score
+    import xgboost as xgb
 
     output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type.upper()}"
 

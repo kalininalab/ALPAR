@@ -1,4 +1,3 @@
-from datasail.sail import datasail
 import pandas as pd
 from pathlib import Path
 import os
@@ -113,6 +112,7 @@ def datasail_pre_precessor(strains_text_file, temp_folder, random_names_dict, ou
 
 
 def datasail_runner(distance_matrix, output_folder, splits=[0.8, 0.2], cpus=1, max_time=600, epsilon=0.1, delta=0.1, solver="SCIP", sail_max_time=600, df_dict=None, antibiotic=None):
+    from datasail.sail import datasail
     """
     Runs the datasail algorithm on the distance matrix.
 

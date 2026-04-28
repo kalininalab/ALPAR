@@ -2,12 +2,9 @@
 
 import os
 import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
 import math
 import pathlib
 import csv
-from sr_amr.ml import decision_tree
 import sys
 
 import warnings
@@ -218,6 +215,8 @@ def pyseer_plot_file_creator(input_file, output_file):
 
 
 def pyseer_gwas_graph_creator(pyseer_output_folder, output_folder):
+    import seaborn as sns
+    import matplotlib.pyplot as plt
 
     gwas_sorted_files = os.listdir(
         os.path.join(pyseer_output_folder, "sorted_cleaned"))
@@ -254,6 +253,7 @@ def pyseer_gwas_graph_creator(pyseer_output_folder, output_folder):
         os.remove(os.path.join(output_folder, f"{gwas_sorted_file[:-4]}.plot"))
 
 def decision_tree_input_creator(binary_table, phenotype_file_path, pyseer_output_folder, output_folder):
+    from sr_amr.ml import decision_tree
     
     gwas_sorted_files = os.listdir(
         os.path.join(pyseer_output_folder, "sorted_cleaned"))

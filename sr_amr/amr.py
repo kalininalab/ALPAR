@@ -15,21 +15,6 @@ import psutil
 from sr_amr.utils import is_tool_installed, temp_folder_remover, time_function, copy_and_zip_file
 from sr_amr.version import __version__
 
-
-from sr_amr.panacota import panacota_pre_processor, panacota_post_processor, panacota_pipeline_runner
-from sr_amr.gwas import pyseer_runner, pyseer_similarity_matrix_creator, pyseer_phenotype_file_creator, pyseer_genotype_matrix_creator, pyseer_post_processor, pyseer_gwas_graph_creator, decision_tree_input_creator
-from sr_amr.binary_tables import snippy_runner, prokka_runner, bakta_runner, check_and_download_bakta_db, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, binary_mutation_table_gpa_information_adder_panaroo, phenotype_dataframe_creator, phenotype_dataframe_creator_post_processor, prokka_create_database, snippy_processed_file_creator, annotation_file_from_snippy, cdhit_preprocessor, cdhit_runner, gene_presence_absence_file_creator
-from sr_amr.binary_table_threshold import binary_table_threshold_with_percentage
-from sr_amr.phylogeny_tree import mash_preprocessor, mash_distance_runner
-from sr_amr.prps import PRPS_runner, PRPS_runner_continuous, PRPS_binary_check
-from sr_amr.ds import datasail_runner, datasail_pre_precessor
-from sr_amr.ml import prps_ml_preprecessor, combined_ml
-from sr_amr.qc import run_qc_pipeline
-from sr_amr.full_automatix import automatix_runner
-from sr_amr.ml_common_files import fia_file_annotation
-from sr_amr.structman import structman_input_creator, annotation_function
-from sr_amr.prediction import process_data_for_prediction, predict, equalize_columns
-
 import subprocess
 import json
 
@@ -468,6 +453,7 @@ def ensure_conda_env(env_name, python_version="3.12"):
 def run_variant_calling_and_annotation(strain, random_names, args):
     # if args.ram / args.threads < 8:
     #     print("Warning: Not enough ram for the processes. Minimum 8 GB of ram per thread is recommended.")
+    from sr_amr.binary_tables import snippy_runner, prokka_runner, bakta_runner
     
     # Snippy creates issue with high memory usage, so it is limited to 100 GB
     if args.ram > 100:
@@ -489,6 +475,7 @@ def run_variant_calling_and_annotation(strain, random_names, args):
 
 
 def run_snippy_and_prokka(strain, random_names, snippy_output, prokka_output, args, snippy_flag, gene_annotation_flag, custom_db=None):
+    from sr_amr.binary_tables import snippy_runner, prokka_runner, bakta_runner
     # Snippy creates issue with high memory usage, so it is limited to 100 GB
     snippy_ram = args.ram
     if args.ram > 100:
@@ -510,6 +497,9 @@ def run_snippy_and_prokka(strain, random_names, snippy_output, prokka_output, ar
 def binary_table_pipeline(args):
 
     start_time = time.time()
+
+    from sr_amr.binary_tables import check_and_download_bakta_db, random_name_giver, prokka_create_database, snippy_processed_file_creator, binary_table_creator, annotation_file_from_snippy, panaroo_input_creator, panaroo_runner, binary_mutation_table_gpa_information_adder_panaroo, cdhit_preprocessor, cdhit_runner, gene_presence_absence_file_creator, binary_mutation_table_gpa_information_adder
+    from sr_amr.qc import run_qc_pipeline
 
     # Sanity checks
 
@@ -981,6 +971,8 @@ def panacota_pipeline(args):
 
     ensure_conda_env("alpar-panacota")
 
+    from sr_amr.panacota import panacota_pre_processor, panacota_pipeline_runner, panacota_post_processor
+
     tool_list = ["PanACoTA"]
 
     for tool in tool_list:
@@ -1065,6 +1057,8 @@ def gwas_pipeline(args):
 
     ensure_conda_env("alpar-pyseer")
 
+    from sr_amr.gwas import pyseer_genotype_matrix_creator, pyseer_phenotype_file_creator, pyseer_similarity_matrix_creator, pyseer_runner, pyseer_post_processor, pyseer_gwas_graph_creator, decision_tree_input_creator
+
     # Sanity checks
 
     tool_list = ["pyseer"]
@@ -1144,6 +1138,8 @@ def prps_pipeline(args):
 
     start_time = time.time()
 
+    from sr_amr.prps import PRPS_runner, PRPS_runner_continuous, PRPS_binary_check
+
     # Sanity checks
 
     if args.temp is None:
@@ -1210,6 +1206,10 @@ def ml_pipeline(args):
     ensure_conda_env("alpar-ml")
     if args.sail:
         ensure_conda_env("alpar-datasail")
+
+    from sr_amr.ml import prps_ml_preprecessor, combined_ml
+    from sr_amr.ml_common_files import fia_file_annotation
+    from sr_amr.ds import datasail_runner, datasail_pre_precessor
 
     # Sanity checks
 
@@ -1616,6 +1616,8 @@ def binary_table_threshold(args):
 
     start_time = time.time()
 
+    from sr_amr.binary_table_threshold import binary_table_threshold_with_percentage
+
     # Check the arguments
     if args.input is None:
         print("Error: Input file is required.")
@@ -1681,6 +1683,8 @@ def binary_table_threshold(args):
 def phenotype_table_pipeline(args):
 
     start_time = time.time()
+
+    from sr_amr.binary_tables import random_name_giver, phenotype_dataframe_creator
 
     # Sanity checks
 
@@ -1797,6 +1801,8 @@ def phylogenetic_tree_pipeline(args):
 
     ensure_conda_env("alpar-mashtree")
 
+    from sr_amr.phylogeny_tree import mash_preprocessor, mash_distance_runner
+
     # Sanity checks
 
     # Check the arguments
@@ -1856,6 +1862,8 @@ def fully_automated_pipeline(args):
 
     start_time = time.time()
 
+    from sr_amr.full_automatix import automatix_runner
+
     tool_list = ["PanACoTA", "snippy", "panaroo", "pyseer"]
 
     if args.use_bakta:
@@ -1899,6 +1907,8 @@ def fully_automated_pipeline(args):
 
 
 def structman_pipeline(args):
+
+    from sr_amr.structman import structman_input_creator
 
     if args.input is None:
         print("Error: Input file or folder path is required.")
@@ -1949,6 +1959,10 @@ def prediction_pipeline(args):
             ensure_conda_env("alpar-panaroo")
         else:
             ensure_conda_env("alpar-cdhit")
+
+    from sr_amr.binary_tables import check_and_download_bakta_db, random_name_giver, prokka_create_database, snippy_processed_file_creator, binary_table_creator, annotation_file_from_snippy, panaroo_input_creator, panaroo_runner, binary_mutation_table_gpa_information_adder_panaroo, cdhit_preprocessor, cdhit_runner, gene_presence_absence_file_creator, binary_mutation_table_gpa_information_adder
+    from sr_amr.ml import prps_ml_preprecessor
+    from sr_amr.prediction import process_data_for_prediction, predict, equalize_columns
 
     if args.input is None and args.prediction_table is None:
         print("Error: Input file or folder path is required.")
