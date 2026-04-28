@@ -1,17 +1,11 @@
-import sklearn.model_selection
-import sklearn.datasets
-import sklearn.metrics
-from sklearn.inspection import permutation_importance
 import pandas as pd
 import numpy as np
 import pickle
 import os
-from sklearn.svm import SVC
-from sklearn.model_selection import GridSearchCV
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 
 
 def output_file_writer(outfile, y_test, y_hat, cls = None, best_c = None):
+    import sklearn.metrics
 
     with open(outfile, "w") as ofile:
 
@@ -68,6 +62,8 @@ def output_file_writer(outfile, y_test, y_hat, cls = None, best_c = None):
 
 
 def rf(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, feature_importance_analysis = False, save_model = False, resampling_strategy="holdout", fia_repeats=5, custom_scorer="MCC", n_estimators=100, max_depth=2, min_samples_leaf=1, min_samples_split=2, train=[], test=[], same_setup_run_count=1):
+    import sklearn.model_selection
+    from sklearn.ensemble import RandomForestClassifier
     
     output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_RF"
 
@@ -153,8 +149,9 @@ def rf(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split
     output_file_writer(outfile, y_test, y_hat)
 
     if feature_importance_analysis:
-
-        r = permutation_importance(rf_cls, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
+        from sklearn.inspection import permutation_importance
+        r = permutation_importance(
+rf_cls, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
 
         with open(os.path.join(output_folder, f"{output_file_template}_FIA"), "w") as ofile:
             for i in r.importances_mean.argsort()[::-1]:
@@ -174,6 +171,9 @@ def rf(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split
 
 
 def svm(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_size, output_folder, n_jobs, feature_importance_analysis = False, save_model = False, resampling_strategy="holdout", fia_repeats=5, optimization=False, kernel="linear", train=[], test=[]):
+    import sklearn.model_selection
+    import sklearn.metrics
+    from sklearn.svm import SVC
 
     output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_SVM"
 
@@ -256,8 +256,9 @@ def svm(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_si
     output_file_writer(outfile, y_test, y_hat, best_c=bm_c)
     
     if feature_importance_analysis:
-
-        r = permutation_importance(best_model, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
+        from sklearn.inspection import permutation_importance
+        r = permutation_importance(
+best_model, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
 
         with open(os.path.join(output_folder, f"{output_file_template}_FIA"), "w") as ofile:
             for i in r.importances_mean.argsort()[::-1]:
@@ -278,6 +279,10 @@ def svm(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_si
 
     
 def svm_cv(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_size, output_folder, n_jobs, cv_split, feature_importance_analysis = False, save_model = False, resampling_strategy="cv", fia_repeats=5, optimization=False, custom_scorer="MCC", kernel="linear", train=[], test=[]):
+    import sklearn.model_selection
+    import sklearn.metrics
+    from sklearn.svm import SVC
+    from sklearn.model_selection import GridSearchCV
     
     output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_SVM"
 
@@ -363,8 +368,9 @@ def svm_cv(binary_mutation_table, phenotype_table, antibiotic, random_seed, test
     output_file_writer(outfile, y_test, y_hat, best_c=str(best_params['C']))
     
     if feature_importance_analysis:
-
-        r = permutation_importance(final_svm_model, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
+        from sklearn.inspection import permutation_importance
+        r = permutation_importance(
+final_svm_model, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
 
         with open(os.path.join(output_folder, f"{output_file_template}_FIA"), "w") as ofile:
             for i in r.importances_mean.argsort()[::-1]:
@@ -424,6 +430,8 @@ def prps_ml_preprecessor(binary_mutation_table, prps_score_file, prps_percentage
 
 
 def gb(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, feature_importance_analysis = False, save_model = False, resampling_strategy="holdout", fia_repeats=5, custom_scorer="MCC", n_estimators=100, max_depth=2, min_samples_leaf=1, min_samples_split=2, train=[], test=[], same_setup_run_count=1):
+    import sklearn.model_selection
+    from sklearn.ensemble import GradientBoostingClassifier
     
     output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_GB"
 
@@ -509,8 +517,9 @@ def gb(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split
     output_file_writer(outfile, y_test, y_hat)
 
     if feature_importance_analysis:
-
-        r = permutation_importance(gb_cls, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
+        from sklearn.inspection import permutation_importance
+        r = permutation_importance(
+gb_cls, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
 
         with open(os.path.join(output_folder, f"{output_file_template}_FIA"), "w") as ofile:
             for i in r.importances_mean.argsort()[::-1]:

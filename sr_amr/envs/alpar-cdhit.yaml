@@ -6,3 +6,6 @@ channels:
 dependencies:
   - python>=3.12
   - cd-hit
+  - pip
+  - pip:
+    - biopython

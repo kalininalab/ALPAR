@@ -428,8 +428,8 @@ def ensure_conda_env(env_name, python_version="3.12"):
     result = subprocess.run(['conda', 'env', 'list', '--json'], capture_output=True, text=True)
     envs = json.loads(result.stdout).get('envs', [])
     
-    # Conda returns full paths; we check if the env name is in any path
-    exists = any(env_name in env for env in envs)
+    # Conda returns full paths; we check if the env name matches the base name of any path
+    exists = any(os.path.basename(env) == env_name for env in envs)
     
     if not exists:
         print(f"Creating environment '{env_name}'...")
@@ -456,6 +456,7 @@ def run_variant_calling_and_annotation(strain, random_names, args):
     from sr_amr.binary_tables import snippy_runner, prokka_runner, bakta_runner
     
     # Snippy creates issue with high memory usage, so it is limited to 100 GB
+    snippy_ram = args.ram
     if args.ram > 100:
         #print(f"Warning: Due to restrictions of snippy, ram is limited to 100 GB for snippy run only.")
         snippy_ram = 100
@@ -512,10 +513,10 @@ def binary_table_pipeline(args):
     print("Starting the binary table creation pipeline...")
     print("Running sanity checks...")
 
-    ensure_conda_environment(f"alpar-{args.variant_calling_tool}")
+    ensure_conda_env(f"alpar-{args.variant_calling_tool}")
     if not args.only_variants:
-        ensure_conda_environment(f"alpar-{args.annotation_tool}")
-        ensure_conda_environment(f"alpar-{args.gene_presence_absence_analysis_tool}")
+        ensure_conda_env(f"alpar-{args.annotation_tool}")
+        ensure_conda_env(f"alpar-{args.gene_presence_absence_analysis_tool}")
 
     if args.verbosity > 3:
         print("Checking the input...")
@@ -825,18 +826,18 @@ def binary_table_pipeline(args):
         strains_to_be_skiped = []
 
         for strain in random_names.keys():
-            if strain in variant_calling_output_strains:
+            if random_names[strain] in variant_calling_output_strains:
                 if not args.only_variants:
-                    if strain in annotation_tool_output_strains:
-                        strains_to_be_processed.append(strain)
+                    if random_names[strain] in annotation_tool_output_strains:
+                        strains_to_be_processed.append(random_names[strain])
                     else:
                         print(f"Warning: {strain} is missing from annotation tool output, skipping this strain.")
-                        strains_to_be_skiped.append(strain)
+                        strains_to_be_skiped.append(random_names[strain])
                 else:
-                    strains_to_be_processed.append(strain)
+                    strains_to_be_processed.append(random_names[strain])
             else:
                 print(f"Warning: {strain} is missing from variant calling output, skipping this strain.")
-                strains_to_be_skiped.append(strain)
+                strains_to_be_skiped.append(random_names[strain])
 
         print(f"Number of strains processed: {len(strains_to_be_processed)}")
         print(f"Number of strains skipped: {len(strains_to_be_skiped)}")
@@ -860,12 +861,14 @@ def binary_table_pipeline(args):
     if status < 4:
 
         if not args.only_variants:
+
+            ##CHECK HERE TOO
             if args.gene_presence_absence_analysis_tool == "panaroo":
                 try:
 
                     print("Creating panaroo input...")
                     # Create the panaroo input
-                    panaroo_input_creator(os.path.join(args.output, "random_names.txt"), prokka_output, os.path.join(
+                    panaroo_input_creator(os.path.join(args.output, "random_names.txt"), os.path.join(args.output, args.annotation_tool), os.path.join(
                         args.temp, "panaroo"), strains_to_be_processed)
 
                     print("Running panaroo...")
@@ -898,27 +901,27 @@ def binary_table_pipeline(args):
                     print("Creating gene presence absence input...")
                     # Create the gene presence absence information
                     print(f"CD-HIT preprecessor is running...")
-                    cdhit_preprocessor(os.path.join(args.output, "random_names.txt"), prokka_output, os.path.join(args.temp, "cdhit"), strains_to_be_processed)
+                    cdhit_preprocessor(os.path.join(args.output, "random_names.txt"), os.path.join(args.output, args.annotation_tool), os.path.join(args.temp, args.gene_presence_absence_analysis_tool), strains_to_be_processed)
 
-                    shutil.copy(os.path.join(args.temp, 'cdhit', 'protein_positions.csv'), os.path.join(args.output, 'cd-hit', 'protein_positions.csv'))
+                    shutil.copy(os.path.join(args.temp, args.gene_presence_absence_analysis_tool, 'protein_positions.csv'), os.path.join(args.output, args.gene_presence_absence_analysis_tool, 'protein_positions.csv'))
 
                     print(f"CD-HIT is running...")
-                    cdhit_runner(os.path.join(args.temp, "cdhit", "combined_proteins.faa"), os.path.join(args.output, "cd-hit", "cdhit_output.txt"), n_cpu=args.threads, env_name=f"alpar-{args.gene_presence_absence_analysis_tool}")
+                    cdhit_runner(os.path.join(args.temp, args.gene_presence_absence_analysis_tool, "combined_proteins.faa"), os.path.join(args.output, args.gene_presence_absence_analysis_tool, "cdhit_output.txt"), n_cpu=args.threads, env_name=f"alpar-{args.gene_presence_absence_analysis_tool}")
 
                     print(f"Gene presence-absence matrix is being created...")
-                    gene_presence_absence_file_creator(os.path.join(args.output, "cd-hit", "cdhit_output.txt.clstr"), strains_to_be_processed, os.path.join(args.temp, "cdhit"))
+                    gene_presence_absence_file_creator(os.path.join(args.output, args.gene_presence_absence_analysis_tool, "cdhit_output.txt.clstr"), strains_to_be_processed, os.path.join(args.temp, args.gene_presence_absence_analysis_tool))
 
                     print("Adding gene presence absence information to the binary table...")
                     # Add gene presence absence information to the binary table
 
-                    if not os.path.exists(os.path.join(args.temp, "cdhit", "gene_presence_absence_matrix.csv")):
+                    if not os.path.exists(os.path.join(args.temp, args.gene_presence_absence_analysis_tool, "gene_presence_absence_matrix.csv")):
                         print("Warning: Gene presence absence file does not exist.")
                         print(
                             "Gene presence absence information will not be added to the binary table.")
                         do_not_remove_temp = True
                     
                     else:
-                        binary_mutation_table_gpa_information_adder(os.path.join(args.output, "binary_mutation_table.tsv"), os.path.join(args.temp, "cdhit", "gene_presence_absence_matrix.csv"), os.path.join(args.output, "binary_mutation_table_with_gene_presence_absence.tsv"))
+                        binary_mutation_table_gpa_information_adder(os.path.join(args.output, "binary_mutation_table.tsv"), os.path.join(args.temp, args.gene_presence_absence_analysis_tool, "gene_presence_absence_matrix.csv"), os.path.join(args.output, "binary_mutation_table_with_gene_presence_absence.tsv"))
                         do_not_remove_temp = False
 
                 except Exception as e:
@@ -928,8 +931,9 @@ def binary_table_pipeline(args):
 
         if args.create_phenotype_from_folder:
             print("Creating phenotype dataframe...")
+            from sr_amr.binary_tables import phenotype_dataframe_creator, phenotype_dataframe_creator_post_processor
             # Create the phenotype dataframe
-            phenotype_dataframe_creator(args.create_phenotype_from_folder, os.path.join(
+            phenotype_dataframe_creator(args.input, os.path.join(
                 args.output, "phenotype_table.tsv"), random_names)
 
             phenotype_dataframe_creator_post_processor(os.path.join(

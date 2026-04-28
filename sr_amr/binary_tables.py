@@ -7,13 +7,11 @@ import random
 import string
 import shutil
 import pandas as pd
-from joblib import Parallel, delayed
 import copy
 import logging
 import csv
 from collections import defaultdict
 import re
-from sr_amr.gbk_parser import gbk_parser
 import warnings
 from multiprocessing import Pool
 
@@ -316,6 +314,7 @@ def process_folder_write_temp(snippy_out_path, folder, temp_dir):
 
 
 def read_vcf_files_and_store_data(snippy_out_path, n_jobs, strains_to_be_processed, temp_dir):
+    from joblib import Parallel, delayed
     """Stream VCF reading: write per-strain small temp files and return mapping
     strain -> temp_file_path and the global set of mutations.
 
@@ -352,6 +351,7 @@ def temp_dict_creator(combined_set):
 
 
 def mutation_presence_absence_dict_creator(mut_dict, temp_dict, n_jobs):
+    from joblib import Parallel, delayed
     mutation_presence_absence_dict = {}
 
     results = Parallel(n_jobs)(
@@ -658,17 +658,16 @@ def cdhit_protein_name_corrector(input_file, output_file):
                     outfile.write(line)
 
 def process_single_strain(args):
+    from sr_amr.gbk_parser import gbk_parser
     """Worker function to handle one strain at a time."""
-    given_random_name, prokka_folder, temp_folder = args
+    given_random_name, annotation_folder, temp_folder = args
     local_positions = {}
-    strain_path = os.path.join(prokka_folder, given_random_name)
+    strain_path = os.path.join(annotation_folder, given_random_name)
     
     if not os.path.isdir(strain_path):
         return {}
 
     for file in os.listdir(strain_path):
-        if not file.startswith("PROKKA"):
-            continue
             
         full_path = os.path.join(strain_path, file)
         
@@ -676,7 +675,7 @@ def process_single_strain(args):
             output_faa = os.path.join(temp_folder, f"{given_random_name}_corrected.faa")
             cdhit_protein_name_corrector(full_path, output_faa)
             
-        elif file.endswith(".gbk"):
+        elif file.endswith(".gbk") or file.endswith(".gbff"):
             current_records = gbk_parser(given_random_name, full_path)
             for record in current_records:
                 if record.protein_gpa_name:
@@ -684,14 +683,14 @@ def process_single_strain(args):
                     local_positions[name] = (record.start + record.end) // 2
     return local_positions
 
-def cdhit_preprocessor(random_names_txt, prokka_folder, temp_folder, strains_to_be_processed):
+def cdhit_preprocessor(random_names_txt, annotation_folder, temp_folder, strains_to_be_processed):
     tasks = []
     with open(random_names_txt, "r") as f:
         for line in f:
             parts = line.split("\t")
             name = parts[1].strip()
             if name in strains_to_be_processed:
-                tasks.append((name, prokka_folder, temp_folder))
+                tasks.append((name, annotation_folder, temp_folder))
 
     protein_positions = {}
     with Pool() as pool:

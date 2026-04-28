@@ -5,4 +5,4 @@ channels:
   - defaults
 dependencies:
   - python>=3.12
-  - snippy
+  - snippy==4.6.0

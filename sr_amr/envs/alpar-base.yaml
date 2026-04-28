@@ -13,4 +13,6 @@ dependencies:
     - seaborn
     - matplotlib
     - scikit-learn
-    
+    - biopython
+    - joblib
+    - xgboost
