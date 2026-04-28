@@ -1,9 +1,8 @@
-name: alpar-base
+name: alpar-panacota
 channels:
   - conda-forge
   - bioconda
   - defaults
 dependencies:
-  - python>=3.8
-  - pandas
-  - numpy
+  - python>=3.12
+  - panacota

@@ -1,8 +1,8 @@
-name: alpar-panacota
+name: alpar-mashtree
 channels:
   - conda-forge
   - bioconda
   - defaults
 dependencies:
-  - python>=3.8
-  - panacota
+  - python>=3.12
+  - mashtree

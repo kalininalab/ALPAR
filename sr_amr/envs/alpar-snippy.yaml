@@ -1,8 +1,8 @@
-name: alpar-prokka
+name: alpar-snippy
 channels:
   - conda-forge
   - bioconda
   - defaults
 dependencies:
-  - python>=3.8
-  - prokka
+  - python>=3.12
+  - snippy

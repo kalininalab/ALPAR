@@ -1,8 +1,9 @@
-name: alpar-snippy
+name: alpar-base
 channels:
   - conda-forge
   - bioconda
   - defaults
 dependencies:
-  - python>=3.8
-  - snippy
+  - python>=3.12
+  - pandas
+  - numpy

@@ -30,6 +30,9 @@ from sr_amr.ml_common_files import fia_file_annotation
 from sr_amr.structman import structman_input_creator, annotation_function
 from sr_amr.prediction import process_data_for_prediction, predict, equalize_columns
 
+import subprocess
+import json
+
 import warnings
 
 warnings.filterwarnings("ignore")
@@ -432,6 +435,35 @@ def main():
         parser.print_help()
         sys.exit(1)
 
+def ensure_conda_env(env_name, python_version="3.12"):
+    # Normalize env_name
+    env_name = env_name.replace("cd-hit", "cdhit")
+    
+    # Get list of existing environments in JSON format
+    result = subprocess.run(['conda', 'env', 'list', '--json'], capture_output=True, text=True)
+    envs = json.loads(result.stdout).get('envs', [])
+    
+    # Conda returns full paths; we check if the env name is in any path
+    exists = any(env_name in env for env in envs)
+    
+    if not exists:
+        print(f"Creating environment '{env_name}'...")
+        # Get path of current file
+        current_file_path = pathlib.Path(__file__).parent.resolve()
+        env_file_path = current_file_path / "envs" / f"{env_name}.yaml"
+        
+        if not env_file_path.exists():
+            # Try .yml if .yaml doesn't exist
+            env_file_path = current_file_path / "envs" / f"{env_name}.yml"
+            
+        if not env_file_path.exists():
+             print(f"Error: Conda environment file for {env_name} not found.")
+             sys.exit(1)
+             
+        subprocess.run(['conda', 'env' ,'create', '-f', str(env_file_path) ,'-y'])
+    else:
+        print(f"Environment '{env_name}' exists.")
+
 
 def run_variant_calling_and_annotation(strain, random_names, args):
     # if args.ram / args.threads < 8:
@@ -443,17 +475,36 @@ def run_variant_calling_and_annotation(strain, random_names, args):
         snippy_ram = 100
 
     snippy_runner(strain, random_names[os.path.splitext(strain.split("/")[-1].strip())[
-                    0]], os.path.join(args.output, args.variant_calling_tool), args.reference, f"{args.temp}/snippy_log.txt", 1, snippy_ram)
+                    0]], os.path.join(args.output, args.variant_calling_tool), args.reference, f"{args.temp}/snippy_log.txt", 1, snippy_ram, env_name=f"alpar-{args.variant_calling_tool}")
     
     if not args.only_variants:
 
         if args.annotation_tool == "bakta":
             bakta_runner(strain, random_names[os.path.splitext(strain.split("/")[-1].strip())[
-                        0]], os.path.join(args.output, args.annotation_tool), f"{args.temp}/bakta_log.txt", 1, args.bakta_db)
+                        0]], os.path.join(args.output, args.annotation_tool), f"{args.temp}/bakta_log.txt", 1, args.bakta_db, env_name=f"alpar-{args.annotation_tool}")
             
         elif args.annotation_tool == "prokka":
             prokka_runner(strain, random_names[os.path.splitext(strain.split("/")[-1].strip())[
-                        0]], os.path.join(args.output, args.annotation_tool), args.reference, f"{args.temp}/prokka_log.txt", 1, args.prokka_custom_database[1] if args.prokka_custom_database else None)
+                        0]], os.path.join(args.output, args.annotation_tool), args.reference, f"{args.temp}/prokka_log.txt", 1, args.prokka_custom_database[1] if args.prokka_custom_database else None, env_name=f"alpar-{args.annotation_tool}")
+
+
+def run_snippy_and_prokka(strain, random_names, snippy_output, prokka_output, args, snippy_flag, gene_annotation_flag, custom_db=None):
+    # Snippy creates issue with high memory usage, so it is limited to 100 GB
+    snippy_ram = args.ram
+    if args.ram > 100:
+        snippy_ram = 100
+
+    strain_random_name = random_names[os.path.splitext(strain.split("/")[-1].strip())[0]]
+
+    if snippy_flag:
+        snippy_runner(strain, strain_random_name, snippy_output, args.reference, f"{args.temp}/snippy_log.txt", 1, snippy_ram, env_name="alpar-snippy")
+    
+    if gene_annotation_flag:
+        if args.use_bakta:
+            # We assume bakta_output is prokka_output here as passed from prediction_pipeline
+            bakta_runner(strain, strain_random_name, prokka_output, f"{args.temp}/bakta_log.txt", 1, args.bakta_db, env_name="alpar-bakta")
+        else:
+            prokka_runner(strain, strain_random_name, prokka_output, args.reference, f"{args.temp}/prokka_log.txt", 1, custom_db=custom_db, env_name="alpar-prokka")
 
 
 def binary_table_pipeline(args):
@@ -468,19 +519,13 @@ def binary_table_pipeline(args):
     # Gene presence absence tools: Panaroo, CD-HIT
     # Variant calling tool: Snippy
 
-    if args.verbosity > 3:
-        print("Checking the installed tools...")
-    # Check if the tools are installed
-    tool_list = ["snippy"]
+    print("Starting the binary table creation pipeline...")
+    print("Running sanity checks...")
 
+    ensure_conda_environment(f"alpar-{args.variant_calling_tool}")
     if not args.only_variants:
-        tool_list.append(args.annotation_tool)
-        tool_list.append(args.gene_presence_absence_analysis_tool)
-
-    for tool in tool_list:
-        if not is_tool_installed(tool):
-            print(f"Error: {tool} is not installed.")
-            sys.exit(1)
+        ensure_conda_environment(f"alpar-{args.annotation_tool}")
+        ensure_conda_environment(f"alpar-{args.gene_presence_absence_analysis_tool}")
 
     if args.verbosity > 3:
         print("Checking the input...")
@@ -753,7 +798,7 @@ def binary_table_pipeline(args):
 
             print("Creating custom database...")
             prokka_create_database(
-                args.prokka_custom_database[0], args.prokka_custom_database[1], args.temp, args.threads, args.ram)
+                args.prokka_custom_database[0], args.prokka_custom_database[1], args.temp, args.threads, args.ram, env_name="alpar-prokka")
             print("Custom database created.")
 
             with open(os.path.join(args.temp, "status.txt"), "w") as outfile:
@@ -836,7 +881,7 @@ def binary_table_pipeline(args):
                     print("Running panaroo...")
                     # Run panaroo
                     panaroo_runner(os.path.join(args.temp, "panaroo"), panaroo_output, os.path.join(
-                        args.temp, "panaroo_log.txt"), args.threads)
+                        args.temp, "panaroo_log.txt"), args.threads, env_name=f"alpar-{args.gene_presence_absence_analysis_tool}")
 
                     print("Adding gene presence absence information to the binary table...")
                     # Add gene presence absence information to the binary table
@@ -868,7 +913,7 @@ def binary_table_pipeline(args):
                     shutil.copy(os.path.join(args.temp, 'cdhit', 'protein_positions.csv'), os.path.join(args.output, 'cd-hit', 'protein_positions.csv'))
 
                     print(f"CD-HIT is running...")
-                    cdhit_runner(os.path.join(args.temp, "cdhit", "combined_proteins.faa"), os.path.join(args.output, "cd-hit", "cdhit_output.txt"), n_cpu=args.threads)
+                    cdhit_runner(os.path.join(args.temp, "cdhit", "combined_proteins.faa"), os.path.join(args.output, "cd-hit", "cdhit_output.txt"), n_cpu=args.threads, env_name=f"alpar-{args.gene_presence_absence_analysis_tool}")
 
                     print(f"Gene presence-absence matrix is being created...")
                     gene_presence_absence_file_creator(os.path.join(args.output, "cd-hit", "cdhit_output.txt.clstr"), strains_to_be_processed, os.path.join(args.temp, "cdhit"))
@@ -934,6 +979,8 @@ def panacota_pipeline(args):
 
     start_time = time.time()
 
+    ensure_conda_env("alpar-panacota")
+
     tool_list = ["PanACoTA"]
 
     for tool in tool_list:
@@ -989,7 +1036,7 @@ def panacota_pipeline(args):
         print(f"Running PanACoTA pipeline with {args.threads} cores...")
 
         panacota_pipeline_runner(os.path.join(panacota_output, "panacota_input.lst"), panacota_temp, panacota_output, args.name, args.threads, panacota_log_file,
-                                type=args.data_type, min_seq_id=args.min_seq_id, mode=args.clustering_mode, core_genome_percentage=args.core_genome_percentage)
+                                type=args.data_type, min_seq_id=args.min_seq_id, mode=args.clustering_mode, core_genome_percentage=args.core_genome_percentage, env_name="alpar-panacota")
 
         print(f"Running PanACoTA pipeline post-precessor...")
 
@@ -1015,6 +1062,8 @@ def panacota_pipeline(args):
 def gwas_pipeline(args):
 
     start_time = time.time()
+
+    ensure_conda_env("alpar-pyseer")
 
     # Sanity checks
 
@@ -1063,10 +1112,10 @@ def gwas_pipeline(args):
             args.phenotype, os.path.join(gwas_output, "pyseer_phenotypes"))
         # pyseer_similarity_matrix_creator(phylogenetic_tree, output_file):
         pyseer_similarity_matrix_creator(
-            args.tree, os.path.join(gwas_output, "similarity_matrix.tsv"))
+            args.tree, os.path.join(gwas_output, "similarity_matrix.tsv"), env_name="alpar-pyseer")
         # pyseer_runner(genotype_file_path, phenotype_file_path, similarity_matrix, output_file_directory, threads):
         pyseer_runner(os.path.join(gwas_output, "genotype_matrix.tsv"), os.path.join(gwas_output, "pyseer_phenotypes"),
-                    os.path.join(gwas_output, "similarity_matrix.tsv"), os.path.join(gwas_output, "gwas_results"), args.threads)
+                    os.path.join(gwas_output, "similarity_matrix.tsv"), os.path.join(gwas_output, "gwas_results"), args.threads, env_name="alpar-pyseer")
 
         if not os.path.exists(os.path.join(gwas_output, "sorted")):
             os.mkdir(os.path.join(gwas_output, "sorted"))
@@ -1157,6 +1206,10 @@ def prps_pipeline(args):
 def ml_pipeline(args):
 
     start_time = time.time()
+
+    ensure_conda_env("alpar-ml")
+    if args.sail:
+        ensure_conda_env("alpar-datasail")
 
     # Sanity checks
 
@@ -1323,7 +1376,7 @@ def ml_pipeline(args):
                 print("Creating distance matrix...")
 
                 datasail_pre_precessor(
-                    args.sail, datasail_temp, random_names_dict, datasail_output, args.threads)
+                    args.sail, datasail_temp, random_names_dict, datasail_output, args.threads, env_name="alpar-datasail")
                 
                 distance_matrix = os.path.join(datasail_output, "distance_matrix.tsv")
 
@@ -1742,6 +1795,8 @@ def phylogenetic_tree_pipeline(args):
 
     start_time = time.time()
 
+    ensure_conda_env("alpar-mashtree")
+
     # Sanity checks
 
     # Check the arguments
@@ -1784,7 +1839,7 @@ def phylogenetic_tree_pipeline(args):
     mash_preprocessor(args.input, mash_output,
                       mash_temp, args.random_names_dict)
 
-    mash_distance_runner(mash_output, mash_temp)
+    mash_distance_runner(mash_output, mash_temp, env_name="alpar-mashtree")
 
     print("Phylogenetic tree pipeline is finished, results can be found in the ", mash_output)
 
@@ -1882,6 +1937,18 @@ def structman_pipeline(args):
 def prediction_pipeline(args):
 
     start_time = time.time()
+
+    ensure_conda_env("alpar-snippy")
+    if args.use_bakta:
+        ensure_conda_env("alpar-bakta")
+    else:
+        ensure_conda_env("alpar-prokka")
+
+    if not args.no_gene_presence_absence:
+        if args.use_panaroo:
+            ensure_conda_env("alpar-panaroo")
+        else:
+            ensure_conda_env("alpar-cdhit")
 
     if args.input is None and args.prediction_table is None:
         print("Error: Input file or folder path is required.")
@@ -1986,7 +2053,7 @@ def prediction_pipeline(args):
 
         print("Creating custom database...")
         prokka_create_database(
-            args.custom_database[0], args.custom_database[1], args.temp, args.threads, args.ram)
+            args.custom_database[0], args.custom_database[1], args.temp, args.threads, args.ram, env_name="alpar-prokka")
         print("Custom database created.")
 
     if args.input:
@@ -2040,11 +2107,13 @@ def prediction_pipeline(args):
 
         num_parallel_tasks = args.threads
 
-        params = [(strain, random_names, snippy_output, prokka_output,
+        annotation_output_to_use = bakta_output if args.use_bakta else prokka_output
+
+        params = [(strain, random_names, snippy_output, annotation_output_to_use,
                    args, snippy_flag, gene_annotation_flag) for strain in strain_list]
 
         if args.custom_database:
-            params = [(strain, random_names, snippy_output, prokka_output, args,
+            params = [(strain, random_names, snippy_output, annotation_output_to_use, args,
                        snippy_flag, gene_annotation_flag, args.custom_database[1]) for strain in strain_list]
 
         with multiprocessing.Pool(num_parallel_tasks) as pool:
@@ -2099,7 +2168,7 @@ def prediction_pipeline(args):
                 print("Running panaroo...")
                 # Run panaroo
                 panaroo_runner(os.path.join(args.temp, "panaroo"), panaroo_output, os.path.join(
-                    args.temp, "panaroo_log.txt"), args.threads)
+                    args.temp, "panaroo_log.txt"), args.threads, env_name="alpar-panaroo")
 
                 print("Adding gene presence absence information to the binary table...")
                 # Add gene presence absence information to the binary table
@@ -2132,7 +2201,7 @@ def prediction_pipeline(args):
                 shutil.copy(os.path.join(args.temp, 'cdhit', 'protein_positions.csv'), os.path.join(args.output, 'cd-hit', 'protein_positions.csv'))
 
                 print(f"CD-HIT is running...")
-                cdhit_runner(os.path.join(args.temp, "cdhit", "combined_proteins.faa"), os.path.join(args.output, "cd-hit", "cdhit_output.txt"), n_cpu=args.threads)
+                cdhit_runner(os.path.join(args.temp, "cdhit", "combined_proteins.faa"), os.path.join(args.output, "cd-hit", "cdhit_output.txt"), n_cpu=args.threads, env_name="alpar-cdhit")
 
                 print(f"Gene presence-absence matrix is being created...")
                 gene_presence_absence_file_creator(os.path.join(args.output, "cd-hit", "cdhit_output.txt.clstr"), strains_to_be_processed, os.path.join(args.temp, "cdhit"))
@@ -2229,3 +2298,4 @@ def prediction_pipeline(args):
 
 if __name__ == "__main__":
     main()
+

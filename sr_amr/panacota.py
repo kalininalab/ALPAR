@@ -99,7 +99,7 @@ def panacota_post_processor(panacota_output_folder, run_name, output_folder, typ
     else:
         print("Warning: Phylogenetic tree could not be created with the PanACoTA pipeline! Please use phylogenetic_tree option!")
 
-def panacota_pipeline_runner(list_file, dbpath, output_directory, run_name, n_cores, log_file, type="nucl", mode=1, min_seq_id=0.8, core_genome_percentage=1):
+def panacota_pipeline_runner(list_file, dbpath, output_directory, run_name, n_cores, log_file, type="nucl", mode=1, min_seq_id=0.8, core_genome_percentage=1, env_name=None):
 
     pc_annotate_command = f"PanACoTA annotate -l {list_file} -d {dbpath} -r {output_directory}/annotate_out -n {run_name} --threads {n_cores} >> {log_file} 2>&1"
 
@@ -114,6 +114,13 @@ def panacota_pipeline_runner(list_file, dbpath, output_directory, run_name, n_co
         pc_align_command = f"PanACoTA align -c {output_directory}/corepers_out/PersGenome_PanGenome-{run_name}.All.prt-clust-{min_seq_id}-mode{mode}.lst-all_1.lst -l {output_directory}/annotate_out/LSTINFO-{list_file.split('/')[-1]} -n {run_name} -d {output_directory}/annotate_out/ -o {output_directory}/align_out --threads {n_cores} >> {log_file} 2>&1"
 
     pc_tree_command = f"PanACoTA tree -a {output_directory}/align_out/Phylo-{run_name}/{run_name}.{type}.grp.aln -o {output_directory}/tree/ --threads {n_cores} >> {log_file} 2>&1"
+
+    if env_name:
+        pc_annotate_command = f"conda run -n {env_name} --no-capture-output {pc_annotate_command}"
+        pc_pangenome_command = f"conda run -n {env_name} --no-capture-output {pc_pangenome_command}"
+        pc_corepers_command = f"conda run -n {env_name} --no-capture-output {pc_corepers_command}"
+        pc_align_command = f"conda run -n {env_name} --no-capture-output {pc_align_command}"
+        pc_tree_command = f"conda run -n {env_name} --no-capture-output {pc_tree_command}"
 
     print(f"Running PanACoTA annotate...")
     os.system(pc_annotate_command)

@@ -123,10 +123,14 @@ def pyseer_individual_genotype_creator(pyseer_genotype_matrix, pyseer_phenotype_
 
 # This function creates a similarity matrix from a phylogenetic tree.
 # It runs a script with the phylogenetic tree as an argument and writes the output to a file.
-def pyseer_similarity_matrix_creator(phylogenetic_tree, output_file):
+def pyseer_similarity_matrix_creator(phylogenetic_tree, output_file, env_name=None):
 
     # Define the command to run the script
     script_command = f"python {PATH_OF_SCRIPT}/phylogeny_distance.py --lmm {phylogenetic_tree} > {output_file}"
+
+    if env_name:
+        env_name = env_name.replace("cd-hit", "cdhit")
+        script_command = f"conda run -n {env_name} --no-capture-output {script_command}"
 
     # Run the command
     os.system(script_command)
@@ -134,7 +138,7 @@ def pyseer_similarity_matrix_creator(phylogenetic_tree, output_file):
 # This function runs the pyseer tool for each phenotype in the phenotype file path.
 # It constructs a command to run pyseer with the appropriate arguments for each phenotype,
 # checks if the output directory exists and creates it if not, then runs the command.
-def pyseer_runner(genotype_file_path, phenotype_file_path, similarity_matrix, output_file_directory, threads):
+def pyseer_runner(genotype_file_path, phenotype_file_path, similarity_matrix, output_file_directory, threads, env_name=None):
 
     # Get a list of phenotypes
     phenotypes = os.listdir(f"{phenotype_file_path}")
@@ -144,6 +148,10 @@ def pyseer_runner(genotype_file_path, phenotype_file_path, similarity_matrix, ou
 
         # Construct the command to run pyseer
         script_command = f"pyseer --lmm --phenotypes {phenotype_file_path}/{phenotype} --pres {genotype_file_path} --similarity {similarity_matrix} --cpu {threads} > {output_file_directory}/{phenotype}.tsv"
+
+        if env_name:
+            env_name = env_name.replace("cd-hit", "cdhit")
+            script_command = f"conda run -n {env_name} --no-capture-output {script_command}"
 
         # If the output directory doesn't exist, create it
         if not os.path.exists(f"{output_file_directory}"):

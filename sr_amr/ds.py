@@ -8,7 +8,7 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
-def datasail_pre_precessor(strains_text_file, temp_folder, random_names_dict, output_folder, cpus=1):
+def datasail_pre_precessor(strains_text_file, temp_folder, random_names_dict, output_folder, cpus=1, env_name=None):
 
     os.mkdir(os.path.join(temp_folder, "fasta_files"))
 
@@ -67,9 +67,16 @@ def datasail_pre_precessor(strains_text_file, temp_folder, random_names_dict, ou
 
     mash_sketch_command = f"mash sketch -p {cpus} -o {temp_folder}/mash_sketch {fasta_files_folder}/*"
 
+    if env_name:
+        env_name = env_name.replace("cd-hit", "cdhit")
+        mash_sketch_command = f"conda run -n {env_name} --no-capture-output {mash_sketch_command}"
+
     os.system(mash_sketch_command)
 
     mash_dist_command = f"mash dist -p {cpus} -t {temp_folder}/mash_sketch.msh {temp_folder}/mash_sketch.msh > {temp_folder}/distance_matrix.tsv"
+
+    if env_name:
+        mash_dist_command = f"conda run -n {env_name} --no-capture-output {mash_dist_command}"
 
     os.system(mash_dist_command)
 

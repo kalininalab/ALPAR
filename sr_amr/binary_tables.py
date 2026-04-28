@@ -37,7 +37,7 @@ def check_contigs(input):
             return False
 
 
-def snippy_runner(input, strain_random_name, output, reference, log_file, cpus=1, memory=8):
+def snippy_runner(input, strain_random_name, output, reference, log_file, cpus=1, memory=8, env_name=None):
     """
     input (str): Path to the input file
     output (str): Path to the output directory
@@ -59,10 +59,13 @@ def snippy_runner(input, strain_random_name, output, reference, log_file, cpus=1
 
     run_command = f"{run_command} {input} >> {log_file} 2>&1"
 
-    os.system(run_command)  
+    if env_name:
+        env_name = env_name.replace("cd-hit", "cdhit")
+        run_command = f"conda run -n {env_name} --no-capture-output {run_command}"
 
+    os.system(run_command)
 
-def prokka_create_database(faa_file, genus_name, temp_folder, cpus=1, memory=8):
+def prokka_create_database(faa_file, genus_name, temp_folder, cpus=1, memory=8, env_name=None):
 
     output_dir = os.path.join(temp_folder, genus_name)
 
@@ -72,6 +75,10 @@ def prokka_create_database(faa_file, genus_name, temp_folder, cpus=1, memory=8):
     log_file = os.path.join(temp_folder, "prokka_db.log")
 
     script_command = f"cd-hit -i {faa_file} -o {output_dir}/{genus_name} -T {cpus} -M {memory*1024} -g 1 -s 0.8 -c 0.9 >> {log_file} 2>&1"
+
+    if env_name:
+        env_name = env_name.replace("cd-hit", "cdhit")
+        script_command = f"conda run -n {env_name} --no-capture-output {script_command}"
 
     p = subprocess.Popen(script_command, shell=True)
 
@@ -85,6 +92,9 @@ def prokka_create_database(faa_file, genus_name, temp_folder, cpus=1, memory=8):
 
     script_command = f"makeblastdb -dbtype prot -in {genus_name}"
 
+    if env_name:
+        script_command = f"conda run -n {env_name} --no-capture-output {script_command}"
+
     p = subprocess.Popen(script_command, cwd=output_dir, shell=True)
 
     p.wait()
@@ -93,6 +103,9 @@ def prokka_create_database(faa_file, genus_name, temp_folder, cpus=1, memory=8):
         filename=f"{os.path.join(temp_folder, 'db_path.txt')}", level=logging.INFO)
 
     command = "prokka --listdb"
+
+    if env_name:
+        command = f"conda run -n {env_name} --no-capture-output {command}"
 
     process = subprocess.Popen(
         command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -124,7 +137,7 @@ def prokka_create_database(faa_file, genus_name, temp_folder, cpus=1, memory=8):
                      os.path.join(db_path, "genus"))
 
 
-def prokka_runner(input, strain_random_name, output, reference, log_file, cpus=1, parallel_run=False, custom_db=None):
+def prokka_runner(input, strain_random_name, output, reference, log_file, cpus=1, parallel_run=False, custom_db=None, env_name=None):
     """
 
     input (str): Path to the input file
@@ -141,9 +154,13 @@ def prokka_runner(input, strain_random_name, output, reference, log_file, cpus=1
     else:
         run_command = f"prokka --cpus {cpus} --outdir {output}/{strain_random_name} --proteins {reference} --usegenus --genus {custom_db} --compliant --force {input} >> {log_file} 2>&1"
 
+    if env_name:
+        env_name = env_name.replace("cd-hit", "cdhit")
+        run_command = f"conda run -n {env_name} --no-capture-output {run_command}"
+
     os.system(run_command)
 
-def bakta_runner(input, strain_random_name, output, log_file, cpus=1, db_path=None):
+def bakta_runner(input, strain_random_name, output, log_file, cpus=1, db_path=None, env_name=None):
     """
     input (str): Path to the input file
     output (str): Path to the output directory
@@ -152,14 +169,17 @@ def bakta_runner(input, strain_random_name, output, log_file, cpus=1, db_path=No
     """
 
     run_command = f"bakta --threads {cpus} --output {output}/{strain_random_name} --prefix {strain_random_name} --force"
-    
+
     if db_path:
         run_command = f"{run_command} --db {db_path}"
-        
+
     run_command = f"{run_command} {input} >> {log_file} 2>&1"
 
-    os.system(run_command)
+    if env_name:
+        env_name = env_name.replace("cd-hit", "cdhit")
+        run_command = f"conda run -n {env_name} --no-capture-output {run_command}"
 
+    os.system(run_command)
 def check_and_download_bakta_db(db_path=None, log_file=None):
     """
     Checks if bakta database exists, if not downloads it.
@@ -229,13 +249,17 @@ def panaroo_input_creator(random_names_txt, prokka_output_folder, temp_folder, s
                             f"{prokka_output_folder}/{given_random_name}/{prokka_output_file}", f"{temp_folder}/{given_random_name}.gff")
 
 
-def panaroo_runner(panaroo_input_folder, panaroo_output_folder, log_file, cpus):
+def panaroo_runner(panaroo_input_folder, panaroo_output_folder, log_file, cpus, env_name=None):
 
     # Panaroo fails with more than 30 cpus
     if cpus >= 32:
         cpus = 30
 
     run_command = f"panaroo -i {panaroo_input_folder}/*.gff -o {panaroo_output_folder} --clean-mode strict -t {cpus} >> {log_file} 2>&1"
+
+    if env_name:
+        env_name = env_name.replace("cd-hit", "cdhit")
+        run_command = f"conda run -n {env_name} --no-capture-output {run_command}"
 
     os.system(run_command)
 
@@ -696,7 +720,8 @@ def cdhit_runner(input_file,
     use_local=False,  #whether to use local or global sequence alignment
     word_length=None,
     min_length=None,
-    quiet=False):
+    quiet=False,
+    env_name=None):
 
     cdhit_script = "cd-hit"
     cdhit_script += " -T " + str(n_cpu)
@@ -727,6 +752,10 @@ def cdhit_runner(input_file,
         print("running cdhit_script: " + cdhit_script)
     else:
         cdhit_script += " > /dev/null"
+
+    if env_name:
+        env_name = env_name.replace("cd-hit", "cdhit")
+        cdhit_script = f"conda run -n {env_name} --no-capture-output {cdhit_script}"
 
     subprocess.run(cdhit_script, shell=True, check=True)
 
