@@ -1,0 +1,16 @@
+name: alpar-nextflow
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python=3.12
+  - nextflow
+  - pandas
+  - numpy
+  - scikit-learn
+  - joblib
+  - snakemake-minimal # sometimes useful
+  - pip
+  - pip:
+    - . # This will install the local alpar package

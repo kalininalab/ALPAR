@@ -37,7 +37,7 @@ def check_contigs(input):
             return False
 
 
-def snippy_runner(input, strain_random_name, output, reference, log_file, cpus=1, memory=8, parallel_run=False):
+def snippy_runner(input, strain_random_name, output, reference, log_file, cpus=1, memory=8):
     """
     input (str): Path to the input file
     output (str): Path to the output directory
@@ -45,7 +45,6 @@ def snippy_runner(input, strain_random_name, output, reference, log_file, cpus=1
     temp (str): Path to the temporary directory
     cpus (int): Number of cpus to use
     memory (int): Amount of memory to use
-    parallel_run (bool): If True, run snippy in parallel mode
 
     """
 
@@ -152,7 +151,7 @@ def bakta_runner(input, strain_random_name, output, log_file, cpus=1, db_path=No
     db_path (str): Path to the bakta database
     """
 
-    run_command = f"bakta --cpus {cpus} --output {output}/{strain_random_name} --prefix {strain_random_name} --force"
+    run_command = f"bakta --threads {cpus} --output {output}/{strain_random_name} --prefix {strain_random_name} --force"
     
     if db_path:
         run_command = f"{run_command} --db {db_path}"
@@ -176,7 +175,7 @@ def check_and_download_bakta_db(db_path=None, log_file=None):
         print(f"Bakta database not found at {db_path}. Starting download...")
         os.makedirs(db_path, exist_ok=True)
         # Using bakta_db download command which is standard with bakta installation
-        download_command = f"bakta_db download --output {db_path}"
+        download_command = f"bakta_db download --output {db_path} --type full"
         if log_file:
             download_command += f" >> {log_file} 2>&1"
         

@@ -6,7 +6,7 @@ channels:
   - etetoolkit
   - defaults
 dependencies:
-  - python=3.9
+  - python
   - pip
   - numpy
   - pandas
