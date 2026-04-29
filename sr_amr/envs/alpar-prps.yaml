@@ -1,10 +1,11 @@
-name: alpar-panacota
+name: alpar-prps
 channels:
   - conda-forge
   - bioconda
   - defaults
 dependencies:
-  - python
+  - python==3.14
   - pip
-  - panacota
-  - python-utils<3.0.0
+  - pip:
+    - ete3
+

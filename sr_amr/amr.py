@@ -468,31 +468,11 @@ def run_variant_calling_and_annotation(strain, random_names, args):
 
         if args.annotation_tool == "bakta":
             bakta_runner(strain, random_names[os.path.splitext(strain.split("/")[-1].strip())[
-                        0]], os.path.join(args.output, args.annotation_tool), f"{args.temp}/bakta_log.txt", 1, args.bakta_db, env_name=f"alpar-{args.annotation_tool}")
+                        0]], os.path.join(args.output, args.annotation_tool), f"{args.temp}/bakta_log.txt", f"{args.temp}/bakta/", 1, args.bakta_db, env_name=f"alpar-{args.annotation_tool}")
             
         elif args.annotation_tool == "prokka":
             prokka_runner(strain, random_names[os.path.splitext(strain.split("/")[-1].strip())[
                         0]], os.path.join(args.output, args.annotation_tool), args.reference, f"{args.temp}/prokka_log.txt", 1, args.prokka_custom_database[1] if args.prokka_custom_database else None, env_name=f"alpar-{args.annotation_tool}")
-
-
-def run_snippy_and_prokka(strain, random_names, snippy_output, prokka_output, args, snippy_flag, gene_annotation_flag, custom_db=None):
-    from sr_amr.binary_tables import snippy_runner, prokka_runner, bakta_runner
-    # Snippy creates issue with high memory usage, so it is limited to 100 GB
-    snippy_ram = args.ram
-    if args.ram > 100:
-        snippy_ram = 100
-
-    strain_random_name = random_names[os.path.splitext(strain.split("/")[-1].strip())[0]]
-
-    if snippy_flag:
-        snippy_runner(strain, strain_random_name, snippy_output, args.reference, f"{args.temp}/snippy_log.txt", 1, snippy_ram, env_name="alpar-snippy")
-    
-    if gene_annotation_flag:
-        if args.use_bakta:
-            # We assume bakta_output is prokka_output here as passed from prediction_pipeline
-            bakta_runner(strain, strain_random_name, prokka_output, f"{args.temp}/bakta_log.txt", 1, args.bakta_db, env_name="alpar-bakta")
-        else:
-            prokka_runner(strain, strain_random_name, prokka_output, args.reference, f"{args.temp}/prokka_log.txt", 1, custom_db=custom_db, env_name="alpar-prokka")
 
 
 def binary_table_pipeline(args):
@@ -804,6 +784,12 @@ def binary_table_pipeline(args):
 
         num_parallel_tasks = args.threads
 
+        if args.ram / args.threads < 8 and args.annotation_tool == "bakta":
+            print("Warning: Not enough ram for the processes. Minimum 4 GB of ram per thread is recommended.")
+            print(f"Current ram per thread: {int(args.ram / args.threads)} GB")
+            print(f"Setting number of parallel tasks to {int(args.ram / 8)} to avoid memory issues.")
+            num_parallel_tasks = int(args.ram / 8)
+
         params = [(strain, random_names, args) for strain in strain_list]
 
         with multiprocessing.Pool(num_parallel_tasks) as pool:
@@ -1001,14 +987,6 @@ def panacota_pipeline(args):
 
     from sr_amr.panacota import panacota_pre_processor, panacota_pipeline_runner, panacota_post_processor
 
-    tool_list = ["PanACoTA"]
-
-    for tool in tool_list:
-        if not is_tool_installed(tool):
-            print(f"Error: {tool} is not installed.")
-            print("Please install the tool via `pip install panacota` and try again.")
-            sys.exit(1)
-
     temp_folder_created = False
 
     if args.temp is None:
@@ -1166,6 +1144,8 @@ def prps_pipeline(args):
 
     start_time = time.time()
 
+    ensure_conda_env("alpar-prps")
+
     from sr_amr.prps import PRPS_runner, PRPS_runner_continuous, PRPS_binary_check
 
     # Sanity checks
@@ -1206,10 +1186,10 @@ def prps_pipeline(args):
         print("Checking if input file is binary or continuous...")
         if PRPS_binary_check(args.input):
             print("Input file is binary. Running PRPS for binary data...")
-            PRPS_runner(args.tree, args.input, prps_output, prps_temp)
+            PRPS_runner(args.tree, args.input, prps_output, prps_temp, env_name="alpar-prps")
         else:
             print("Input file is continuous. Running PRPS for continuous data...")
-            PRPS_runner_continuous(args.tree, args.input, prps_output, prps_temp)
+            PRPS_runner_continuous(args.tree, args.input, prps_output, prps_temp, env_name="alpar-prps")
 
         if not args.keep_temp_files:
             print("Removing temp folder...")
@@ -2158,8 +2138,8 @@ def prediction_pipeline(args):
             params = [(strain, random_names, snippy_output, annotation_output_to_use, args,
                        snippy_flag, gene_annotation_flag, args.custom_database[1]) for strain in strain_list]
 
-        with multiprocessing.Pool(num_parallel_tasks) as pool:
-            pool.starmap(run_snippy_and_prokka, params)
+        # with multiprocessing.Pool(num_parallel_tasks) as pool:
+        #     pool.starmap(run_snippy_and_prokka, params)
 
         strains_to_be_processed = []
 

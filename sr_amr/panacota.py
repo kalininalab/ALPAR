@@ -3,6 +3,7 @@
 import os
 import shutil
 import pathlib
+import glob
 
 import warnings
 
@@ -100,37 +101,55 @@ def panacota_post_processor(panacota_output_folder, run_name, output_folder, typ
         print("Warning: Phylogenetic tree could not be created with the PanACoTA pipeline! Please use phylogenetic_tree option!")
 
 def panacota_pipeline_runner(list_file, dbpath, output_directory, run_name, n_cores, log_file, type="nucl", mode=1, min_seq_id=0.8, core_genome_percentage=1, env_name=None):
+    
+    # Helper to wrap commands in conda if an env_name is provided
+    def wrap(cmd):
+        if env_name:
+            return f"conda run -n {env_name} --no-capture-output {cmd}"
+        return cmd
 
-    pc_annotate_command = f"PanACoTA annotate -l {list_file} -d {dbpath} -r {output_directory}/annotate_out -n {run_name} --threads {n_cores} >> {log_file} 2>&1"
-
-    pc_pangenome_command = f"PanACoTA pangenome -l {output_directory}/annotate_out/LSTINFO-{list_file.split('/')[-1]} -d {output_directory}/annotate_out/Proteins/ -o {output_directory}/pangenome_out/ -n {run_name} --threads {n_cores} >> {log_file} 2>&1"
-
-    if n_cores > 1:
-        pc_corepers_command = f"PanACoTA corepers -p {output_directory}/pangenome_out/PanGenome-{run_name}.All.prt-clust-{min_seq_id}-mode{mode}-th{n_cores}.lst -o {output_directory}/corepers_out/ -t {core_genome_percentage} >> {log_file} 2>&1"
-        pc_align_command = f"PanACoTA align -c {output_directory}/corepers_out/PersGenome_PanGenome-{run_name}.All.prt-clust-{min_seq_id}-mode{mode}-th{n_cores}.lst-all_1.lst -l {output_directory}/annotate_out/LSTINFO-{list_file.split('/')[-1]} -n {run_name} -d {output_directory}/annotate_out/ -o {output_directory}/align_out --threads {n_cores} >> {log_file} 2>&1"
-
-    else:
-        pc_corepers_command = f"PanACoTA corepers -p {output_directory}/pangenome_out/PanGenome-{run_name}.All.prt-clust-{min_seq_id}-mode{mode}.lst -o {output_directory}/corepers_out/ -t {core_genome_percentage} >> {log_file} 2>&1"
-        pc_align_command = f"PanACoTA align -c {output_directory}/corepers_out/PersGenome_PanGenome-{run_name}.All.prt-clust-{min_seq_id}-mode{mode}.lst-all_1.lst -l {output_directory}/annotate_out/LSTINFO-{list_file.split('/')[-1]} -n {run_name} -d {output_directory}/annotate_out/ -o {output_directory}/align_out --threads {n_cores} >> {log_file} 2>&1"
-
-    pc_tree_command = f"PanACoTA tree -a {output_directory}/align_out/Phylo-{run_name}/{run_name}.{type}.grp.aln -o {output_directory}/tree/ --threads {n_cores} >> {log_file} 2>&1"
-
-    if env_name:
-        pc_annotate_command = f"conda run -n {env_name} --no-capture-output {pc_annotate_command}"
-        pc_pangenome_command = f"conda run -n {env_name} --no-capture-output {pc_pangenome_command}"
-        pc_corepers_command = f"conda run -n {env_name} --no-capture-output {pc_corepers_command}"
-        pc_align_command = f"conda run -n {env_name} --no-capture-output {pc_align_command}"
-        pc_tree_command = f"conda run -n {env_name} --no-capture-output {pc_tree_command}"
-
-    print(f"Running PanACoTA annotate...")
+    # 1. ANNOTATE
+    pc_annotate_command = wrap(f"PanACoTA annotate -l {list_file} -d {dbpath} -r {output_directory}/annotate_out -n {run_name} --threads {n_cores} >> {log_file} 2>&1")
+    print("Running PanACoTA annotate...")
     os.system(pc_annotate_command)
-    print(f"Running PanACoTA pangenome...")
+
+    # 2. PANGENOME
+    # Cleanly get the filename for the LSTINFO file created by annotate
+    lst_filename = os.path.basename(list_file)
+    lstinfo = f"{output_directory}/annotate_out/LSTINFO-{lst_filename}"
+    
+    pc_pangenome_command = wrap(f"PanACoTA pangenome -l {lstinfo} -d {output_directory}/annotate_out/Proteins/ -o {output_directory}/pangenome_out/ -n {run_name} --threads {n_cores} >> {log_file} 2>&1")
+    print("Running PanACoTA pangenome...")
     os.system(pc_pangenome_command)
-    print(f"Running PanACoTA corepers...")
+
+    # 3. COREPERS
+    # Suffix logic for n_cores
+    th_suffix = f"-th{n_cores}" if n_cores > 1 else ""
+    pangenome_result = f"{output_directory}/pangenome_out/PanGenome-{run_name}.All.prt-clust-{min_seq_id}-mode{mode}{th_suffix}.lst"
+    
+    pc_corepers_command = wrap(f"PanACoTA corepers -p {pangenome_result} -o {output_directory}/corepers_out/ -t {core_genome_percentage} >> {log_file} 2>&1")
+    print("Running PanACoTA corepers...")
     os.system(pc_corepers_command)
-    print(f"Running PanACoTA align...")
-    # I don't know why but it needs to be run twice, otherwise it gives an error on some occasions, probably PanACoTA side issue
-    for _ in range(2):
-        os.system(pc_align_command)
-    print(f"Running PanACoTA tree...")
+
+    # --- THE FIX: FIND THE CREATED PERSGENOME FILE ---
+    # Use glob to find the file because PanACoTA naming (all_1 vs all_1.0) is inconsistent
+    search_pattern = os.path.join(output_directory, "corepers_out", f"PersGenome_PanGenome-{run_name}.All.prt-clust-{min_seq_id}-mode{mode}{th_suffix}.lst*")
+    found_files = glob.glob(search_pattern)
+    
+    if not found_files:
+        print(f"ERROR: Could not find persistent genome file using pattern: {search_pattern}")
+        return
+    
+    # Pick the correct .lst file (avoiding .log or other sidecars)
+    actual_pers_file = [f for f in found_files if f.endswith('.lst')][0]
+
+    # 4. ALIGN
+    pc_align_command = wrap(f"PanACoTA align -c {actual_pers_file} -l {lstinfo} -n {run_name} -d {output_directory}/annotate_out/ -o {output_directory}/align_out --threads {n_cores} >> {log_file} 2>&1")
+    print(f"Running PanACoTA align using {os.path.basename(actual_pers_file)}...")
+    os.system(pc_align_command)
+
+    # 5. TREE
+    alignment_path = f"{output_directory}/align_out/Phylo-{run_name}/{run_name}.{type}.grp.aln"
+    pc_tree_command = wrap(f"PanACoTA tree -a {alignment_path} -o {output_directory}/tree/ --threads {n_cores} >> {log_file} 2>&1")
+    print("Running PanACoTA tree...")
     os.system(pc_tree_command)

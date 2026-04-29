@@ -5,13 +5,14 @@ import os
 import csv
 import sys
 import warnings
+import subprocess
 
 warnings.filterwarnings("ignore")
 
 csv.field_size_limit(sys.maxsize)
 
 
-def load_tree(newick):
+def load_tree(newick, env_name=None):
     """
     Loads the tree and returns the list of nodes and the list of names of the nodes.
 
@@ -123,7 +124,7 @@ def find_nodes_with_descendants_from_matrix(leaves, tree, dist_matrix):
     return sum_dist
 
 
-def PRPS_runner(tree_file, binary_mutation_file, output_folder, temp_folder):
+def PRPS_runner(tree_file, binary_mutation_file, output_folder, temp_folder, env_name=None):
 
     with open(tree_file, "r") as f:
         newick = f.readline()
@@ -192,7 +193,7 @@ def continuous_prps(leaves_to_values, dist_matrix):
     return score
 
 
-def PRPS_runner_continuous(tree_file, mutation_file, output_folder, temp_folder):
+def PRPS_runner_continuous(tree_file, mutation_file, output_folder, temp_folder, env_name=None):
     """
     PRPS runner for continuous-valued features using weighted phylogenetic distances.
     """
@@ -249,6 +250,7 @@ def PRPS_runner_continuous(tree_file, mutation_file, output_folder, temp_folder)
         writer = csv.writer(f, delimiter="\t")
         for k, v in feature_score_dict.items():
             writer.writerow([k, v])
+
 
 def PRPS_binary_check(mutation_file):
     """

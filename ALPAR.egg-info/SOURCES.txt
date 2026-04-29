@@ -17,7 +17,6 @@ sr_amr/gbk_parser.py
 sr_amr/gwas.py
 sr_amr/ml.py
 sr_amr/ml_common_files.py
-sr_amr/ml_lite.py
 sr_amr/panacota.py
 sr_amr/phylogeny_distance.py
 sr_amr/phylogeny_tree.py

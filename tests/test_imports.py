@@ -64,7 +64,6 @@ def import_lite_modules():
 
         from sr_amr.binary_tables import snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, phenotype_dataframe_creator, phenotype_dataframe_creator_post_processor, prokka_create_database, snippy_processed_file_creator
         from sr_amr.binary_table_threshold import binary_table_threshold_with_percentage
-        from sr_amr.ml_lite import svm, rf, svm_cv, prps_ml_preprecessor, gb
 
         import pandas as pd
         import numpy as np

@@ -158,7 +158,7 @@ def prokka_runner(input, strain_random_name, output, reference, log_file, cpus=1
 
     os.system(run_command)
 
-def bakta_runner(input, strain_random_name, output, log_file, cpus=1, db_path=None, env_name=None):
+def bakta_runner(input, strain_random_name, output, log_file, tmp_dir, cpus=1, db_path=None, env_name=None):
     """
     input (str): Path to the input file
     output (str): Path to the output directory
@@ -166,7 +166,7 @@ def bakta_runner(input, strain_random_name, output, log_file, cpus=1, db_path=No
     db_path (str): Path to the bakta database
     """
 
-    run_command = f"bakta --threads {cpus} --output {output}/{strain_random_name} --prefix {strain_random_name} --force"
+    run_command = f"bakta --threads {cpus} --output {output}/{strain_random_name} --prefix {strain_random_name} --tmp-dir {tmp_dir} --force"
 
     if db_path:
         run_command = f"{run_command} --db {db_path}"
@@ -178,6 +178,7 @@ def bakta_runner(input, strain_random_name, output, log_file, cpus=1, db_path=No
         run_command = f"conda run -n {env_name} --no-capture-output {run_command}"
 
     os.system(run_command)
+
 def check_and_download_bakta_db(db_path=None, log_file=None):
     """
     Checks if bakta database exists, if not downloads it.
@@ -193,7 +194,7 @@ def check_and_download_bakta_db(db_path=None, log_file=None):
         print(f"Bakta database not found at {db_path}. Starting download...")
         os.makedirs(db_path, exist_ok=True)
         # Using bakta_db download command which is standard with bakta installation
-        download_command = f"bakta_db download --output {db_path} --type full"
+        download_command = f"bakta_db download --output {db_path} --type light"
         if log_file:
             download_command += f" >> {log_file} 2>&1"
         

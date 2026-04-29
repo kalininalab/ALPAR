@@ -10,9 +10,6 @@ dependencies:
   - pip
   - pip:
     - psutil
-    - seaborn
-    - matplotlib
-    - scikit-learn
     - biopython
     - joblib
-    - xgboost
+    - tqdm
