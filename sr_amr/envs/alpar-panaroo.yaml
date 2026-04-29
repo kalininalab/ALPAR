@@ -4,5 +4,7 @@ channels:
   - bioconda
   - defaults
 dependencies:
-  - python>=3.12
-  - panaroo
+  - python
+  - panaroo==1.6.0
+  - intbitset==3.0.2
+  - biopython==1.79

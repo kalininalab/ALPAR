@@ -861,25 +861,49 @@ def binary_table_pipeline(args):
     if status < 4:
 
         if not args.only_variants:
+            
+            try:
+                print("Strains to be processed list is empty, checking file")
+                if os.path.exists(os.path.join(args.output, "snippy_processed_strains.txt")):
+                    with open(os.path.join(args.output, "snippy_processed_strains.txt"), "r") as infile:
+                        strains_to_be_processed = [line.strip() for line in infile.readlines()]
+                        print(f"Strains to be processed list is created from file, number of strains: {len(strains_to_be_processed)}")
+                else:
+                    print("Error: Strains to be processed list is empty and snippy_processed_strains.txt file does not exist.")
+                    print("Gene presence absence analysis will be skipped.")
+                    do_not_remove_temp = True
+                    strains_to_be_processed = []
+            except Exception as e:
+                print("Error: Could not create strains to be processed list.")
+                print(e)
+                print("Gene presence absence analysis will be skipped.")
+                do_not_remove_temp = True
+                strains_to_be_processed = []
 
-            ##CHECK HERE TOO
+            os.makedirs(os.path.join(args.output, args.annotation_tool), exist_ok=True)
+
+            if args.annotation_tool == "bakta" and args.gene_presence_absence_analysis_tool == "panaroo":
+                    print("Warning: Panaroo is not fully compatible with Bakta annotations, automatically falling back to cd-hit for gene presence absence analysis instead. If you want to use panaroo, please use prokka for annotation.")
+                    print("For more information: https://github.com/gtonkinhill/panaroo/issues/373")
+                    args.gene_presence_absence_analysis_tool = "cd-hit"
+            
             if args.gene_presence_absence_analysis_tool == "panaroo":
-                try:
 
+                try:
                     print("Creating panaroo input...")
                     # Create the panaroo input
                     panaroo_input_creator(os.path.join(args.output, "random_names.txt"), os.path.join(args.output, args.annotation_tool), os.path.join(
-                        args.temp, "panaroo"), strains_to_be_processed)
+                        args.temp, args.gene_presence_absence_analysis_tool), strains_to_be_processed)
 
                     print("Running panaroo...")
                     # Run panaroo
-                    panaroo_runner(os.path.join(args.temp, "panaroo"), panaroo_output, os.path.join(
+                    panaroo_runner(os.path.join(args.temp, args.gene_presence_absence_analysis_tool), os.path.join(args.output, args.gene_presence_absence_analysis_tool), os.path.join(
                         args.temp, "panaroo_log.txt"), args.threads, env_name=f"alpar-{args.gene_presence_absence_analysis_tool}")
 
                     print("Adding gene presence absence information to the binary table...")
                     # Add gene presence absence information to the binary table
 
-                    if not os.path.exists(os.path.join(panaroo_output, "gene_presence_absence.csv")):
+                    if not os.path.exists(os.path.join(os.path.join(args.output, args.gene_presence_absence_analysis_tool), "gene_presence_absence.csv")):
                         print("Warning: Gene presence absence file does not exist.")
                         print(
                             "Gene presence absence information will not be added to the binary table.")
@@ -887,7 +911,7 @@ def binary_table_pipeline(args):
 
                     else:
                         binary_mutation_table_gpa_information_adder_panaroo(os.path.join(args.output, "binary_mutation_table.tsv"), os.path.join(
-                            panaroo_output, "gene_presence_absence.csv"), os.path.join(args.output, "binary_mutation_table_with_gene_presence_absence.tsv"))
+                            os.path.join(args.output, args.gene_presence_absence_analysis_tool), "gene_presence_absence.csv"), os.path.join(args.output, "binary_mutation_table_with_gene_presence_absence.tsv"))
                         do_not_remove_temp = False
 
                 except Exception as e:

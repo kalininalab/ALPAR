@@ -233,7 +233,7 @@ def random_name_giver(strains_text_file, random_name_file_output):
     return random_names
 
 
-def panaroo_input_creator(random_names_txt, prokka_output_folder, temp_folder, strains_to_be_processed):
+def panaroo_input_creator(random_names_txt, annotation_output_folder, temp_folder, strains_to_be_processed):
 
     with open(random_names_txt, "r") as infile:
         lines = infile.readlines()
@@ -241,10 +241,13 @@ def panaroo_input_creator(random_names_txt, prokka_output_folder, temp_folder, s
             splitted = line.split("\t")
             given_random_name = splitted[1].strip()
             if given_random_name in strains_to_be_processed:
-                for prokka_output_file in os.listdir(f"{prokka_output_folder}/{given_random_name}"):
-                    if prokka_output_file.endswith(".gff"):
+                for annotation_output_file in os.listdir(f"{annotation_output_folder}/{given_random_name}"):
+                    if annotation_output_file.endswith(".gff"):
                         shutil.copyfile(
-                            f"{prokka_output_folder}/{given_random_name}/{prokka_output_file}", f"{temp_folder}/{given_random_name}.gff")
+                            f"{annotation_output_folder}/{given_random_name}/{annotation_output_file}", f"{temp_folder}/{given_random_name}.gff")
+                    if annotation_output_file.endswith(".gff3"):
+                        shutil.copyfile(
+                            f"{annotation_output_folder}/{given_random_name}/{annotation_output_file}", f"{temp_folder}/{given_random_name}.gff3")
 
 
 def panaroo_runner(panaroo_input_folder, panaroo_output_folder, log_file, cpus, env_name=None):
@@ -253,7 +256,7 @@ def panaroo_runner(panaroo_input_folder, panaroo_output_folder, log_file, cpus, 
     if cpus >= 32:
         cpus = 30
 
-    run_command = f"panaroo -i {panaroo_input_folder}/*.gff -o {panaroo_output_folder} --clean-mode strict -t {cpus} >> {log_file} 2>&1"
+    run_command = f"panaroo -i {panaroo_input_folder}/*.gff* -o {panaroo_output_folder} --clean-mode strict -t {cpus} >> {log_file} 2>&1"
 
     if env_name:
         env_name = env_name.replace("cd-hit", "cdhit")
