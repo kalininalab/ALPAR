@@ -11,5 +11,5 @@ dependencies:
     - ete3
     - psutil
     - tqdm
-    - cgi
+    - pycgi
 

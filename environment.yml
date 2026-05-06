@@ -2,27 +2,15 @@ name: alpar
 channels:
   - conda-forge
   - bioconda
-  - kalininalab
-  - etetoolkit
   - defaults
 dependencies:
-  - python
-  - pip
-  - numpy
+  - python>=3.12
   - pandas
-  - scikit-learn>=1.0
-  - seaborn
-  - matplotlib
-  - xgboost
+  - numpy
+  - psutil
+  - biopython
   - joblib
-  - snippy
-  - prokka
-  - bakta
-  - panaroo
-  - pyseer
-  - mashtree
-  - panacota
-  - cd-hit
-  - blast
+  - tqdm
+  - pip
   - pip:
-    - datasail
+    - -e .

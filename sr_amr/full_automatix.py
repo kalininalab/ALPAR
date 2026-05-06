@@ -22,17 +22,20 @@ def automatix_runner(args):
     if args.temp == None:
         args.temp = f"{args.output}/temp"
     
-    create_binary_tables_script = f"alpar create_binary_tables -i '{args.input}' -o '{args.output}' --reference '{args.reference}' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --create_phenotype_from_folder {args.input}"
+    create_binary_tables_script = f"alpar create_binary_tables -i '{args.input}' -o '{args.output}' --reference '{args.reference}' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --create_phenotype_from_folder"
 
-    if args.custom_database != None:
-        custom_db_name = generate_random_key()
-        create_binary_tables_script += f" --custom_database '{args.custom_database}' {custom_db_name}"
+    create_binary_tables_script += f" --variant_calling_tool {args.variant_calling_tool}"
+    create_binary_tables_script += f" --annotation_tool {args.annotation_tool}"
+    create_binary_tables_script += f" --gene_presence_absence_analysis_tool {args.gene_presence_absence_analysis_tool}"
+
+    if args.prokka_custom_database != None:
+        create_binary_tables_script += f" --prokka_custom_database '{args.prokka_custom_database[0]}' '{args.prokka_custom_database[1]}'"
     
     if args.keep_temp_files:
         create_binary_tables_script += " --keep_temp_files"
 
-    if args.just_mutations:
-        create_binary_tables_script += " --no_gene_presence_absence"
+    if args.only_variants:
+        create_binary_tables_script += " --only_variants"
     
     if args.checkpoint:
         create_binary_tables_script += " --checkpoint"
@@ -43,12 +46,6 @@ def automatix_runner(args):
     if args.overwrite:
         create_binary_tables_script += " --overwrite"
 
-    if args.use_panaroo:
-        create_binary_tables_script += " --use_panaroo"
-
-    if args.use_bakta:
-        create_binary_tables_script += " --use_bakta"
-    
     if args.bakta_db:
         create_binary_tables_script += f" --bakta_db '{args.bakta_db}'"
 
@@ -62,7 +59,7 @@ def automatix_runner(args):
     print("Creating binary tables...")
     run_command(create_binary_tables_script, "Creating binary tables failed!")
 
-    if args.just_mutations:
+    if args.only_variants:
         files_to_be_checked_list = ["binary_mutation_table.tsv", "mutations_annotations.tsv"]
     
     else:
@@ -270,7 +267,7 @@ def automatix_runner(args):
                 algo_output_path = os.path.join(args.output, "ml_results", algorithm, abiotic)
                 os.makedirs(algo_output_path, exist_ok=True)
 
-                ml_script = f"alpar ml -i '{binary_mutation_table_for_ml}' -o '{algo_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} -a '{abiotic}' --save_model --prps '{args.output}/prps/prps_score.tsv' --parameter_optimization --annotation '{args.output}/mutations_annotations.tsv' --ml_algorithm '{algorithm}' --overwrite"
+                ml_script = f"alpar ml -i '{binary_mutation_table_for_ml}' -o '{algo_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} -a '{abiotic}' --save_model --prps '{args.output}/prps/prps_score.tsv' --annotation '{args.output}/mutations_annotations.tsv' --ml_algorithm '{algorithm}' --overwrite"
 
                 if not args.no_feature_importance_analysis:
                     ml_script += " --feature_importance_analysis"

@@ -29,10 +29,18 @@ setup(
         "Topic :: Scientific/Engineering :: Bio-Informatics",
     ],
     packages=find_packages(),
-    # setup_requires=['setuptools_scm'],
-    include_package_data=False,
-    install_requires=[],
-    package_data={},
+    include_package_data=True,
+    install_requires=[
+        "pandas",
+        "numpy",
+        "psutil",
+        "biopython",
+        "joblib",
+        "tqdm",
+    ],
+    package_data={
+        "sr_amr": ["envs/*.yaml", "envs/*.yml", "card_data/*"],
+    },
     python_requires=">=3.12",
     keywords="bioinformatics",
     entry_points={

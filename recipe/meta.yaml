@@ -1,36 +1,29 @@
 package:
   name: "alpar"
-  version: '1.2.0'
+  version: '1.3.0'
 
 source:
   path: ..
 
 build:
+  noarch: python
   entry_points:
     - alpar = sr_amr.amr:main
-  script: python setup.py install
+  script: {{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation
 
 requirements:
-  build:
-    - python >=3.9,<3.12
+  host:
+    - python >=3.12
     - setuptools
-    - setuptools_scm
     - pip
   run:
-    - python >=3.9,<3.12
-    - snippy
-    - panaroo
-    - seaborn
-    - datasail>=1.0.0
-    - ete3
-    - python
-    - swig
-    - grakel
-    - mashtree
-    - iqtree
-    - pyseer
-    - xgboost
-    - scip==8.0.4
+    - python >=3.12
+    - pandas
+    - numpy
+    - psutil
+    - biopython
+    - joblib
+    - tqdm
 
 about:
   home: https://github.com/kalininalab/ALPAR

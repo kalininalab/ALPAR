@@ -1,0 +1,4 @@
+recursive-include sr_amr/envs *.yaml *.yml
+recursive-include sr_amr/card_data *
+include LICENSE
+include README.md

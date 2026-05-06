@@ -46,10 +46,18 @@ def main():
         '-o', '--output', type=str, help='path of the output folder', required=True)
     parser_automatix.add_argument(
         '--reference', type=str, help='path of the reference file', required=True)
-    parser_automatix.add_argument('--custom_database', type=str,
-                                  help='creates and uses custom database for prokka, require path of the fasta file, default=None')
-    parser_automatix.add_argument('--just_mutations', action='store_true',
-                                  help='only creates binary mutation table with mutations, without gene presence absence information, default=False')
+
+    parser_automatix.add_argument('--variant_calling_tool', type=str, help='variant calling tool to use, available selections: [snippy], default=snippy', default="snippy")
+    parser_automatix.add_argument('--annotation_tool', type=str, help='annotation tool to use, available selections: [prokka, bakta], default=prokka', default="prokka")
+    parser_automatix.add_argument('--gene_presence_absence_analysis_tool', type=str, help='gene presence absence analysis tool to use, available selections: [cd-hit, panaroo], default=cd-hit', default="cd-hit")
+
+    parser_automatix.add_argument('--prokka_custom_database', type=str, nargs=2,
+                                      help='creates and uses custom database for prokka, require path of the fasta file and genus name, default=None')
+    
+    parser_automatix.add_argument('--bakta_db', type=str, help='path to bakta database, if none given and bakta as annotation tool selected, will automatically download, default=None')
+
+    parser_automatix.add_argument('--only_variants', action='store_true', help='only creates binary mutation table with mutations, without gene presence absence information, default=False')
+    
     parser_automatix.add_argument('--no_feature_importance_analysis', action='store_true',help='do not run feature importance analysis on ML step, default=False')
     parser_automatix.add_argument(
         '--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
@@ -67,12 +75,11 @@ def main():
     parser_automatix.add_argument('--fast', action='store_true', help='fast mode, does not run PanACoTA pipeline for phylogenetic tree analysis, default=False')
     parser_automatix.add_argument('--checkpoint', action='store_true',
                                   help='continues run from the checkpoint, default=False')
-    parser_automatix.add_argument('--use_panaroo', action='store_true',help='use panaroo for gene presence absence analysis, WARNING: REQUIRES A LOT OF MEMORY, default=False')
-    parser_automatix.add_argument('--use_bakta', action='store_true', help='use bakta instead of prokka for annotation, default=False')
-    parser_automatix.add_argument('--bakta_db', type=str, help='path to bakta database, default=None')
+
     parser_automatix.add_argument('--run_qc', action='store_true', help='run automated QC on input genomes, default=False')
     parser_automatix.add_argument('--qc_length_threshold', type=float, help='fraction of median length allowed, default=0.1', default=0.1)
     parser_automatix.add_argument('--qc_max_contigs', type=int, help='maximum allowed number of contigs, default=500', default=500)
+    
     parser_automatix.add_argument('--no_datasail', action='store_true', help='splits data randomly instead of using genomic distances, default=False')
     parser_automatix.add_argument('--verbosity', type=int,
                                   help='verbosity level, default=1', default=1)
@@ -1830,18 +1837,6 @@ def fully_automated_pipeline(args):
     start_time = time.time()
 
     from sr_amr.full_automatix import automatix_runner
-
-    tool_list = ["PanACoTA", "snippy", "panaroo", "pyseer"]
-
-    if args.use_bakta:
-        tool_list.append("bakta")
-    else:
-        tool_list.append("prokka")
-
-    for tool in tool_list:
-        if not is_tool_installed(tool):
-            print(f"Error: {tool} is not installed.")
-            sys.exit(1)
 
     # Sanity checks
 
