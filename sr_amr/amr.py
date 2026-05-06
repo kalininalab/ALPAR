@@ -9,7 +9,6 @@ import contextlib
 import time
 import multiprocessing
 import shutil
-import pandas as pd
 import psutil
 
 from sr_amr.utils import is_tool_installed, temp_folder_remover, time_function, copy_and_zip_file, ensure_conda_env, conda_env_wrapper
@@ -70,7 +69,7 @@ def main():
     parser_automatix.add_argument('--overwrite', action='store_true',
                                   help='overwrite the output and temp folder if exists, default=False')
     parser_automatix.add_argument('--ml_algorithm', nargs='+',
-                              help='classification algorithm to be used, available selections: [rf, svm, gb, histgb, lr, xgb], default=[rf, svm, gb, histgb, lr, xgb]', default=["rf", "svm", "gb", "histgb", "lr", "xgb"])
+                              help='classification algorithm to be used, available selections: [rf, svm, gb, histgb, lr, xgb], default=[rf, svm, lr, xgb]', default=["rf", "svm", "lr", "xgb"])
     parser_automatix.add_argument('--no_ml', action='store_true', help='do not run machine learning analysis, default=False')
     parser_automatix.add_argument('--fast', action='store_true', help='fast mode, does not run PanACoTA pipeline for phylogenetic tree analysis, default=False')
     parser_automatix.add_argument('--checkpoint', action='store_true',
@@ -79,7 +78,7 @@ def main():
     parser_automatix.add_argument('--run_qc', action='store_true', help='run automated QC on input genomes, default=False')
     parser_automatix.add_argument('--qc_length_threshold', type=float, help='fraction of median length allowed, default=0.1', default=0.1)
     parser_automatix.add_argument('--qc_max_contigs', type=int, help='maximum allowed number of contigs, default=500', default=500)
-    
+
     parser_automatix.add_argument('--no_datasail', action='store_true', help='splits data randomly instead of using genomic distances, default=False')
     parser_automatix.add_argument('--verbosity', type=int,
                                   help='verbosity level, default=1', default=1)
@@ -1279,6 +1278,7 @@ datasail_pre_precessor(
         else:
             sail_max_time = 600
         if args.sail_stratify:
+            import pandas as pd
             phenotype_df = pd.read_csv(f'{args.phenotype}', sep='\t', index_col=0)
             phenotype_df_dict = phenotype_df.T.to_dict(orient='index')
         else:

@@ -8,6 +8,7 @@ import warnings
 import subprocess
 import json
 import sys
+import tempfile
 
 warnings.filterwarnings("ignore")
 
@@ -68,22 +69,32 @@ def conda_env_wrapper(env_name):
             # Construct the command to re-run using python -m
             # This ensures it works even if the 'alpar' command is not installed in the target env
             root_dir = PATH_OF_SCRIPT.parent
-            cmd = ["conda", "run", "-n", env_name, "--no-capture-output", "python", "-m", "sr_amr.amr"] + sys.argv[1:]
             
-            # Set environment variable to avoid infinite loop and ensure project root is in PYTHONPATH
-            new_env = os.environ.copy()
-            new_env["ALPAR_SUBPROCESS"] = "1"
-            if "PYTHONPATH" in new_env:
-                new_env["PYTHONPATH"] = f"{root_dir}{os.pathsep}{new_env['PYTHONPATH']}"
-            else:
-                new_env["PYTHONPATH"] = str(root_dir)
-            
-            try:
-                result = subprocess.run(cmd, env=new_env)
-                sys.exit(result.returncode)
-            except Exception as e:
-                print(f"Error re-running in environment {env_name}: {e}")
-                sys.exit(1)
+            # Use a temporary directory to isolate the package if running from site-packages
+            with tempfile.TemporaryDirectory(prefix="alpar_env_") as tmpdir:
+                if "site-packages" in str(root_dir):
+                    try:
+                        os.symlink(str(PATH_OF_SCRIPT), os.path.join(tmpdir, "sr_amr"))
+                        root_dir = tmpdir
+                    except OSError:
+                        pass
+
+                # Set environment variable to avoid infinite loop and ensure project root is in PYTHONPATH
+                new_env = os.environ.copy()
+                new_env["ALPAR_SUBPROCESS"] = "1"
+                if "PYTHONPATH" in new_env:
+                    new_env["PYTHONPATH"] = f"{root_dir}{os.pathsep}{new_env['PYTHONPATH']}"
+                else:
+                    new_env["PYTHONPATH"] = str(root_dir)
+
+                cmd = ["conda", "run", "-n", env_name, "--no-capture-output", "python", "-m", "sr_amr.amr"] + sys.argv[1:]
+
+                try:
+                    result = subprocess.run(cmd, env=new_env)
+                    sys.exit(result.returncode)
+                except Exception as e:
+                    print(f"Error re-running in environment {env_name}: {e}")
+                    sys.exit(1)
         return wrapper
     return decorator
 
