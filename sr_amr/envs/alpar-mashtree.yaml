@@ -6,3 +6,9 @@ channels:
 dependencies:
   - python>=3.12
   - mashtree
+  - pandas
+  - pip
+  - pip:
+    - psutil
+    - joblib
+    - tqdm

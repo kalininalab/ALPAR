@@ -12,7 +12,7 @@ import shutil
 import pandas as pd
 import psutil
 
-from sr_amr.utils import is_tool_installed, temp_folder_remover, time_function, copy_and_zip_file
+from sr_amr.utils import is_tool_installed, temp_folder_remover, time_function, copy_and_zip_file, ensure_conda_env, conda_env_wrapper
 from sr_amr.version import __version__
 
 import subprocess
@@ -22,6 +22,7 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
+accepted_ml_algorithms = ["rf", "svm", "gb", "histgb", "xgb", "lr"]
 
 def main():
     # Create the parser
@@ -420,36 +421,6 @@ def main():
         parser.print_help()
         sys.exit(1)
 
-def ensure_conda_env(env_name, python_version="3.12"):
-    # Normalize env_name
-    env_name = env_name.replace("cd-hit", "cdhit")
-    
-    # Get list of existing environments in JSON format
-    result = subprocess.run(['conda', 'env', 'list', '--json'], capture_output=True, text=True)
-    envs = json.loads(result.stdout).get('envs', [])
-    
-    # Conda returns full paths; we check if the env name matches the base name of any path
-    exists = any(os.path.basename(env) == env_name for env in envs)
-    
-    if not exists:
-        print(f"Creating environment '{env_name}'...")
-        # Get path of current file
-        current_file_path = pathlib.Path(__file__).parent.resolve()
-        env_file_path = current_file_path / "envs" / f"{env_name}.yaml"
-        
-        if not env_file_path.exists():
-            # Try .yml if .yaml doesn't exist
-            env_file_path = current_file_path / "envs" / f"{env_name}.yml"
-            
-        if not env_file_path.exists():
-             print(f"Error: Conda environment file for {env_name} not found.")
-             sys.exit(1)
-             
-        subprocess.run(['conda', 'env' ,'create', '-f', str(env_file_path) ,'-y'])
-    else:
-        print(f"Environment '{env_name}' exists.")
-
-
 def run_variant_calling_and_annotation(strain, random_names, args):
     # if args.ram / args.threads < 8:
     #     print("Warning: Not enough ram for the processes. Minimum 8 GB of ram per thread is recommended.")
@@ -625,6 +596,7 @@ def binary_table_pipeline(args):
             print(f"Output folder created: {args.output}")
         
         os.makedirs(os.path.join(args.temp, args.gene_presence_absence_analysis_tool), exist_ok=True)
+        os.makedirs(os.path.join(args.temp, args.annotation_tool), exist_ok=True)
 
         if args.annotation_tool == "bakta":
             print("Checking Bakta database...")
@@ -979,11 +951,10 @@ def binary_table_pipeline(args):
     print(time_function(start_time, end_time))
 
 
+@conda_env_wrapper("alpar-panacota")
 def panacota_pipeline(args):
 
     start_time = time.time()
-
-    ensure_conda_env("alpar-panacota")
 
     from sr_amr.panacota import panacota_pre_processor, panacota_pipeline_runner, panacota_post_processor
 
@@ -1057,11 +1028,10 @@ def panacota_pipeline(args):
     print(time_function(start_time, end_time))
 
 
+@conda_env_wrapper("alpar-pyseer")
 def gwas_pipeline(args):
 
     start_time = time.time()
-
-    ensure_conda_env("alpar-pyseer")
 
     from sr_amr.gwas import pyseer_genotype_matrix_creator, pyseer_phenotype_file_creator, pyseer_similarity_matrix_creator, pyseer_runner, pyseer_post_processor, pyseer_gwas_graph_creator, decision_tree_input_creator
 
@@ -1140,11 +1110,10 @@ def gwas_pipeline(args):
     print(time_function(start_time, end_time))
 
 
+@conda_env_wrapper("alpar-prps")
 def prps_pipeline(args):
 
     start_time = time.time()
-
-    ensure_conda_env("alpar-prps")
 
     from sr_amr.prps import PRPS_runner, PRPS_runner_continuous, PRPS_binary_check
 
@@ -1207,17 +1176,179 @@ def prps_pipeline(args):
     print(time_function(start_time, end_time))
 
 
+def _run_datasail_pipeline(args):
+    """
+    Run DataSAIL pipeline for data splitting against information leakage.
+    Returns: tuple of (train_strains, test_strains, datasail_output)
+    Runs in the alpar-datasail conda environment via subprocess.
+    """
+    import json
+    
+    # First ensure the environment exists
+    from sr_amr.utils import ensure_conda_env
+    ensure_conda_env("alpar-datasail")
+    
+    train_strains = []
+    test_strains = []
+    
+    datasail_temp = os.path.join(args.temp, "datasail")
+    datasail_output = os.path.join(args.output, "datasail")
+
+    if os.path.exists(os.path.join(datasail_output, "splits.tsv")):
+        print("Warning: Split file already exists, it will be used for calculations. If you want to re-run the datasail, please remove the splits.tsv file from the output folder.")
+
+    if os.path.exists(os.path.join(datasail_output, args.antibiotic, "splits.tsv")):
+        print(f"Warning: Split file already exists at {os.path.join(datasail_output, args.antibiotic, 'splits.tsv')}, it will be used for calculations. If you want to re-run the datasail, please remove the splits.tsv file from the output folder.")
+        datasail_output = os.path.join(datasail_output, args.antibiotic)
+        
+    else:
+        # Check if output folder empty
+        if os.path.exists(datasail_output) and os.path.isdir(datasail_output):
+            if not args.overwrite:
+                print("Error: Datasail output folder is not empty. If you want to overwrite, please use the --overwrite flag.")
+                sys.exit(1)
+
+        # Create the temp folder
+        if not os.path.exists(datasail_temp):
+            os.mkdir(datasail_temp)
+
+        # Create the output folder
+        if not os.path.exists(datasail_output):
+            os.mkdir(datasail_output)
+
+        if os.path.exists(f"{os.path.dirname(args.sail)}/random_names.txt"):
+            random_names_dict = f"{os.path.dirname(args.sail)}/random_names.txt"
+        else:
+            random_names_dict = None
+
+        if args.test_train_split:
+            train_test = [float(1-args.test_train_split),
+                          float(args.test_train_split)]
+        
+        if args.sail_distance_matrix:
+            print("Using provided distance matrix...")
+            distance_matrix = args.sail_distance_matrix
+        else:
+            print("Creating distance matrix...")
+
+            # Run datasail_pre_precessor in conda environment
+            cmd = [
+                "conda", "run", "-n", "alpar-datasail", "--no-capture-output",
+                "python", "-c",
+                f"""
+import sys
+sys.path.insert(0, '{os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}')
+from sr_amr.ds import datasail_pre_precessor
+datasail_pre_precessor(
+    '{args.sail}', 
+    '{datasail_temp}', 
+    {repr(random_names_dict)}, 
+    '{datasail_output}', 
+    {args.threads}, 
+    env_name='alpar-datasail'
+)
+"""
+            ]
+            
+            result = subprocess.run(cmd, capture_output=False)
+            if result.returncode != 0:
+                print("Error: Failed to run datasail_pre_precessor")
+                sys.exit(1)
+            
+            distance_matrix = os.path.join(datasail_output, "distance_matrix.tsv")
+
+            print(f"Distance matrix created: {distance_matrix}")
+        
+        print("Running datasail...")
+
+        if not args.sail_epsilon:
+            args.sail_epsilon = 0.1
+        if not args.sail_delta:
+            args.sail_delta = 0.1
+        if not args.sail_solver:
+            args.sail_solver = "SCIP"
+        if args.sail_max_time:
+            sail_max_time = args.sail_max_time
+        else:
+            sail_max_time = 600
+        if args.sail_stratify:
+            phenotype_df = pd.read_csv(f'{args.phenotype}', sep='\t', index_col=0)
+            phenotype_df_dict = phenotype_df.T.to_dict(orient='index')
+        else:
+            phenotype_df_dict = None
+        
+        # Run datasail_runner in conda environment
+        cmd = [
+            "conda", "run", "-n", "alpar-datasail", "--no-capture-output",
+            "python", "-c",
+            f"""
+import sys
+sys.path.insert(0, '{os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}')
+from sr_amr.ds import datasail_runner
+import json
+
+datasail_output_result = datasail_runner(
+    '{distance_matrix}', 
+    '{datasail_output}',
+    splits={repr([float(1-args.test_train_split), float(args.test_train_split)])}, 
+    cpus={args.threads}, 
+    epsilon={args.sail_epsilon}, 
+    delta={args.sail_delta}, 
+    solver='{args.sail_solver}', 
+    sail_max_time={sail_max_time}, 
+    df_dict={repr(phenotype_df_dict)}, 
+    antibiotic='{args.antibiotic}'
+)
+print(json.dumps({{'datasail_output': datasail_output_result}}))
+"""
+        ]
+        
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            print("Error: Failed to run datasail_runner")
+            print(result.stderr)
+            sys.exit(1)
+        
+        # Parse output to get datasail_output path
+        try:
+            output_data = json.loads(result.stdout.split('\n')[-2])
+            datasail_output = output_data['datasail_output']
+        except:
+            # If parsing fails, assume it's still the original path
+            pass
+
+        if not args.keep_temp_files:
+            print(f"Removing temp folder {datasail_temp}...")
+            temp_folder_remover(datasail_temp)
+
+        if not os.path.exists(os.path.join(datasail_output, "splits.tsv")):
+            print(
+                "Error: Splits file does not exist. Check the datasail output folder.")
+            sys.exit(1)
+
+    with open(os.path.join(datasail_output, "splits.tsv")) as splits_file:
+        lines = splits_file.readlines()
+        for line in lines:
+            splitted = line.split("\t")
+            if splitted[1].strip() == "train":
+                train_strains.append(splitted[0].strip())
+            elif splitted[1].strip() == "test":
+                test_strains.append(splitted[0].strip())
+    
+    return train_strains, test_strains, datasail_output
+
+
+
+@conda_env_wrapper("alpar-ml")
 def ml_pipeline(args):
 
     start_time = time.time()
 
-    ensure_conda_env("alpar-ml")
     if args.sail:
         ensure_conda_env("alpar-datasail")
 
     from sr_amr.ml import prps_ml_preprecessor, combined_ml
     from sr_amr.ml_common_files import fia_file_annotation
-    from sr_amr.ds import datasail_runner, datasail_pre_precessor
 
     # Sanity checks
 
@@ -1232,11 +1363,7 @@ def ml_pipeline(args):
 
     ml_output = os.path.join(args.output, "ml")
     ml_temp = os.path.join(args.temp, "ml")
-    svm_output = os.path.join(ml_output, "svm")
-    rf_output = os.path.join(ml_output, "rf")
-    gb_output = os.path.join(ml_output, "gb")
-    hist_gb_output = os.path.join(ml_output, "hist_gb")
-    xgb_output = os.path.join(ml_output, "xgb")
+    algorithms_output = os.path.join(ml_output, args.ml_algorithm)
 
     # Check if output folder empty
     if os.path.exists(ml_output) and os.path.isdir(ml_output):
@@ -1262,8 +1389,6 @@ def ml_pipeline(args):
                 os.makedirs(ml_temp, exist_ok=True)
     else:
         os.makedirs(ml_temp, exist_ok=True)
-
-    accepted_ml_algorithms = ["rf", "svm", "gb", "histgb", "xgb"]
 
     if args.ml_algorithm not in accepted_ml_algorithms:
         print("Error: ML algorithm is not accepted.")
@@ -1338,96 +1463,11 @@ def ml_pipeline(args):
     validation_strains = []
 
     if args.sail:
-
         if args.train_strains_file or args.test_strains_file:
             print("Error: If you want to use DataSAIL as data split, train and test strains files should not be provided.")
             sys.exit(1)
 
-        datasail_temp = os.path.join(args.temp, "datasail")
-        datasail_output = os.path.join(args.output, "datasail")
-
-        if os.path.exists(os.path.join(datasail_output, "splits.tsv")):
-            print("Warning: Split file already exists, it will be used for calculations. If you want to re-run the datasail, please remove the splits.tsv file from the output folder.")
-
-        if os.path.exists(os.path.join(datasail_output, args.antibiotic, "splits.tsv")):
-            print(f"Warning: Split file already exists at {os.path.join(datasail_output, args.antibiotic, 'splits.tsv')}, it will be used for calculations. If you want to re-run the datasail, please remove the splits.tsv file from the output folder.")
-            datasail_output = os.path.join(datasail_output, args.antibiotic)
-            
-        else:
-            # Check if output folder empty
-            if os.path.exists(datasail_output) and os.path.isdir(datasail_output):
-                if not args.overwrite:
-                    print("Error: Output folder is not empty.")
-                    sys.exit(1)
-
-            # Create the temp folder
-            if not os.path.exists(datasail_temp):
-                os.mkdir(datasail_temp)
-
-            # Create the output folder
-            if not os.path.exists(datasail_output):
-                os.mkdir(datasail_output)
-
-            if os.path.exists(f"{os.path.dirname(args.sail)}/random_names.txt"):
-                random_names_dict = f"{os.path.dirname(args.sail)}/random_names.txt"
-            else:
-                random_names_dict = None
-
-            if args.test_train_split:
-                train_test = [float(1-args.test_train_split),
-                              float(args.test_train_split)]
-            
-            if args.sail_distance_matrix:
-                print("Using provided distance matrix...")
-                distance_matrix = args.sail_distance_matrix
-            else:
-                print("Creating distance matrix...")
-
-                datasail_pre_precessor(
-                    args.sail, datasail_temp, random_names_dict, datasail_output, args.threads, env_name="alpar-datasail")
-                
-                distance_matrix = os.path.join(datasail_output, "distance_matrix.tsv")
-
-                print(f"Distance matrix created: {distance_matrix}")
-            
-            print("Running datasail...")
-
-            if not args.sail_epsilon:
-                args.sail_epsilon = 0.1
-            if not args.sail_delta:
-                args.sail_delta = 0.1
-            if not args.sail_solver:
-                args.sail_solver = "SCIP"
-            if args.sail_max_time:
-                sail_max_time = args.sail_max_time
-            else:
-                sail_max_time = 600
-            if args.sail_stratify:
-                phenotype_df = pd.read_csv(f'{args.phenotype}', sep='\t', index_col=0)
-                phenotype_df_dict = phenotype_df.T.to_dict(orient='index')
-            else:
-                phenotype_df_dict = None
-                
-            datasail_output = datasail_runner(distance_matrix, datasail_output,
-                            splits=train_test, cpus=args.threads, epsilon=args.sail_epsilon, delta=args.sail_delta, solver=args.sail_solver, sail_max_time=sail_max_time, df_dict=phenotype_df_dict, antibiotic=args.antibiotic)
-
-            if not args.keep_temp_files:
-                print(f"Removing temp folder {datasail_temp}...")
-                temp_folder_remover(datasail_temp)
-
-            if not os.path.exists(os.path.join(datasail_output, "splits.tsv")):
-                print(
-                    "Error: Splits file does not exist. Check the datasail output folder.")
-                sys.exit(1)
-
-        with open(os.path.join(datasail_output, "splits.tsv")) as splits_file:
-            lines = splits_file.readlines()
-            for line in lines:
-                splitted = line.split("\t")
-                if splitted[1].strip() == "train":
-                    train_strains.append(splitted[0].strip())
-                elif splitted[1].strip() == "test":
-                    test_strains.append(splitted[0].strip())
+        train_strains, test_strains, _ = _run_datasail_pipeline(args)
 
     if args.train_strains_file and args.test_strains_file:
         if os.path.exists(args.train_strains_file):
@@ -1483,112 +1523,32 @@ def ml_pipeline(args):
     else:
         stratiy_random_split = True
 
-    if args.ml_algorithm == "rf":
+    print("Running ML pipeline...")
 
-        if os.path.exists(rf_output):
-            if args.overwrite:
-                print("Warning: Output folder is not empty. Old files will be deleted.")
-                temp_folder_remover(rf_output)
-                os.makedirs(rf_output, exist_ok=True)
-            else:
-                print("Error: Output folder is not empty.")
-                print(
-                    "If you want to overwrite the output folder, use --overwrite option.")
-                sys.exit(1)
-        else:
-            os.makedirs(rf_output, exist_ok=True)
-
-        with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
-            with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
-
-                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, "rf", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, validation=validation_strains, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit, param_grid_size=args.param_grid_size, param_grid_low_memory_mode= args.param_grid_low_memory_mode, parameter_search_strategy=args.parameter_search_strategy, parameter_search_n_iter=args.parameter_search_n_iter) 
-
-    elif args.ml_algorithm == "svm":
-
-        if os.path.exists(svm_output):
-            if args.overwrite:
-                print("Warning: Output folder is not empty. Old files will be deleted.")
-                temp_folder_remover(svm_output)
-                os.makedirs(svm_output, exist_ok=True)
-            else:
-                print("Error: Output folder is not empty.")
-                print(
-                    "If you want to overwrite the output folder, use --overwrite option.")
-                sys.exit(1)
-        else:
-            os.makedirs(svm_output, exist_ok=True)
-
-        ml_log_name = f"seed_{args.random_state}_testsize_{args.test_train_split}_resampling_{args.resampling_strategy}_SVM"
-
-        with open(os.path.join(ml_output, f"{ml_log_name}_log_file.txt"), "w") as log_file:
-            with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
-                
-                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, "svm", args.feature_importance_analysis, args.save_model, resampling_strategy="cv", custom_scorer="MCC", fia_repeats=5, train=train_strains, test=test_strains, validation=validation_strains, stratify=stratiy_random_split, feature_importance_analysis_strategy="permutation_importance", important_feature_limit=args.important_feature_limit)
-
-    elif args.ml_algorithm == "gb":
-
-        if os.path.exists(gb_output):
-            if args.overwrite:
-                print("Warning: Output folder is not empty. Old files will be deleted.")
-                temp_folder_remover(gb_output)
-                os.makedirs(gb_output, exist_ok=True)
-            else:
-                print("Error: Output folder is not empty.")
-                print(
-                    "If you want to overwrite the output folder, use --overwrite option.")
-                sys.exit(1)
-        else:
-            os.makedirs(gb_output, exist_ok=True)
-
-        with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
-            with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
-
-                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, "gb", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, validation=validation_strains, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit) 
-
-    elif args.ml_algorithm == "xgb":
-
-        if os.path.exists(xgb_output):
-            if args.overwrite:
-                print("Warning: Output folder is not empty. Old files will be deleted.")
-                temp_folder_remover(xgb_output)
-                os.makedirs(xgb_output, exist_ok=True)
-            else:
-                print("Error: Output folder is not empty.")
-                print(
-                    "If you want to overwrite the output folder, use --overwrite option.")
-                sys.exit(1)
-        else:
-            os.makedirs(xgb_output, exist_ok=True)
-
-        with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
-            with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
-
-                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, "xgb", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, validation=validation_strains, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit, param_grid_size=args.param_grid_size, param_grid_low_memory_mode= args.param_grid_low_memory_mode, device=args.device, parameter_search_strategy=args.parameter_search_strategy, parameter_search_n_iter=args.parameter_search_n_iter) 
-
-    elif args.ml_algorithm == "histgb":
-
-        if os.path.exists(hist_gb_output):
-            if args.overwrite:
-                print("Warning: Output folder is not empty. Old files will be deleted.")
-                temp_folder_remover(hist_gb_output)
-                os.makedirs(hist_gb_output, exist_ok=True)
-            else:
-                print("Error: Output folder is not empty.")
-                print(
-                    "If you want to overwrite the output folder, use --overwrite option.")
-                sys.exit(1)
-        else:
-            os.makedirs(hist_gb_output, exist_ok=True)
-
-        #TODO
-        with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
-            with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file): 
-
-                if args.min_samples_leaf == 1:
-                    args.min_samples_leaf = 20
-
-                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, "histgb", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, validation=validation_strains, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit) 
-
+    with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
+        with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
+            with open(os.path.join(ml_output, "parameters.txt"), "w") as parameters_file:
+                parameters_file.write(f"ML algorithm: {args.ml_algorithm}\n")
+                parameters_file.write(f"Scoring method: {args.scoring}\n")
+                parameters_file.write(f"Test train split: {args.test_train_split}\n")
+                parameters_file.write(f"Random state: {args.random_state}\n")
+                parameters_file.write(f"Number of threads: {args.threads}\n")
+                parameters_file.write(f"Amount of ram: {args.ram}\n")
+                parameters_file.write(f"Feature importance analysis: {args.feature_importance_analysis}\n")
+                if args.feature_importance_analysis:
+                    parameters_file.write(f"Feature importance analysis strategy: {args.feature_importance_analysis_strategy}\n")
+                    parameters_file.write(f"Number of repeats for feature importance analysis: {args.feature_importance_analysis_number_of_repeats}\n")
+                if args.prps:
+                    parameters_file.write(f"PRPS output used for ML pre-precessor: {args.prps}\n")
+                    parameters_file.write(f"PRPS percentage used for ML pre-precessor: {PRPS_percentage}\n")
+                if args.sail:
+                    parameters_file.write(f"DataSAIL distance matrix used for data split: {args.sail_distance_matrix}\n")
+                    parameters_file.write(f"DataSAIL epsilon used for data split: {args.sail_epsilon}\n")
+                    parameters_file.write(f"DataSAIL delta used for data split: {args.sail_delta}\n")
+                    parameters_file.write(f"DataSAIL solver used for data split: {args.sail_solver}\n")
+                    parameters_file.write(f"DataSAIL max time used for data split: {args.sail_max_time}\n")
+                    parameters_file.write(f"DataSAIL stratify used for data split: {args.sail_stratify}\n")
+            fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, args.ml_algorithm, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, validation=validation_strains, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit, param_grid_size=args.param_grid_size, param_grid_low_memory_mode= args.param_grid_low_memory_mode, parameter_search_strategy=args.parameter_search_strategy, parameter_search_n_iter=args.parameter_search_n_iter, device=args.device) 
 
     if args.feature_importance_analysis:
         if args.annotation:
@@ -1803,11 +1763,10 @@ def phenotype_table_pipeline(args):
     print(time_function(start_time, end_time))
 
 
+@conda_env_wrapper("alpar-mashtree")
 def phylogenetic_tree_pipeline(args):
 
     start_time = time.time()
-
-    ensure_conda_env("alpar-mashtree")
 
     from sr_amr.phylogeny_tree import mash_preprocessor, mash_distance_runner
 
@@ -1904,7 +1863,7 @@ def fully_automated_pipeline(args):
 
     if args.ml_algorithm:
         for algorithm in args.ml_algorithm:
-            if algorithm not in ["rf", "svm", "gb", "histgb", "xgb", "lr"]:
+            if algorithm not in accepted_ml_algorithms:
                 print("Error: ML algorithm is not accepted.")
                 sys.exit(1)
     automatix_runner(args)

@@ -8,3 +8,8 @@ dependencies:
   - pyseer
   - pandas
   - dendropy
+  - pip
+  - pip:
+    - psutil
+    - tqdm
+    - seaborn

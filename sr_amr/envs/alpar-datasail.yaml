@@ -3,8 +3,11 @@ channels:
   - conda-forge
   - bioconda
   - defaults
+  - kalininalab
 dependencies:
-  - python>=3.12
+  - python<3.13
   - pip
+  - mash
+  - datasail
   - pip:
-    - datasail
+    - GraKeL

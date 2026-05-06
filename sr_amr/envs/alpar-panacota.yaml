@@ -8,3 +8,8 @@ dependencies:
   - pip
   - panacota
   - python-utils<3.0.0
+  - pandas
+  - pip:
+    - psutil
+    - joblib
+    - tqdm

@@ -12,3 +12,6 @@ dependencies:
   - matplotlib
   - xgboost
   - joblib
+  - pip:
+    - psutil
+    - tqdm

@@ -9,7 +9,7 @@ warnings.filterwarnings("ignore")
 
 def datasail_pre_precessor(strains_text_file, temp_folder, random_names_dict, output_folder, cpus=1, env_name=None):
 
-    os.mkdir(os.path.join(temp_folder, "fasta_files"))
+    os.makedirs(os.path.join(temp_folder, "fasta_files"), exist_ok=True)
 
     fasta_files_folder = os.path.join(temp_folder, "fasta_files")
 
@@ -109,7 +109,6 @@ def datasail_pre_precessor(strains_text_file, temp_folder, random_names_dict, ou
                     print_line += f"{split.strip()}\t"
 
             ofile.write(f"{print_line.strip()}\n")
-
 
 def datasail_runner(distance_matrix, output_folder, splits=[0.8, 0.2], cpus=1, max_time=600, epsilon=0.1, delta=0.1, solver="SCIP", sail_max_time=600, df_dict=None, antibiotic=None):
     from datasail.sail import datasail

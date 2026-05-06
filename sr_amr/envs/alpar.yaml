@@ -1,4 +1,4 @@
-name: alpar-base
+name: alpar
 channels:
   - conda-forge
   - bioconda
