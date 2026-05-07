@@ -747,7 +747,7 @@ def binary_table_pipeline(args):
 
             print("Creating custom database...")
             prokka_create_database(
-                args.prokka_custom_database[0], args.prokka_custom_database[1], args.temp, args.threads, args.ram, env_name="alpar-prokka")
+                args.prokka_custom_database[0], args.prokka_custom_database[1], args.temp, args.threads, args.ram, env_name="alpar-cdhit")
             print("Custom database created.")
 
             with open(os.path.join(args.temp, "status.txt"), "w") as outfile:
@@ -2029,7 +2029,7 @@ def prediction_pipeline(args):
 
         print("Creating custom database...")
         prokka_create_database(
-            args.custom_database[0], args.custom_database[1], args.temp, args.threads, args.ram, env_name="alpar-prokka")
+            args.custom_database[0], args.custom_database[1], args.temp, args.threads, args.ram, env_name="alpar-cdhit")
         print("Custom database created.")
 
     if args.input:
