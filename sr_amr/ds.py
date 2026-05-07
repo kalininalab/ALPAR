@@ -67,7 +67,6 @@ def datasail_pre_precessor(strains_text_file, temp_folder, random_names_dict, ou
     mash_sketch_command = f"mash sketch -p {cpus} -o {temp_folder}/mash_sketch {fasta_files_folder}/*"
 
     if env_name:
-        env_name = env_name.replace("cd-hit", "cdhit")
         mash_sketch_command = f"conda run -n {env_name} --no-capture-output {mash_sketch_command}"
 
     os.system(mash_sketch_command)

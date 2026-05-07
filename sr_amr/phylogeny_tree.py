@@ -65,7 +65,6 @@ def mash_distance_runner(output_folder, temp_folder, env_name=None):
     mash_tree_command = f"mashtree {temp_folder_abs_path}/fasta_files/* > {output_folder}/phylogenetic_tree.tree"
 
     if env_name:
-        env_name = env_name.replace("cd-hit", "cdhit")
         mash_tree_command = f"conda run -n {env_name} --no-capture-output {mash_tree_command}"
 
     os.system(mash_tree_command)

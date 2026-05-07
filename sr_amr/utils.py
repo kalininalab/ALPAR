@@ -16,9 +16,7 @@ warnings.filterwarnings("ignore")
 PATH_OF_SCRIPT = pathlib.Path(__file__).parent.resolve()
 
 def ensure_conda_env(env_name, python_version="3.12"):
-    # Normalize env_name
-    env_name = env_name.replace("cd-hit", "cdhit")
-    
+
     # Get list of existing environments in JSON format
     try:
         result = subprocess.run(['conda', 'env', 'list', '--json'], capture_output=True, text=True)

@@ -747,7 +747,7 @@ def binary_table_pipeline(args):
 
             print("Creating custom database...")
             prokka_create_database(
-                args.prokka_custom_database[0], args.prokka_custom_database[1], args.temp, args.threads, args.ram, env_name="alpar-cdhit")
+                args.prokka_custom_database[0], args.prokka_custom_database[1], args.temp, args.threads, args.ram, cd_hit_env="alpar-cd-hit", prokka_env="alpar-prokka")
             print("Custom database created.")
 
             with open(os.path.join(args.temp, "status.txt"), "w") as outfile:
@@ -1920,7 +1920,7 @@ def prediction_pipeline(args):
         if args.use_panaroo:
             ensure_conda_env("alpar-panaroo")
         else:
-            ensure_conda_env("alpar-cdhit")
+            ensure_conda_env("alpar-cd-hit")
 
     from sr_amr.binary_tables import check_and_download_bakta_db, random_name_giver, prokka_create_database, snippy_processed_file_creator, binary_table_creator, annotation_file_from_snippy, panaroo_input_creator, panaroo_runner, binary_mutation_table_gpa_information_adder_panaroo, cdhit_preprocessor, cdhit_runner, gene_presence_absence_file_creator, binary_mutation_table_gpa_information_adder
     from sr_amr.ml import prps_ml_preprecessor
@@ -2029,7 +2029,7 @@ def prediction_pipeline(args):
 
         print("Creating custom database...")
         prokka_create_database(
-            args.custom_database[0], args.custom_database[1], args.temp, args.threads, args.ram, env_name="alpar-cdhit")
+            args.custom_database[0], args.custom_database[1], args.temp, args.threads, args.ram, env_name="alpar-cd-hit")
         print("Custom database created.")
 
     if args.input:
@@ -2177,7 +2177,7 @@ def prediction_pipeline(args):
                 shutil.copy(os.path.join(args.temp, 'cdhit', 'protein_positions.csv'), os.path.join(args.output, 'cd-hit', 'protein_positions.csv'))
 
                 print(f"CD-HIT is running...")
-                cdhit_runner(os.path.join(args.temp, "cdhit", "combined_proteins.faa"), os.path.join(args.output, "cd-hit", "cdhit_output.txt"), n_cpu=args.threads, env_name="alpar-cdhit")
+                cdhit_runner(os.path.join(args.temp, "cdhit", "combined_proteins.faa"), os.path.join(args.output, "cd-hit", "cdhit_output.txt"), n_cpu=args.threads, env_name="alpar-cd-hit")
 
                 print(f"Gene presence-absence matrix is being created...")
                 gene_presence_absence_file_creator(os.path.join(args.output, "cd-hit", "cdhit_output.txt.clstr"), strains_to_be_processed, os.path.join(args.temp, "cdhit"))

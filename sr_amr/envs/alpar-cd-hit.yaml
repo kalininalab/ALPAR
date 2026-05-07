@@ -1,4 +1,4 @@
-name: alpar-cdhit
+name: alpar-cd-hit
 channels:
   - conda-forge
   - bioconda
