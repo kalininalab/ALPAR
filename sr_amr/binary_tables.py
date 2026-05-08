@@ -527,18 +527,20 @@ def phenotype_dataframe_creator(data_folder_path, output_file, random_names_dict
                 f"{data_folder_path}/{antibiotic}/Susceptible")
             for strain in res_strains:
                 if strain.endswith(".fna"):
-                    if not random_names_dict[strain[:-4]] in strain_phenotype_dict.keys():
+                    if strain[:-4] in random_names_dict.keys():
+                        if not random_names_dict[strain[:-4]] in strain_phenotype_dict.keys():
+                            strain_phenotype_dict[random_names_dict[strain[:-4]]
+                                                ] = copy.deepcopy(phenotype_dict)
                         strain_phenotype_dict[random_names_dict[strain[:-4]]
-                                              ] = copy.deepcopy(phenotype_dict)
-                    strain_phenotype_dict[random_names_dict[strain[:-4]]
-                                          ][antibiotic] = 1
+                                            ][antibiotic] = 1
             for strain in sus_strains:
                 if strain.endswith(".fna"):
-                    if not random_names_dict[strain[:-4]] in strain_phenotype_dict.keys():
+                    if strain[:-4] in random_names_dict.keys():
+                        if not random_names_dict[strain[:-4]] in strain_phenotype_dict.keys():
+                            strain_phenotype_dict[random_names_dict[strain[:-4]]
+                                                ] = copy.deepcopy(phenotype_dict)
                         strain_phenotype_dict[random_names_dict[strain[:-4]]
-                                              ] = copy.deepcopy(phenotype_dict)
-                    strain_phenotype_dict[random_names_dict[strain[:-4]]
-                                          ][antibiotic] = 0
+                                            ][antibiotic] = 0
 
     df = pd.DataFrame.from_dict(strain_phenotype_dict, orient="index")
     df.to_csv(output_file, sep="\t")

@@ -912,10 +912,16 @@ def binary_table_pipeline(args):
                         binary_mutation_table_gpa_information_adder(os.path.join(args.output, "binary_mutation_table.tsv"), os.path.join(args.temp, args.gene_presence_absence_analysis_tool, "gene_presence_absence_matrix.csv"), os.path.join(args.output, "binary_mutation_table_with_gene_presence_absence.tsv"))
                         do_not_remove_temp = False
 
+                    with open(os.path.join(args.temp, "status.txt"), "w") as outfile:
+                        outfile.write(f"4")
+                        status = 4
+
                 except Exception as e:
                     print("Error: CD-HIT could not be run.")
                     print(e)
                     do_not_remove_temp = True
+
+    if status < 5:
 
         if args.create_phenotype_from_folder:
             print("Creating phenotype dataframe...")
@@ -928,8 +934,8 @@ def binary_table_pipeline(args):
                 args.output, "binary_mutation_table.tsv"), os.path.join(args.output, "phenotype_table.tsv"))
 
         with open(os.path.join(args.temp, "status.txt"), "w") as outfile:
-            outfile.write(f"4")
-            status = 4
+            outfile.write(f"5")
+            status = 5
 
     if args.keep_temp_files:
         print("Warning, temp files will be kept this might take up space.")

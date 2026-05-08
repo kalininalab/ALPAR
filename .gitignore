@@ -9,3 +9,4 @@
 /input_folder
 .pytest_cache
 .__pycache__
+ALPAR.egg-info/
