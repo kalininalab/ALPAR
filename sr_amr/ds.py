@@ -13,6 +13,8 @@ def datasail_pre_precessor(strains_text_file, temp_folder, random_names_dict, ou
 
     fasta_files_folder = os.path.join(temp_folder, "fasta_files")
 
+    random_names_will_be_used = False
+
     if random_names_dict != None:
         random_names_will_be_used = True
         random_names = {}

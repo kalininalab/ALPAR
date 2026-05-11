@@ -200,6 +200,8 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
 
     output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type.upper()}"
 
+    best_y_hat = None
+
     # Check if binary_mutation_table size in GB > ram / 100 and if it is XGB, activate low memory mode, otherwise parameter grid search will kill the process
     binary_mutation_table_size = os.path.getsize(binary_mutation_table) / (1024 ** 3)  # Size in GB
     if binary_mutation_table_size > ram / 100 and model_type == "xgb":
@@ -380,6 +382,7 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                     with open(os.path.join(output_folder, f"{output_file_template}_best_params.txt"), "w") as param_file:
                         param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_result}\n")
                         param_file.write(f"Parameters: max_depth={parameter_sample['max_depth']}, min_samples_leaf={parameter_sample['min_samples_leaf']}, min_samples_split={parameter_sample['min_samples_split']}, n_estimators={parameter_sample['n_estimators']}, max_features={parameter_sample['max_features']}\n")
+                        best_y_hat = y_hat
         else:
             if param_grid_low_memory_mode:
                 best_result = -1
@@ -392,6 +395,7 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                                     # Initialize the Random Forest classifier with each parameter
                                     rf_cls = RandomForestClassifier(class_weight={0: sum(y_train), 1: len( y_train) - sum(y_train)}, n_estimators=temp_n_estimators, max_depth=temp_max_depth, min_samples_leaf=temp_min_samples_leaf, min_samples_split=temp_min_samples_split, max_features=temp_max_features
                                     )
+                                    print(f"Training model with parameters: max_depth={temp_max_depth}, min_samples_leaf={temp_min_samples_leaf}, min_samples_split={temp_min_samples_split}, n_estimators={temp_n_estimators}, max_features={temp_max_features}")
                                     rf_cls.fit(X_train, y_train)
                                     y_hat = rf_cls.predict(X_test)
                                     current_score = scoring_function(y_test, y_hat)
@@ -402,6 +406,7 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                                         with open(os.path.join(output_folder, f"{output_file_template}_best_params.txt"), "w") as param_file:
                                             param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_result}\n")
                                             param_file.write(f"Parameters: max_depth={temp_max_depth}, min_samples_leaf={temp_min_samples_leaf}, min_samples_split={temp_min_samples_split}, n_estimators={temp_n_estimators}, max_features={temp_max_features}\n")
+                                            best_y_hat = y_hat
             else:
                 rf_cls = RandomForestClassifier(class_weight={0: sum(y_train), 1: len(
                     y_train) - sum(y_train)}, n_estimators=n_estimators, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split)
@@ -473,7 +478,7 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                     learning_rate=parameter_sample['eta'],
                     n_estimators=parameter_sample['n_estimators']
                 )
-                xgb_model.fit(X_train, y_train, feature_names=feature_names)
+                xgb_model.fit(X_train, y_train)
                 y_hat = xgb_model.predict(X_test)
                 current_score = selected_scorer(y_test, y_hat)
 
@@ -483,6 +488,7 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                     with open(os.path.join(output_folder, f"{output_file_template}_best_params.txt"), "w") as param_file:
                         param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_result}\n")
                         param_file.write(f"Parameters: max_depth={parameter_sample['max_depth']}, min_child_weight={parameter_sample['min_child_weight']}, subsample={parameter_sample['subsample']}, colsample_bytree={parameter_sample['colsample_bytree']}, eta={parameter_sample['eta']}, n_estimators={parameter_sample['n_estimators']}\n")
+                    best_y_hat = y_hat
 
         else:
             if param_grid_low_memory_mode:
@@ -504,6 +510,7 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                                             objective='binary:logistic',
                                             eval_metric='logloss',
                                             seed=random_seed,
+                                            device=device,
                                             n_jobs=n_jobs,
                                             max_depth=temp_max_depth,
                                             min_child_weight=temp_min_child_weight,
@@ -512,7 +519,7 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                                             learning_rate=temp_eta,
                                             n_estimators=temp_n_estimators
                                         )
-                                        xgb_model.fit(X_train, y_train, feature_names=feature_names)
+                                        xgb_model.fit(X_train, y_train)
                                         y_hat = xgb_model.predict(X_test)
                                         current_score = scoring_function(y_test, y_hat)
 
@@ -522,6 +529,7 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                                             with open(os.path.join(output_folder, f"{output_file_template}_best_params.txt"), "w") as param_file:
                                                 param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_result}\n")
                                                 param_file.write(f"Parameters: max_depth={temp_max_depth}, min_child_weight={temp_min_child_weight}, subsample={temp_subsample}, colsample_bytree={temp_colsample_bytree}, eta={temp_eta}, n_estimators={temp_n_estimators}\n")
+                                            best_y_hat = y_hat
                                         current_number_of_processed_combinations += 1
 
             else:
@@ -530,6 +538,7 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                     objective='binary:logistic',
                     eval_metric='logloss',
                     seed=random_seed,
+                    device=device,
                     n_jobs=n_jobs
                 )
 
@@ -653,8 +662,11 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
             y_hat = lr_cls.predict(X_test)
 
     outfile = os.path.join(output_folder, f"{output_file_template}_Result")
-
-    output_file_writer(outfile, y_test, y_hat)
+    
+    if best_y_hat is not None:
+        output_file_writer(outfile, y_test, best_y_hat)
+    else:
+        output_file_writer(outfile, y_test, y_hat)
 
     if save_model:
         if model_type == "rf":

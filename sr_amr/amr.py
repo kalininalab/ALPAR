@@ -346,7 +346,7 @@ def main():
     parser_ml.add_argument('--param_grid_low_memory_mode', action='store_true',
                            help='Only for XGB, if given, uses low memory mode for parameter grid search, if given memory is not 100 times more than datasize, will automatically activate, default=False')
     parser_ml.add_argument('--device', type=str,
-                           help='Only for XGB, device to use for training, available selections: [cpu, cuda], default=cpu', default="cpu")
+                           help='Only for XGB, device to use for training, available selections: [cpu, cuda], default=cuda', default="cuda")
     parser_ml.add_argument('--parameter_search_strategy', type=str,
                            help='parameter search strategy, available selections: [grid_search, random_search], default=grid_search', default="grid_search")
     parser_ml.add_argument('--parameter_search_n_iter', type=int,
@@ -1228,8 +1228,9 @@ def _run_datasail_pipeline(args):
         if not os.path.exists(datasail_output):
             os.mkdir(datasail_output)
 
-        if os.path.exists(f"{os.path.dirname(args.sail)}/random_names.txt"):
-            random_names_dict = f"{os.path.dirname(args.sail)}/random_names.txt"
+        if os.path.exists(f"{os.path.abspath(os.path.dirname(args.sail))}/random_names.txt"):
+            random_names_dict = f"{os.path.abspath(os.path.dirname(args.sail))}/random_names.txt"
+            print(f"Using provided random names file at {random_names_dict}...")
         else:
             random_names_dict = None
 
