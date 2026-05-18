@@ -13,3 +13,5 @@ dependencies:
       - loguru==0.7.3
       - polars==1.40.0
       - rustworkx==0.17.1
+      - scipy==1.17.1
+      - statsmodels==0.14.6
