@@ -1,0 +1,2 @@
+Best result for Pseudomonas_aeruginosa meropenem: 0.4663545133030677
+Parameters: max_depth=7, min_child_weight=5, subsample=0.8, colsample_bytree=0.8, eta=0.1, n_estimators=50

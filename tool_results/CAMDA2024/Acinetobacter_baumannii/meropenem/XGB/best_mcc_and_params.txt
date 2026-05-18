@@ -1,0 +1,2 @@
+Best result for Acinetobacter_baumannii meropenem: 0.6549079545282901
+Parameters: max_depth=5, min_child_weight=3, subsample=1.0, colsample_bytree=0.6, eta=0.01, n_estimators=50

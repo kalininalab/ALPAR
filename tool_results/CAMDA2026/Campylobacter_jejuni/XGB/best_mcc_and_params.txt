@@ -1,0 +1,2 @@
+Best MCC result for nalidixic_acid: 0.9862062358989763
+Parameters: max_depth=3, min_child_weight=1, subsample=0.4, colsample_bytree=0.4, eta=0.01, n_estimators=10

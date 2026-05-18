@@ -1,0 +1,2 @@
+Best result for Escherichia_coli meropenem: 0.5516772843673705
+Parameters: max_depth=3, min_child_weight=5, subsample=0.6, colsample_bytree=1.0, eta=0.1, n_estimators=50

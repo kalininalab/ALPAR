@@ -1,0 +1,2 @@
+Best MCC result for sulfamethoxazole: 0.09586329529540144
+Parameters: max_depth=3, min_child_weight=1, subsample=0.8, colsample_bytree=0.8, eta=0.01, n_estimators=500

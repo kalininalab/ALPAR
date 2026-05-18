@@ -1,0 +1,2 @@
+Best result for Neisseria_gonorrhoeae ciprofloxacin: 0.9392246042043708
+Parameters: max_depth=3, min_child_weight=3, subsample=1.0, colsample_bytree=0.8, eta=0.2, n_estimators=50

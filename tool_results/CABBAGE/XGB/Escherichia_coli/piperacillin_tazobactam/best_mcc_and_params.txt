@@ -1,0 +1,2 @@
+Best MCC result for piperacillin_tazobactam: 0.20273932546155526
+Parameters: max_depth=6, min_child_weight=5, subsample=0.8, colsample_bytree=0.8, eta=0.1, n_estimators=1000

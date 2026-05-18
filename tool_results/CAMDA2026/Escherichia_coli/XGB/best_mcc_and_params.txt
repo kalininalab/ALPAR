@@ -1,0 +1,2 @@
+Best MCC result for piperacillin: 0.2260417893022193
+Parameters: max_depth=13, min_child_weight=1, subsample=0.6, colsample_bytree=0.4, eta=0.2, n_estimators=10
