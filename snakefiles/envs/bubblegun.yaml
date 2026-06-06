@@ -1,8 +1,6 @@
 name: bubblegun
 channels:
   - defaults
+  - bioconda
 dependencies:
-  - pip=26.0.1
-  - python=3.13
-  - pip:
-      - bubblegun==1.1.9
+  - bubblegun=1.2.0

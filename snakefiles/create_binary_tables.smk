@@ -486,7 +486,7 @@ rule batched_bubblegun_runner:
         done
         """
 
-rule bubblegun_gather:
+checkpoint bubblegun_gather:
     input:
         lambda wc: expand(
             rules.batched_bubblegun_runner.output,
@@ -501,6 +501,84 @@ rule bubblegun_gather:
             for json_file in $batch_dir/*.json; do
                 [ -f "$json_file" ] || continue
                 ln -srv $json_file {output}/$(basename $json_file) >> {log} 2>&1
+            done
+        done
+        """
+
+
+def get_bubblegun_clusters(wildcards) -> list[str]:
+    bubblegun_checkpoint = checkpoints.bubblegun_gather.get(**wildcards)
+    bubblegun_folder = Path(bubblegun_checkpoint.output[0])
+    return [f.stem for f in sorted(bubblegun_folder.glob("*.json"))]
+
+
+# -----------------------
+# Bubble Features
+# -----------------------
+
+def batched_bubble_features(wildcards) -> list[Path]:
+    panpa_graphs = get_panpa_graphs(wildcards)
+    batch_num = int(wildcards.batch_num)
+    start = batch_num * JOB_BATCH_SIZE
+    end = min(start + JOB_BATCH_SIZE, len(panpa_graphs))
+    return panpa_graphs[start:end]
+
+rule batch_bubble_features:
+    input:
+        panpa_graph_folder = rules.panpa_build_gfa.output,
+        bubblegun_folder = rules.bubblegun_gather.output,
+        phenotype_table = rules.phenotype_dataframe_creator.output[0],
+        batch_graphs = batched_bubble_features,
+    output: directory(TEMP_DIR / "bubble_features_batches" / "batch_{batch_num}")
+    log: LOGS_DIR / "batch_bubble_features" / "batch_{batch_num}.log"
+    benchmark: BENCHMARKS_DIR / "batch_bubble_features_batch_{batch_num}.tsv"
+    params:
+        antibiotics = ANTIBIOTICS,
+        script = SCRIPTS_DIR / "bubble_features.py",
+    conda: ENVS_DIR.format("python313")
+    threads: 1
+    shell:
+        r"""
+        mkdir -p {output}
+        mkdir -p $(dirname {log})
+
+        for gfa_file in {input.batch_graphs}; do
+            CLUSTER=$(basename "${{gfa_file%.gfa}}")
+            BUBBLE_JSON="{input.bubblegun_folder}/${{CLUSTER}}.json"
+            # TEMP_LOG=$(mktemp --suffix .log)
+            # echo ">> Processing cluster $CLUSTER" >> {log}
+            OUTPUT_FILE="{output}/${{CLUSTER}}.tsv"
+
+            python {params.script} \
+                --gfa-file $gfa_file \
+                --bubble-gun $BUBBLE_JSON \
+                --phenotype-table {input.phenotype_table} \
+                --log-file {log} \
+                --antibiotics {params.antibiotics} \
+                --output-file $OUTPUT_FILE \
+                >> {log} 2>&1
+
+            # cat $TEMP_LOG >> {log}
+            # rm $TEMP_LOG
+        done
+        """
+
+
+rule gather_bubble_features:
+    input:
+        lambda wc: expand(
+            rules.batch_bubble_features.output,
+            batch_num = range((len(get_panpa_graphs(wc)) - 1) // JOB_BATCH_SIZE + 1)
+        )
+    output: directory(OUT_DIR / "bubble_features")
+    log: LOGS_DIR / "gather_bubble_features.log"
+    shell:
+        r"""
+        mkdir -p {output}
+        for batch_dir in {input}; do
+            for tsv_file in $batch_dir/*.tsv; do
+                [ -f "$tsv_file" ] || continue
+                ln -srv $tsv_file {params.out_dir}/$(basename $tsv_file) >> {log} 2>&1
             done
         done
         """
@@ -618,5 +696,5 @@ rule create_binary_tables:
         rules.cdhit_protein_positions.output,
         rules.panpa_build_index.output,
         rules.bubblegun_gather.output,
-        # rules.gather_panpa_all_clusters.output,
+        rules.gather_bubble_features.output,
     default_target: True
