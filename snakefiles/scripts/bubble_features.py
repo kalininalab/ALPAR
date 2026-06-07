@@ -2,9 +2,6 @@ import argparse
 import re
 import json
 import math
-import sys
-import time
-import resource
 from abc import ABC, abstractmethod
 from contextlib import suppress
 from dataclasses import dataclass, field
@@ -19,37 +16,7 @@ from pydantic import BaseModel, Field, TypeAdapter, FilePath, NewPath, model_val
 with suppress(ImportError):
     from snakemake.script import snakemake
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from scripts._commons import force_new_file
-
-
-def _rss_mib() -> float:
-    """Return the current process peak resident set size in MiB."""
-    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0
-
-
-def _current_rss_mib() -> float | None:
-    """Return the current process resident set size in MiB when available."""
-    try:
-        with open('/proc/self/status', 'r', encoding='utf-8') as status_file:
-            for line in status_file:
-                if line.startswith('VmRSS:'):
-                    _, value, _unit = line.split()
-                    return float(value) / 1024.0
-    except OSError:
-        return None
-    return None
-
-
-def _log_memory(stage: str, **details: Any) -> None:
-    detail_text = ''
-    if details:
-        detail_text = ', ' + ', '.join(f'{key}={value}' for key, value in details.items())
-    current_rss = _current_rss_mib()
-    if current_rss is None:
-        logger.debug('{} | peak_rss_mib={:.1f}{}', stage, _rss_mib(), detail_text)
-        return
-    logger.debug('{} | current_rss_mib={:.1f}, peak_rss_mib={:.1f}{}', stage, current_rss, _rss_mib(), detail_text)
 
 
 class SnakemakeHandler(BaseModel):
@@ -64,7 +31,7 @@ class SnakemakeHandler(BaseModel):
     phenotype_table: FilePath = Field(
         description='Path to the phenotype table file.'
     )
-    log_file: FilePath | NewPath = Field(
+    log_file: Annotated[NewPath, BeforeValidator(force_new_file)] = Field(
         description='Path to file for dumping python logs.'
     )
     antibiotics: tuple[str, ...] = Field(
@@ -207,12 +174,10 @@ class GFAPath(GFAComponent):
         )
 
 def load_gfa_to_dag(gfa_file: str | Path) -> rx.PyDiGraph[GFASegment, GFALink]:
-    started_at = time.perf_counter()
     gfa_segments = list[GFASegment]()
     gfa_links = list[GFALink]()
     gfa_paths = list[GFAPath]()
 
-    _log_memory('Starting GFA load', gfa_file=gfa_file)
     with open(gfa_file, 'r', encoding='utf-8') as f:
         line_count = 0
         for line in iter(f):
@@ -227,24 +192,6 @@ def load_gfa_to_dag(gfa_file: str | Path) -> rx.PyDiGraph[GFASegment, GFALink]:
                 case 'P': gfa_paths.append(GFAPath.from_gfa_line(line))
                 case _: continue
 
-            if line_count % 50000 == 0:
-                _log_memory(
-                    'Parsing GFA progress',
-                    lines=line_count,
-                    segments=len(gfa_segments),
-                    links=len(gfa_links),
-                    paths=len(gfa_paths)
-                )
-
-    _log_memory(
-        'Finished parsing GFA',
-        elapsed_s=f'{time.perf_counter() - started_at:.2f}',
-        segments=len(gfa_segments),
-        links=len(gfa_links),
-        paths=len(gfa_paths)
-    )
-
-    dag_started_at = time.perf_counter()
     dag = rx.PyDiGraph[GFASegment, GFALink](
         check_cycle=True,
         multigraph=False,
@@ -255,7 +202,6 @@ def load_gfa_to_dag(gfa_file: str | Path) -> rx.PyDiGraph[GFASegment, GFALink]:
         node_count_hint=len(gfa_segments),
         edge_count_hint=len(gfa_links)
     )
-    _log_memory('Created DAG skeleton', elapsed_s=f'{time.perf_counter() - dag_started_at:.2f}')
 
     segment_id_to_dag_node_id = dict[str, int]()
     node_indices = dag.add_nodes_from(gfa_segments)
@@ -263,8 +209,6 @@ def load_gfa_to_dag(gfa_file: str | Path) -> rx.PyDiGraph[GFASegment, GFALink]:
         segment = dag.get_node_data(index)
         segment.dag_node_id = index
         segment_id_to_dag_node_id[segment.name] = index
-
-    _log_memory('Loaded DAG nodes', nodes=dag.num_nodes())
 
     for link in gfa_links:
         link.from_dag_node_id = segment_id_to_dag_node_id[link.from_segment]
@@ -279,8 +223,6 @@ def load_gfa_to_dag(gfa_file: str | Path) -> rx.PyDiGraph[GFASegment, GFALink]:
             strain = path.name.split('_', 1)[0]
             dag[node_id].strains.add(strain)
 
-    _log_memory('Resolved GFA paths', paths=len(gfa_paths))
-
     link_indices = dag.add_edges_from(
         (link.from_dag_node_id, link.to_dag_node_id, link)
         for link in gfa_links
@@ -288,13 +230,6 @@ def load_gfa_to_dag(gfa_file: str | Path) -> rx.PyDiGraph[GFASegment, GFALink]:
     for index in link_indices:
         link = dag.get_edge_data_by_index(index)
         link.dag_edge_id = index
-
-    _log_memory(
-        'Finished DAG load',
-        elapsed_s=f'{time.perf_counter() - started_at:.2f}',
-        nodes=dag.num_nodes(),
-        edges=dag.num_edges()
-    )
 
     dag.attrs['reverse_mapping'] = segment_id_to_dag_node_id
     return dag
@@ -345,15 +280,8 @@ type ChainDict = dict[int, Chain]
 chain_adapter = TypeAdapter(ChainDict)
 
 def load_bubblegun(bubblegun_file: str | Path) -> ChainDict:
-    started_at = time.perf_counter()
-    _log_memory('Starting BubbleGun load', bubblegun_file=bubblegun_file)
     with open(bubblegun_file, 'r', encoding='utf-8') as f:
         chains = chain_adapter.validate_python(json.load(f))
-    _log_memory(
-        'Finished BubbleGun load',
-        elapsed_s=f'{time.perf_counter() - started_at:.2f}',
-        root_chains=len(chains)
-    )
     return chains
 
 # Resolve
@@ -362,12 +290,9 @@ def bubblegun_resolve_dag_reference(
     chains: ChainDict,
     dag: rx.PyDiGraph[GFASegment, GFALink]
 ) -> ChainDict:
-    started_at = time.perf_counter()
 
     dag_name_to_id: dict[str, int] = dag.attrs['reverse_mapping']
     topology_pos = {n: i for i, n in enumerate(rx.topological_sort(dag))}
-
-    _log_memory('Built DAG topology index', nodes=len(topology_pos))
 
     for chain in chains.values():
         chain.dag_ends = sorted(
@@ -389,11 +314,6 @@ def bubblegun_resolve_dag_reference(
                 key=topology_pos.get # type: ignore
             ) # type: ignore
 
-    _log_memory(
-        'Finished BubbleGun resolution',
-        elapsed_s=f'{time.perf_counter() - started_at:.2f}',
-        root_chains=sum(1 for chain in chains.values() if chain.parent_chain is None)
-    )
 
     return {
         chain_id: chain
@@ -546,8 +466,6 @@ def write_bubble_lor(
             for strain in strains:
                 io_file.write(f'{strain}\t{path_cohort.antibiotic}_{cluster_name}_bubble_{bubble.id}\t{lor}\n')
 
-    _log_memory('Finished bubble LOR', bubble_id=bubble.id, distinct_paths=len(path_lor))
-
 
 def write_chain_lor(
         chain: Chain,
@@ -571,13 +489,6 @@ def write_chain_lor(
     else:
         cohort = parent_cohort & (start_strains | end_strains)
 
-        _log_memory(
-            'Writing chain LOR',
-            chain_id=chain.id,
-            bubbles=len(chain.bubbles),
-            cohort_s=len(cohort.susceptible),
-            cohort_r=len(cohort.resistant)
-        )
 
         logger.debug(f'Calculating log-odds ratio for chain {chain.id} in cluster {cluster_name} with cohort size {len(cohort.susceptible)} susceptible and {len(cohort.resistant)} resistant strains.')
         susceptible_likelihood = (len(cohort.susceptible) + LAPLACE_SMOOTHING) / (len(parent_cohort.susceptible) + 2 * LAPLACE_SMOOTHING)
@@ -684,14 +595,6 @@ if __name__ == '__main__':
             antibiotics=tuple(snakemake.params['antibiotics']),
             output_file=snakemake.output[0],
         )
-        # handler = SnakemakeHandler(
-        #     gfa_file=Path('/home/josem/alpar_smk/output/panpa/gfa/Cluster_2.fasta.gfa'),
-        #     bubble_gun=Path('/home/josem/alpar_smk/temp/bubblegun/Cluster_2.fasta.json'),
-        #     phenotype_table=Path('/home/josem/alpar_smk/output/phenotype_table.tsv'),
-        #     log_file=Path('/home/josem/msa_aln/temp/log.log'),
-        #     antibiotics=tuple(['ciprofloxacin', 'ampicilin']),
-        #     output_file=Path('/home/josem/msa_aln/temp/Cluster_2.fasta.tsv'),
-        # )
     except NameError:
         handler = _parse_args()
     logger.remove()
