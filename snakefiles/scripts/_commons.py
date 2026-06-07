@@ -1,5 +1,8 @@
+import asyncio
 from pathlib import Path
 from typing import Any, Mapping, Generator, NoReturn, overload
+
+import aiofiles
 
 
 @overload
@@ -94,27 +97,3 @@ def zip_header_and_concat_content(file: Path, sep: str | None = '') -> Generator
         else:
             if sep is not None:
                 yield header, sep.join(content)
-
-
-@overload
-def write_to_file(file: tuple[Path | str, str]) -> None: ...
-@overload
-def write_to_file(file: Path | str, content: str = '') -> None: ...
-
-def write_to_file(file, content = '') -> None:
-    """Write content to a file.
-
-    Makes sure the parent directory exists before writing.
-    
-    Parameters
-    ----------
-    file : Path | str
-        The path of the file to write.
-    content : str
-        The content to write to the file.    
-    """
-    if isinstance(file, tuple):
-        file, content = file
-    f = Path(file)
-    f.parent.mkdir(parents=True, exist_ok=True)
-    f.write_text(content)

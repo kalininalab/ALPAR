@@ -252,7 +252,7 @@ rule cdhit_protein_positions:
     output: OUT_DIR / "cd-hit" / "protein_positions.csv",
     benchmark: BENCHMARKS_DIR / "cdhit_protein_positions.py.tsv"
     conda: ENVS_DIR.format("python313")
-    threads: MAX_PYTHON_THREADS
+    threads: 1
     script:
         SCRIPTS_DIR / "cdhit_protein_positions.py"
 
@@ -318,7 +318,7 @@ checkpoint split_cluster_fasta:
     params:
         file_ext = ".fasta"
     conda: ENVS_DIR.format("python313")
-    threads: 8
+    threads: 1
     script:
         SCRIPTS_DIR / "split_cluster_fasta.py"
 

@@ -1,19 +1,21 @@
+import asyncio
 import os
 
-from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
 from typing import Annotated
 
+import aiofiles
 import polars as pl
 from loguru import logger
-from pydantic import BaseModel, Field, FilePath, NewPath, PositiveInt, BeforeValidator
+from pydantic import BaseModel, Field, FilePath, NewPath, BeforeValidator
 
 with suppress(ImportError):
     from snakemake.script import snakemake
 
-from scripts._commons import write_to_file, zip_header_and_concat_content, force_new_file
+from scripts._commons import zip_header_and_concat_content, force_new_file
 
 
+SEMAPHORE = asyncio.Semaphore(1024)
 PROTEIN_RAW_REGEX = r'^\d+\t+\d+aa, (?P<protein>>\w+)\.{3} (?:\*|at \d+\.\d+%)$'
 
 
@@ -52,10 +54,6 @@ class CdhitHandler(BaseModel):
     log_file: Annotated[NewPath, BeforeValidator(force_new_file)] = Field(
         description="Path to file for dumping python logs."
     )
-    threads: PositiveInt = Field(
-        default=1,
-        description="Number of threads to use for parallel processing."
-    )
     resistance_status_mapping: dict[str, int] = Field(
         default={
             'Resistant': 1,
@@ -68,9 +66,13 @@ class CdhitHandler(BaseModel):
         description="File extension for the output fasta files."
     )
 
+async def write_cluster(filename: str, content: str) -> None:
+        async with SEMAPHORE:
+            async with aiofiles.open(filename, 'w', encoding='utf-8') as f:
+                await f.write(content)
 
 @logger.catch
-def split_cluster_fasta(handler: CdhitHandler) -> None:
+async def split_cluster_fasta(handler: CdhitHandler) -> None:
     """Aggregate with sequence and write fasta file per cluster."""
 
     df_clusters_cdhit = pl.LazyFrame(
@@ -128,12 +130,14 @@ def split_cluster_fasta(handler: CdhitHandler) -> None:
         )
     )
 
-    with ThreadPoolExecutor(max_workers=handler.threads) as executor:
-        futures = executor.map(
-            write_to_file,
-            df_to_write.collect().iter_rows()
+    handler.output_dir.mkdir(parents=True, exist_ok=True)
+
+    await asyncio.gather(
+        *(
+            write_cluster(filename, content)
+            for filename, content in df_to_write.collect().iter_rows()
         )
-        tuple(futures) # Gather futures to get Exceptions
+    )
 
 
 if __name__ == '__main__':
@@ -142,9 +146,8 @@ if __name__ == '__main__':
         combined_proteins=snakemake.input['combined_proteins'],
         output_dir=snakemake.output[0],
         log_file=snakemake.log[0],
-        threads=snakemake.threads,
         file_ext=snakemake.params['file_ext'],
     )
     logger.remove()
     logger.add(handler.log_file, backtrace=True, diagnose=True, enqueue=True)
-    split_cluster_fasta(handler)
+    asyncio.run(split_cluster_fasta(handler))
