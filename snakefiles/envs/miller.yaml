@@ -1,0 +1,6 @@
+name: miller
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - miller=6.18.1

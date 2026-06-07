@@ -679,6 +679,23 @@ rule merge_features:
         """
 
 
+rule pivot_merged_features_miller:
+    input: rules.merge_features.output
+    output: OUT_DIR / "merged_table_pivot.tsv"
+    log: LOGS_DIR / "pivot_merged_features_miller.log"
+    benchmark: BENCHMARKS_DIR / "pivot_merged_features_miller.tsv"
+    conda: ENVS_DIR.format("miller")
+    threads: workflow.cores
+    shell:
+        r"""
+        mlr --tsv --implicit-tsv-header \
+            label hash,feature,value \
+            then reshape -s feature,value \
+            then unsparsify --fill-with '' \
+            {input} > {output} 2> {log}
+        """
+
+
 # -----------------------
 # Snakefile Target
 # -----------------------
@@ -687,7 +704,7 @@ rule merge_features:
 
 rule create_binary_tables:
     input:
-        rules.merge_features.output,
+        rules.pivot_merged_features_miller.output,
         rules.annotation_file_from_snippy.output,
         rules.cdhit_protein_positions.output,
         rules.panpa_build_index.output,
