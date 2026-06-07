@@ -381,8 +381,7 @@ rule gather_align_clusters:
         for batch_dir in {input}; do
             for aln_file in $batch_dir/*.fasta; do
                 [ -f "$aln_file" ] || continue
-                cp -v $aln_file {output}/$(basename $aln_file) >> {log} 2>&1
-                # ln -srv $aln_file {output}/$(basename $aln_file) >> {log} 2>&1
+                ln -srv $aln_file {output}/$(basename $aln_file) >> {log} 2>&1
             done
         done
         """
@@ -486,31 +485,6 @@ rule batched_bubblegun_runner:
         done
         """
 
-checkpoint bubblegun_gather:
-    input:
-        lambda wc: expand(
-            rules.batched_bubblegun_runner.output,
-            batch_num = range((len(get_panpa_graphs(wc)) - 1) // JOB_BATCH_SIZE + 1)
-        )
-    output: directory(TEMP_DIR / "bubblegun")
-    log: LOGS_DIR / "bubblegun_gather.log"
-    shell:
-        r"""
-        mkdir -p {output}
-        for batch_dir in {input}; do
-            for json_file in $batch_dir/*.json; do
-                [ -f "$json_file" ] || continue
-                ln -srv $json_file {output}/$(basename $json_file) >> {log} 2>&1
-            done
-        done
-        """
-
-
-def get_bubblegun_clusters(wildcards) -> list[str]:
-    bubblegun_checkpoint = checkpoints.bubblegun_gather.get(**wildcards)
-    bubblegun_folder = Path(bubblegun_checkpoint.output[0])
-    return [f.stem for f in sorted(bubblegun_folder.glob("*.json"))]
-
 
 # -----------------------
 # Bubble Features
@@ -526,7 +500,7 @@ def batched_bubble_features(wildcards) -> list[Path]:
 rule batch_bubble_features:
     input:
         panpa_graph_folder = rules.panpa_build_gfa.output,
-        bubblegun_folder = rules.bubblegun_gather.output,
+        bubblegun_folder = rules.batched_bubblegun_runner.output,
         phenotype_table = rules.phenotype_dataframe_creator.output[0],
         batch_graphs = batched_bubble_features,
     output: directory(TEMP_DIR / "bubble_features_batches" / "batch_{batch_num}")
@@ -544,22 +518,23 @@ rule batch_bubble_features:
 
         for gfa_file in {input.batch_graphs}; do
             CLUSTER=$(basename "${{gfa_file%.gfa}}")
-            BUBBLE_JSON="{input.bubblegun_folder}/${{CLUSTER}}.json"
-            # TEMP_LOG=$(mktemp --suffix .log)
-            # echo ">> Processing cluster $CLUSTER" >> {log}
+            echo ">> Processing cluster $CLUSTER" >> {log}
+
+            BUBBLE_JSON={input.bubblegun_folder}/$CLUSTER.json
             OUTPUT_FILE="{output}/${{CLUSTER}}.tsv"
+            TEMP_LOG=$(mktemp --suffix .log)
 
             python {params.script} \
                 --gfa-file $gfa_file \
                 --bubble-gun $BUBBLE_JSON \
                 --phenotype-table {input.phenotype_table} \
-                --log-file {log} \
+                --log-file $TEMP_LOG \
                 --antibiotics {params.antibiotics} \
                 --output-file $OUTPUT_FILE \
                 >> {log} 2>&1
 
-            # cat $TEMP_LOG >> {log}
-            # rm $TEMP_LOG
+            cat $TEMP_LOG >> {log}
+            rm $TEMP_LOG
         done
         """
 
