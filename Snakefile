@@ -51,6 +51,7 @@ ANTIBIOTICS = tuple(antibiotic.name for antibiotic in IN_DIR.iterdir())
 # -----------------------
 
 include: SNAKEFILES_DIR / "create_binary_tables.smk"
+include: SNAKEFILES_DIR / "phylogeny.smk"
 
 
 # -----------------------

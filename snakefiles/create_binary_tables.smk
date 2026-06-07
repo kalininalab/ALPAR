@@ -700,7 +700,6 @@ rule pivot_merged_features_miller:
 # Snakefile Target
 # -----------------------
 
-# include: SNAKEFILES_DIR / "graph_by_phenotype.smk"
 
 rule create_binary_tables:
     input:
