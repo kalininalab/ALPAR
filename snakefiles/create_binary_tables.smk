@@ -666,7 +666,7 @@ rule binary_mutation_table:
     benchmark: BENCHMARKS_DIR / "binary_mutation_table.tsv"
     log: LOGS_DIR / "binary_mutation_table.log"
     conda: ENVS_DIR.format("python313")
-    threads: MAX_PYTHON_THREADS
+    threads: 1
     script:
         SCRIPTS_DIR / "binary_mutation_table.py"
 

@@ -10,6 +10,7 @@ dependencies:
   - python=3.13
   - snakemake=9.16.2
   - pip:
+      - aiofiles==25.1.0
       - loguru==0.7.3
       - polars==1.40.0
       - rustworkx==0.17.1
