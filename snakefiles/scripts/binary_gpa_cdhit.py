@@ -1,8 +1,8 @@
 
 import csv
-import itertools
 import re
 from contextlib import suppress
+from itertools import repeat
 from typing import Annotated
 
 from loguru import logger
@@ -65,12 +65,15 @@ def binary_gpa_cdhit(handler: SnakemakeHandler) -> None:
 
             if line.startswith('>'):
                 if clstr_strains and clstr_ref_prot:
-                    csv_writer.writerows(zip(clstr_strains, itertools.repeat(clstr_ref_prot)))
+                    csv_writer.writerows(zip(clstr_strains, repeat(clstr_ref_prot), repeat(1)))
                     clstr_strains = set()
                     clstr_ref_prot = ''
 
             else:
                 match = pattern.match(line)
+                if not match:
+                    logger.warning(f'Line did not match expected format and will be skipped: {line}')
+                    continue
 
                 clstr_strains.add(match.group('strain'))
                 if match.group('is_ref'):
@@ -80,7 +83,7 @@ def binary_gpa_cdhit(handler: SnakemakeHandler) -> None:
 
         else:
             if clstr_strains and clstr_ref_prot:
-                csv_writer.writerows(zip(clstr_strains, itertools.repeat(clstr_ref_prot)))
+                csv_writer.writerows(zip(clstr_strains, repeat(clstr_ref_prot), repeat(1)))
 
 
 if __name__ == '__main__':

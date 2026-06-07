@@ -31,7 +31,8 @@ def binary_gpa_panaroo(handler: SnakemakeHandler) -> None:
             variable_name='Strain'
         )
         .drop_nulls('value')
-        .select('Strain', 'Gene')
+        .with_columns(pl.lit(1).alias('value'))
+        .select('Strain', 'Gene', 'value')
     )
 
     with open(handler.output_file, 'w', encoding='utf-8') as f:

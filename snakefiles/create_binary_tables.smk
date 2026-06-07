@@ -202,7 +202,7 @@ rule panaroo_runner:
 
 rule binary_gpa_panaroo:
     input: rules.panaroo_runner.output.gpa,
-    output: OUT_DIR / "binary_gpa_panaroo.tsv"
+    output: TEMP_DIR / "binary_gpa_panaroo.tsv"
     benchmark: BENCHMARKS_DIR / "binary_gpa_panaroo.py.tsv"
     conda: ENVS_DIR.format("python313")
     threads: 1
@@ -293,9 +293,9 @@ rule cdhit_runner:
 
 
 rule binary_gpa_cdhit:
-    input: 
+    input:
         rules.cdhit_runner.output.clstr,
-    output: OUT_DIR / "binary_gpa_cdhit.tsv"
+    output: TEMP_DIR / "binary_gpa_cdhit.tsv"
     benchmark: BENCHMARKS_DIR / "binary_gpa_cdhit.tsv"
     log: LOGS_DIR / "binary_gpa_cdhit.log"
     conda: ENVS_DIR.format("python313")
@@ -570,16 +570,12 @@ rule gather_bubble_features:
             rules.batch_bubble_features.output,
             batch_num = range((len(get_panpa_graphs(wc)) - 1) // JOB_BATCH_SIZE + 1)
         )
-    output: directory(OUT_DIR / "bubble_features")
+    output: TEMP_DIR / "bubble_features.tsv"
     log: LOGS_DIR / "gather_bubble_features.log"
     shell:
         r"""
-        mkdir -p {output}
         for batch_dir in {input}; do
-            for tsv_file in $batch_dir/*.tsv; do
-                [ -f "$tsv_file" ] || continue
-                ln -srv $tsv_file {params.out_dir}/$(basename $tsv_file) >> {log} 2>&1
-            done
+            cat $batch_dir/*.tsv >> {output}
         done
         """
 
@@ -637,7 +633,7 @@ rule annotation_file_from_snippy:
 
 
 # -----------------------
-# Binary Tables
+# Feature Tables
 # -----------------------
 
 rule binary_gpa:
@@ -670,11 +666,12 @@ rule binary_mutation_table:
     script:
         SCRIPTS_DIR / "binary_mutation_table.py"
 
-rule merge_binary_features:
+rule merge_features:
     input:
         rules.binary_mutation_table.output,
         rules.binary_gpa.output,
-    output: OUT_DIR / "merged_binary_table.tsv"
+        rules.gather_bubble_features.output,
+    output: OUT_DIR / "merged_table.tsv"
     threads: 1
     shell:
         r"""
@@ -686,15 +683,12 @@ rule merge_binary_features:
 # Snakefile Target
 # -----------------------
 
-include: SNAKEFILES_DIR / "graph_by_phenotype.smk"
+# include: SNAKEFILES_DIR / "graph_by_phenotype.smk"
 
 rule create_binary_tables:
     input:
-        rules.merge_binary_features.output,
-        rules.phenotype_dataframe_creator.output,
+        rules.merge_features.output,
         rules.annotation_file_from_snippy.output,
         rules.cdhit_protein_positions.output,
         rules.panpa_build_index.output,
-        rules.bubblegun_gather.output,
-        rules.gather_bubble_features.output,
     default_target: True
