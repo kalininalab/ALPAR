@@ -2,6 +2,7 @@ import argparse
 import re
 import json
 import math
+import sys
 from abc import ABC, abstractmethod
 from contextlib import suppress
 from dataclasses import dataclass, field
@@ -16,6 +17,7 @@ from pydantic import BaseModel, Field, TypeAdapter, FilePath, NewPath, model_val
 with suppress(ImportError):
     from snakemake.script import snakemake
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from scripts._commons import force_new_file
 
 
