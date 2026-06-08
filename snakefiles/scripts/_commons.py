@@ -1,8 +1,5 @@
-import asyncio
 from pathlib import Path
 from typing import Any, Mapping, Generator, NoReturn, overload
-
-import aiofiles
 
 
 @overload
