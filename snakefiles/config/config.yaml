@@ -2,11 +2,13 @@
 # Files and folders
 # ----------------
 
-output_dir: "out"
-temp_dir: "temp"
-gbff_file: "db/Escherichia_coli.gbff"
-fasta_file: "db/Escherichia_coli.fasta"
-env_dir: "/home/ayu21/miniconda3/envs"
+input_dir: "/scratch/SCRATCH_SAS/alper/jose/EColi"
+output_dir: "/scratch/SCRATCH_SAS/alper/jose/EColiOut"
+temp_dir: "/scratch/SCRATCH_SAS/alper/jose/temp"
+gbff_file: "/scratch/SCRATCH_SAS/alper/jose/Escherichia_coli.gbff"
+fasta_file: "/scratch/SCRATCH_SAS/alper/jose/Escherichia_coli.fasta"
+env_dir: ""
+# env_dir: "/home/ayu21/miniconda3/envs"
 
 # ----------------
 # Parameters
