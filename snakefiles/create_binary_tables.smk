@@ -400,7 +400,7 @@ rule panpa_build_index:
         kmer_size = 10,
         window_size = 15,
         seed_limit = 0,
-    conda: ENVS_DIR.format("panpa_vcf")
+    conda: ENVS_DIR.format("panpa-vcf")
     threads: 1
     shell:
         r"""
@@ -420,7 +420,7 @@ checkpoint panpa_build_gfa:
     output: directory(OUT_DIR / "panpa" / "gfa")
     log: LOGS_DIR / "panpa_build_gfa.log"
     benchmark: BENCHMARKS_DIR / "panpa_build_gfa.tsv"
-    conda: ENVS_DIR.format("panpa_vcf")
+    conda: ENVS_DIR.format("panpa-vcf")
     threads: workflow.cores
     shell:
         r"""

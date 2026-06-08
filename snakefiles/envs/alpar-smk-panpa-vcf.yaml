@@ -1,5 +1,5 @@
-# v2
-name: alpar-smk-panpa
+# v3
+name: alpar-smk-panpa-vcf
 channels:
   - defaults
   - conda-forge
@@ -12,4 +12,4 @@ dependencies:
   - libxcrypt
   - pip=26.0.1
   - pip:
-      - git+https://github.com/kalininalab/PanPA-Variants.git@feat/vcf
+      - git+https://github.com/Cambouu/PanPA-vcf.git
