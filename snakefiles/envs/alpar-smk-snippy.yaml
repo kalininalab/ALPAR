@@ -1,4 +1,4 @@
-name: snippy
+name: alpar-smk-snippy
 channels:
   - bioconda
   - conda-forge

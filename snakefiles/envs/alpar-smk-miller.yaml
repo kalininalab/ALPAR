@@ -1,4 +1,4 @@
-name: miller
+name: alpar-smk-miller
 channels:
   - conda-forge
   - defaults

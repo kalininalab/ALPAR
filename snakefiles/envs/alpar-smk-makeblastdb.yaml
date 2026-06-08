@@ -1,4 +1,4 @@
-name: makeblastdb
+name: alpar-smk-makeblastdb
 channels:
   - bioconda
   - conda-forge

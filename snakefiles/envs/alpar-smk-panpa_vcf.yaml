@@ -1,5 +1,5 @@
 # v2
-name: panpa
+name: alpar-smk-panpa
 channels:
   - defaults
   - conda-forge

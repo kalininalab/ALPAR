@@ -1,4 +1,4 @@
-name: bubblegun
+name: alpar-smk-bubblegun
 channels:
   - defaults
   - bioconda

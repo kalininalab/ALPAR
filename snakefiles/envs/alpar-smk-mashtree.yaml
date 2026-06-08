@@ -1,4 +1,4 @@
-name: mashtree
+name: alpar-smk-mashtree
 channels:
   - conda-forge
   - bioconda

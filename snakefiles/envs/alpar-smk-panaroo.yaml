@@ -1,7 +1,6 @@
-name: prokka
+name: alpar-smk-panaroo
 channels:
   - bioconda
   - conda-forge
 dependencies:
-  - parallel=20250222
-  - prokka=1.14.6
+  - panaroo=1.6.0

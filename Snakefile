@@ -29,7 +29,7 @@ if config_env := config.get("env_dir", None):
     ENVS_DIR = str(Path(config_env) / "{0}")
 else:
     # Download environments from files at snakefiles/envs
-    ENVS_DIR = str(SNAKEFILES_DIR / "envs" / "{0}.yaml")
+    ENVS_DIR = str(SNAKEFILES_DIR / "envs" / "alpar-smk-{0}.yaml")
 
 # -----------------------
 # Global Variables

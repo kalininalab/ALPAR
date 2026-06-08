@@ -1,4 +1,4 @@
-name: cd-hit
+name: alpar-smk-cd-hit
 channels:
   - bioconda
 dependencies:

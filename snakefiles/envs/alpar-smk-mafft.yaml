@@ -1,4 +1,4 @@
-name: mafft
+name: alpar-smk-mafft
 channels:
   - bioconda
   - defaults
