@@ -2,8 +2,8 @@
 # Files and folders
 # ----------------
 
-input_dir: "/scratch/SCRATCH_SAS/alper/jose/EColi"
-output_dir: "/scratch/SCRATCH_SAS/alper/jose/EColiOut"
+input_dir: "/scratch/SCRATCH_SAS/alper/jose/Ecoli"
+output_dir: "/scratch/SCRATCH_SAS/alper/jose/out"
 temp_dir: "/scratch/SCRATCH_SAS/alper/jose/temp"
 gbff_file: "/scratch/SCRATCH_SAS/alper/jose/Escherichia_coli.gbff"
 fasta_file: "/scratch/SCRATCH_SAS/alper/jose/Escherichia_coli.fasta"
