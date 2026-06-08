@@ -1,0 +1,10 @@
+name: alpar-panaroo
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python
+  - panaroo==1.6.0
+  - intbitset==3.0.2
+  - biopython==1.79

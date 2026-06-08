@@ -1,0 +1,2 @@
+Best MCC result for chloramphenicol: 0.16039705381234495
+Parameters: max_depth=3, min_child_weight=5, subsample=0.8, colsample_bytree=0.8, eta=0.1, n_estimators=500

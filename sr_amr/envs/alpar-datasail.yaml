@@ -1,0 +1,13 @@
+name: alpar-datasail
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+  - kalininalab
+dependencies:
+  - python<3.13
+  - pip
+  - mash
+  - datasail
+  - pip:
+    - GraKeL

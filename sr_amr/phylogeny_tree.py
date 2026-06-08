@@ -55,7 +55,7 @@ def mash_preprocessor(strains_text_file, output_folder, temp_folder, random_name
             os.remove(f"{fasta_files_folder}/{file}")
 
 
-def mash_distance_runner(output_folder, temp_folder):
+def mash_distance_runner(output_folder, temp_folder, env_name=None):
 
     # Get the absolute path of the current file
     temp_folder_abs_path = os.path.abspath(temp_folder)
@@ -63,5 +63,8 @@ def mash_distance_runner(output_folder, temp_folder):
     print(temp_folder_abs_path)
 
     mash_tree_command = f"mashtree {temp_folder_abs_path}/fasta_files/* > {output_folder}/phylogenetic_tree.tree"
+
+    if env_name:
+        mash_tree_command = f"conda run -n {env_name} --no-capture-output {mash_tree_command}"
 
     os.system(mash_tree_command)

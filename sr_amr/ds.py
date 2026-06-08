@@ -1,4 +1,3 @@
-from datasail.routine import datasail_main
 import pandas as pd
 from pathlib import Path
 import os
@@ -8,11 +7,13 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
-def datasail_pre_precessor(strains_text_file, temp_folder, random_names_dict, output_folder, cpus=1):
+def datasail_pre_precessor(strains_text_file, temp_folder, random_names_dict, output_folder, cpus=1, env_name=None):
 
-    os.mkdir(os.path.join(temp_folder, "fasta_files"))
+    os.makedirs(os.path.join(temp_folder, "fasta_files"), exist_ok=True)
 
     fasta_files_folder = os.path.join(temp_folder, "fasta_files")
+
+    random_names_will_be_used = False
 
     if random_names_dict != None:
         random_names_will_be_used = True
@@ -67,9 +68,15 @@ def datasail_pre_precessor(strains_text_file, temp_folder, random_names_dict, ou
 
     mash_sketch_command = f"mash sketch -p {cpus} -o {temp_folder}/mash_sketch {fasta_files_folder}/*"
 
+    if env_name:
+        mash_sketch_command = f"conda run -n {env_name} --no-capture-output {mash_sketch_command}"
+
     os.system(mash_sketch_command)
 
     mash_dist_command = f"mash dist -p {cpus} -t {temp_folder}/mash_sketch.msh {temp_folder}/mash_sketch.msh > {temp_folder}/distance_matrix.tsv"
+
+    if env_name:
+        mash_dist_command = f"conda run -n {env_name} --no-capture-output {mash_dist_command}"
 
     os.system(mash_dist_command)
 
@@ -104,8 +111,8 @@ def datasail_pre_precessor(strains_text_file, temp_folder, random_names_dict, ou
 
             ofile.write(f"{print_line.strip()}\n")
 
-
 def datasail_runner(distance_matrix, output_folder, splits=[0.8, 0.2], cpus=1, max_time=600, epsilon=0.1, delta=0.1, solver="SCIP", sail_max_time=600, df_dict=None, antibiotic=None):
+    from datasail.sail import datasail
     """
     Runs the datasail algorithm on the distance matrix.
 
@@ -126,12 +133,11 @@ def datasail_runner(distance_matrix, output_folder, splits=[0.8, 0.2], cpus=1, m
     dm = pd.read_csv(distance_matrix, sep="\t", index_col=0, header=0)
 
     if df_dict == None:
-
-        splits, _, _ = datasail_main(output=None, techniques=["C1e"], splits=splits, names=["train", "test"], e_type="P", e_data=[(n, "a" * i) for i, n in enumerate(dm.columns)], e_dist=Path(distance_matrix), max_sec=max_time, threads=cpus, inter=None, max_sol=10, verbosity="I", delta=delta, epsilon=epsilon, runs=1, solver=solver, cache=False, cache_dir=None, linkage="average", e_weights=None, e_strat=None, e_sim=None, e_args="", e_clusters=50, f_type=None, f_data=None, f_weights=None, f_strat=None, f_sim=None, f_dist=None, f_args="", f_clusters=50, cli=False, logdir=None)
-        
+        splits, _, _ = datasail(
+            techniques=["C1e"], splits=splits, names=["train", "test"], e_type="P", e_data=[(n, "a" * i) for i, n in enumerate(dm.columns)], e_dist=Path(distance_matrix), max_sec=max_time, threads=cpus, verbose="I", delta=delta, epsilon=epsilon, runs=1, solver=solver, linkage="average", e_clusters=50)   
     else:
-        splits, _, _ = datasail_main(output=None, techniques=["C1e"], splits=splits, names=["train", "test"], e_type="P", e_data=[(n, "a" * i) for i, n in enumerate(dm.columns)], e_dist=Path(distance_matrix), max_sec=max_time, threads=cpus, inter=None, max_sol=10, verbosity="I", delta=delta, epsilon=epsilon, runs=1, solver=solver, cache=False, cache_dir=None, linkage="average", e_weights=None, e_strat=df_dict[antibiotic], e_sim=None, e_args="", e_clusters=100, f_type=None, f_data=None, f_weights=None, f_strat=None, f_sim=None, f_dist=None, f_args="", f_clusters=100, cli=False, logdir=None)
-
+        splits, _, _ = datasail(techniques=["C1e"], splits=splits, names=["train", "test"], e_type="P", e_data=[(n, "a" * i) for i, n in enumerate(dm.columns)], e_dist=Path(distance_matrix), max_sec=max_time, threads=cpus, max_sol=10, verbose="I", delta=delta, epsilon=epsilon, runs=1, solver=solver, cache=False, linkage="average", e_strat=df_dict[antibiotic], e_clusters=100)
+        
         output_folder = os.path.join(output_folder, antibiotic)
 
     with open(f"{output_folder}/splits.tsv", "w") as ofile:

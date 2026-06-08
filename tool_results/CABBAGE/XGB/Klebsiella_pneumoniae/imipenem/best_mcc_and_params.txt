@@ -1,0 +1,2 @@
+Best MCC result for imipenem: 0.3679734238298628
+Parameters: max_depth=3, min_child_weight=5, subsample=0.8, colsample_bytree=0.8, eta=0.01, n_estimators=1000

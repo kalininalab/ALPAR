@@ -1,0 +1,2 @@
+Best MCC result for penicillin: 0.9459053029269173
+Parameters: max_depth=3, min_child_weight=7, subsample=0.4, colsample_bytree=0.4, eta=0.1, n_estimators=50

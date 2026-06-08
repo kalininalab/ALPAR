@@ -1,0 +1,15 @@
+name: alpar-pyseer
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python>=3.12
+  - pyseer
+  - pandas
+  - dendropy
+  - pip
+  - pip:
+    - psutil
+    - tqdm
+    - seaborn

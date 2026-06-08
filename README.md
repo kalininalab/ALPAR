@@ -2,7 +2,7 @@
 
 Automated Learning Pipeline for Antimicrobial Resistance
 
-![Pipeline](docs/imgs/ALPAR_Flowchart.png?raw=true "Pipeline")
+![Pipeline](docs/imgs/ALPAR_Flowchart_new.png?raw=true "Pipeline")
 
 ## Installation
 
@@ -27,7 +27,7 @@ pip install panacota
 
 Example files can be downloaded from:
 
-[Example files](https://github.com/kalininalab/ALPAR-Example/blob/main/example.zip)
+[Example files](https://www.bv-brc.org/)
 
 ## Automatic Pipeline
 

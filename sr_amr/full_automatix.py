@@ -11,22 +11,31 @@ warnings.filterwarnings("ignore")
 def generate_random_key():
     return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(4))
 
+def run_command(command, error_message):
+    exit_code = os.system(command)
+    if exit_code != 0:
+        print(f"Error: {error_message}")
+        sys.exit(1)
+
 def automatix_runner(args):    
 
     if args.temp == None:
         args.temp = f"{args.output}/temp"
     
-    create_binary_tables_script = f"alpar create_binary_tables -i '{args.input}' -o '{args.output}' --reference '{args.reference}' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --create_phenotype_from_folder {args.input}"
+    create_binary_tables_script = f"alpar create_binary_tables -i '{args.input}' -o '{args.output}' --reference '{args.reference}' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --create_phenotype_from_folder"
 
-    if args.custom_database != None:
-        custom_db_name = generate_random_key()
-        create_binary_tables_script += f" --custom_database '{args.custom_database}' {custom_db_name}"
+    create_binary_tables_script += f" --variant_calling_tool {args.variant_calling_tool}"
+    create_binary_tables_script += f" --annotation_tool {args.annotation_tool}"
+    create_binary_tables_script += f" --gene_presence_absence_analysis_tool {args.gene_presence_absence_analysis_tool}"
+
+    if args.prokka_custom_database != None:
+        create_binary_tables_script += f" --prokka_custom_database '{args.prokka_custom_database[0]}' '{args.prokka_custom_database[1]}'"
     
     if args.keep_temp_files:
         create_binary_tables_script += " --keep_temp_files"
 
-    if args.just_mutations:
-        create_binary_tables_script += " --no_gene_presence_absence"
+    if args.only_variants:
+        create_binary_tables_script += " --only_variants"
     
     if args.checkpoint:
         create_binary_tables_script += " --checkpoint"
@@ -37,15 +46,20 @@ def automatix_runner(args):
     if args.overwrite:
         create_binary_tables_script += " --overwrite"
 
-    if args.use_panaroo:
-        create_binary_tables_script += " --use_panaroo"
+    if args.bakta_db:
+        create_binary_tables_script += f" --bakta_db '{args.bakta_db}'"
+
+    if args.run_qc:
+        create_binary_tables_script += " --run_qc"
+        create_binary_tables_script += f" --qc_length_threshold {args.qc_length_threshold}"
+        create_binary_tables_script += f" --qc_max_contigs {args.qc_max_contigs}"
 
     # Run all steps here before ml:
 
     print("Creating binary tables...")
-    os.system(create_binary_tables_script)
+    run_command(create_binary_tables_script, "Creating binary tables failed!")
 
-    if args.just_mutations:
+    if args.only_variants:
         files_to_be_checked_list = ["binary_mutation_table.tsv", "mutations_annotations.tsv"]
     
     else:
@@ -62,6 +76,7 @@ def automatix_runner(args):
 
     print("Thresholding binary tables...")
 
+    binary_table_threshold_script = ""
     if "binary_mutation_table_with_gene_presence_absence.tsv" not in os.listdir(args.output):
         if "binary_mutation_table.tsv" in os.listdir(args.output):
             binary_table_threshold_script = f"alpar binary_table_threshold -i '{args.output}/binary_mutation_table.tsv' -o '{args.output}'"
@@ -69,13 +84,17 @@ def automatix_runner(args):
     else:
         binary_table_threshold_script = f"alpar binary_table_threshold -i '{args.output}/binary_mutation_table_with_gene_presence_absence.tsv' -o '{args.output}'"
 
+    if binary_table_threshold_script == "":
+        print("Error: Could not find binary mutation tables for thresholding!")
+        sys.exit(1)
+
     if args.keep_temp_files:
                 binary_table_threshold_script += " --keep_temp_files"
     
     if args.overwrite:
         binary_table_threshold_script += " --overwrite"
 
-    os.system(binary_table_threshold_script)
+    run_command(binary_table_threshold_script, "Thresholding binary tables failed!")
 
     run_status_writer(f"{args.output}/status.txt", "Binary tables thresholded")
 
@@ -92,7 +111,7 @@ def automatix_runner(args):
         if args.overwrite:
             panacota_script += " --overwrite"
 
-        os.system(panacota_script)
+        run_command(panacota_script, "PanACoTA failed!")
 
     files_to_be_checked_list = ["phylogenetic_tree.newick"]
 
@@ -113,7 +132,7 @@ def automatix_runner(args):
     if args.overwrite:
         phylogenetic_tree_script += " --overwrite"
 
-    os.system(phylogenetic_tree_script)
+    run_command(phylogenetic_tree_script, "Creating phylogenetic tree failed!")
 
     files_to_be_checked_list = ["phylogenetic_tree.tree"]
 
@@ -127,6 +146,7 @@ def automatix_runner(args):
 
     print("Running PRPS...")
 
+    binary_mutation_table_for_prps = None
     for file in os.listdir(f"{args.output}/binary_table_threshold/"):
         if file.endswith(".tsv"):
             binary_mutation_table_for_prps =  os.path.join(f"{args.output}/binary_table_threshold/", file)
@@ -158,7 +178,7 @@ def automatix_runner(args):
     if args.overwrite:
         prps_script += " --overwrite"
 
-    os.system(prps_script)
+    run_command(prps_script, "PRPS calculation failed!")
 
     files_to_be_checked_list = ["prps_score.tsv"]
 
@@ -172,6 +192,7 @@ def automatix_runner(args):
 
     print("Running GWAS...")
 
+    binary_mutation_table_for_gwas = None
     for file in os.listdir(f"{args.output}/binary_table_threshold/"):
         if file.endswith(".tsv"):
             binary_mutation_table_for_gwas =  os.path.join(f"{args.output}/binary_table_threshold/", file)
@@ -200,7 +221,7 @@ def automatix_runner(args):
     if args.overwrite:
         gwas_script += " --overwrite"
 
-    os.system(gwas_script)
+    run_command(gwas_script, "GWAS failed!")
 
     files_to_be_checked_list = ["genotype_matrix.tsv", "similarity_matrix.tsv"]
 
@@ -216,18 +237,6 @@ def automatix_runner(args):
 
     if not args.no_ml:
 
-        if "rf" in args.ml_algorithm:
-            rf_output_path = os.path.join(args.output, "rf_output")
-            os.makedirs(rf_output_path, exist_ok=True)
-        
-        if "svm" in args.ml_algorithm:
-            svm_output_path = os.path.join(args.output, "svm_output")
-            os.makedirs(svm_output_path, exist_ok=True)
-        
-        if "gb" in args.ml_algorithm:
-            gb_output_path = os.path.join(args.output, "gb_output")
-            os.makedirs(gb_output_path, exist_ok=True)
-
         antibiotics_list = []
 
         with open(f"{args.output}/phenotype_table.tsv", "r") as phenotype_file:
@@ -237,6 +246,7 @@ def automatix_runner(args):
                 if not i.startswith("."):
                     antibiotics_list.append(i.strip())
 
+        binary_mutation_table_for_ml = None
         for file in os.listdir(f"{args.output}/binary_table_threshold/"):
             if file.endswith(".tsv"):
                 binary_mutation_table_for_ml =  os.path.join(f"{args.output}/binary_table_threshold/", file)
@@ -253,77 +263,34 @@ def automatix_runner(args):
                 print("Using binary mutation table...")
 
         for abiotic in antibiotics_list:
-            
-            if "rf" in args.ml_algorithm:
-                abiotic_rf_output_path = os.path.join(rf_output_path, f"{abiotic}")
-                os.makedirs(abiotic_rf_output_path, exist_ok=True)
+            for algorithm in args.ml_algorithm:
+                algo_output_path = os.path.join(args.output, "ml_results", algorithm, abiotic)
+                os.makedirs(algo_output_path, exist_ok=True)
 
-            if "svm" in args.ml_algorithm:
-                abiotic_svm_output_path = os.path.join(svm_output_path, f"{abiotic}")
-                os.makedirs(abiotic_svm_output_path, exist_ok=True)
+                ml_script = f"alpar ml -i '{binary_mutation_table_for_ml}' -o '{algo_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} -a '{abiotic}' --save_model --prps '{args.output}/prps/prps_score.tsv' --annotation '{args.output}/mutations_annotations.tsv' --ml_algorithm '{algorithm}' --overwrite"
 
-            if "gb" in args.ml_algorithm:
-                abiotic_gb_output_path = os.path.join(gb_output_path, f"{abiotic}")
-                os.makedirs(abiotic_gb_output_path, exist_ok=True)
+                if not args.no_feature_importance_analysis:
+                    ml_script += " --feature_importance_analysis"
 
-            if args.no_feature_importance_analysis:
+                if not args.no_datasail:
+                    ml_script += f" --sail '{args.output}/strains.txt'"
 
-                if args.no_datasail:
-                    if "rf" in args.ml_algorithm:
-                        ml_script_rf = f"alpar ml -i '{binary_mutation_table_for_ml}' -o '{abiotic_rf_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} -a '{abiotic}' --save_model --prps '{args.output}/prps/prps_score.tsv' --parameter_optimization --annotation '{args.output}/mutations_annotations.tsv' --ml_algorithm 'rf' --overwrite"
+                print(f"Running {algorithm} for {abiotic}...")
+                run_command(ml_script, f"Running {algorithm} for {abiotic} failed!")
+                run_status_writer(f"{args.output}/status.txt", f"{algorithm} done for {abiotic}")
 
-                    if "svm" in args.ml_algorithm:
-                        ml_script_svm = f"alpar ml -i '{binary_mutation_table_for_ml}' -o '{abiotic_svm_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} -a '{abiotic}' --save_model --prps '{args.output}/prps/prps_score.tsv' --parameter_optimization --annotation '{args.output}/mutations_annotations.tsv' --ml_algorithm 'svm' --overwrite"
-
-                    if "gb" in args.ml_algorithm:
-                        ml_script_gb = f"alpar ml -i '{binary_mutation_table_for_ml}' -o '{abiotic_gb_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} -a '{abiotic}' --save_model --prps '{args.output}/prps/prps_score.tsv' --parameter_optimization --annotation '{args.output}/mutations_annotations.tsv' --ml_algorithm 'gb' --overwrite"
-
-                else:
-                    if "rf" in args.ml_algorithm:
-                        ml_script_rf = f"alpar ml -i '{binary_mutation_table_for_ml}' -o '{abiotic_rf_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --prps '{args.output}/prps/prps_score.tsv' --parameter_optimization --annotation '{args.output}/mutations_annotations.tsv' --ml_algorithm 'rf' --overwrite"
-
-                    if "svm" in args.ml_algorithm:
-                        ml_script_svm = f"alpar ml -i '{binary_mutation_table_for_ml}' -o '{abiotic_svm_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --prps '{args.output}/prps/prps_score.tsv' --parameter_optimization --annotation '{args.output}/mutations_annotations.tsv' --ml_algorithm 'svm' --overwrite"
-
-                    if "gb" in args.ml_algorithm:
-                        ml_script_gb = f"alpar ml -i '{binary_mutation_table_for_ml}' -o '{abiotic_gb_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --prps '{args.output}/prps/prps_score.tsv' --parameter_optimization --annotation '{args.output}/mutations_annotations.tsv' --ml_algorithm 'gb' --overwrite"
-
-            else:
-
-                if args.no_datasail:
-                    if "rf" in args.ml_algorithm:
-                        ml_script_rf = f"alpar ml -i '{binary_mutation_table_for_ml}' -o '{abiotic_rf_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} -a '{abiotic}' --save_model --feature_importance_analysis --prps '{args.output}/prps/prps_score.tsv' --parameter_optimization --annotation '{args.output}/mutations_annotations.tsv' --ml_algorithm 'rf' --overwrite"
-
-                    if "svm" in args.ml_algorithm:
-                        ml_script_svm = f"alpar ml -i '{binary_mutation_table_for_ml}' -o '{abiotic_svm_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} -a '{abiotic}' --save_model --feature_importance_analysis --prps '{args.output}/prps/prps_score.tsv' --parameter_optimization --annotation '{args.output}/mutations_annotations.tsv' --ml_algorithm 'svm' --overwrite"
-
-                    if "gb" in args.ml_algorithm:
-                        ml_script_gb = f"alpar ml -i '{binary_mutation_table_for_ml}' -o '{abiotic_gb_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} -a '{abiotic}' --save_model --feature_importance_analysis --prps '{args.output}/prps/prps_score.tsv' --parameter_optimization --annotation '{args.output}/mutations_annotations.tsv' --ml_algorithm 'gb' --overwrite"
-
-                else:
-                    if "rf" in args.ml_algorithm:
-                        ml_script_rf = f"alpar ml -i '{binary_mutation_table_for_ml}' -o '{abiotic_rf_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --feature_importance_analysis --prps '{args.output}/prps/prps_score.tsv' --parameter_optimization --annotation '{args.output}/mutations_annotations.tsv' --ml_algorithm 'rf' --overwrite"
-
-                    if "svm" in args.ml_algorithm:
-                        ml_script_svm = f"alpar ml -i '{binary_mutation_table_for_ml}' -o '{abiotic_svm_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --feature_importance_analysis --prps '{args.output}/prps/prps_score.tsv' --parameter_optimization --annotation '{args.output}/mutations_annotations.tsv' --ml_algorithm 'svm' --overwrite"
-
-                    if "gb" in args.ml_algorithm:
-                        ml_script_gb = f"alpar ml -i '{binary_mutation_table_for_ml}' -o '{abiotic_gb_output_path}' -p '{args.output}/phenotype_table.tsv' --temp '{args.temp}' --threads {args.threads} --ram {args.ram} --sail {args.output}/strains.txt -a '{abiotic}' --save_model --feature_importance_analysis --prps '{args.output}/prps/prps_score.tsv' --parameter_optimization --annotation '{args.output}/mutations_annotations.tsv' --ml_algorithm 'gb' --overwrite"
-
-            if "rf" in args.ml_algorithm:
-                print(f"Running Random Forest for {abiotic}...")
-                os.system(ml_script_rf)
-                run_status_writer(f"{args.output}/status.txt", f"RF done for {abiotic}")
-
-            if "svm" in args.ml_algorithm:
-                print(f"Running Support Vector Machine for {abiotic}...")
-                os.system(ml_script_svm)
-                run_status_writer(f"{args.output}/status.txt", f"SVM done for {abiotic}")
-
-            if "gb" in args.ml_algorithm:
-                print(f"Running Gradient Boosting for {abiotic}...")
-                os.system(ml_script_gb)
-                run_status_writer(f"{args.output}/status.txt", f"GB done for {abiotic}")
+        # After ML and GWAS are done, compare them
+        if not args.no_feature_importance_analysis:
+            print("Comparing GWAS and ML results...")
+            for abiotic in antibiotics_list:
+                pyseer_results = os.path.join(args.output, "gwas", "gwas_results", f"{abiotic}.tsv")
+                
+                for algorithm in args.ml_algorithm:
+                    ml_importance = os.path.join(args.output, "ml_results", algorithm, abiotic, f"{abiotic}_feature_importances.tsv")
+                    if os.path.exists(pyseer_results) and os.path.exists(ml_importance):
+                        comparison_output = os.path.join(args.output, "ml_results", algorithm, abiotic, f"{abiotic}_gwas_ml_comparison.txt")
+                        from sr_amr.gwas import compare_gwas_ml
+                        compare_gwas_ml(pyseer_results, ml_importance, comparison_output)
             
     run_status_writer(f"{args.output}/status.txt", "Full automatix pipeline is done!")
     print("Full automatix pipeline is done!")

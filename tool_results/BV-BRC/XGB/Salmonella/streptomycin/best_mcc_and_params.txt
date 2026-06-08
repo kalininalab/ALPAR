@@ -1,0 +1,2 @@
+Best result for Salmonella streptomycin: 0.8986824250727409
+Parameters: max_depth=3, min_child_weight=1, subsample=0.8, colsample_bytree=0.8, eta=0.01, n_estimators=500

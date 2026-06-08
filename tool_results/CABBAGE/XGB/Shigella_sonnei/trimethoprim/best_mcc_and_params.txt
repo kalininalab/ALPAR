@@ -1,0 +1,2 @@
+Best MCC result for trimethoprim: 0.9400319838808434
+Parameters: max_depth=3, min_child_weight=5, subsample=0.8, colsample_bytree=0.8, eta=0.01, n_estimators=500

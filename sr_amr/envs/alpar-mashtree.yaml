@@ -1,0 +1,14 @@
+name: alpar-mashtree
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python>=3.12
+  - mashtree
+  - pandas
+  - pip
+  - pip:
+    - psutil
+    - joblib
+    - tqdm

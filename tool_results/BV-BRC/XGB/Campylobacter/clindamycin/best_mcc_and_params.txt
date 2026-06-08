@@ -1,0 +1,2 @@
+Best result for Campylobacter clindamycin: 0.26410405520961355
+Parameters: max_depth=3, min_child_weight=5, subsample=0.8, colsample_bytree=0.8, eta=0.05, n_estimators=1000

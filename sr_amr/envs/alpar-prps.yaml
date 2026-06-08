@@ -1,0 +1,15 @@
+name: alpar-prps
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python==3.12
+  - pip
+  - pandas
+  - pip:
+    - ete3
+    - psutil
+    - tqdm
+    - pycgi
+

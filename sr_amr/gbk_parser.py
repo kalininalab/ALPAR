@@ -1,4 +1,3 @@
-from Bio import SeqIO
 import os
 
 class Records:
@@ -25,6 +24,7 @@ class Records:
         self.protein_gpa_name = None
 
 def gbk_parser(input_strain_name, input_gbk):
+    from Bio import SeqIO
     """
     Gets gbk file as input, parses it and returns list of Records class
 

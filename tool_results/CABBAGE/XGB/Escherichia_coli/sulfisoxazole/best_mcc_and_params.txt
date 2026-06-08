@@ -1,0 +1,2 @@
+Best MCC result for sulfisoxazole: 0.3991068309659516
+Parameters: max_depth=6, min_child_weight=5, subsample=0.8, colsample_bytree=0.8, eta=0.1, n_estimators=500

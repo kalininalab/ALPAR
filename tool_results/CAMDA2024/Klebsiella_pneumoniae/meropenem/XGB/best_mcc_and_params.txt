@@ -1,0 +1,2 @@
+Best result for Klebsiella_pneumoniae meropenem: 0.5104098000899888
+Parameters: max_depth=3, min_child_weight=3, subsample=1.0, colsample_bytree=0.6, eta=0.01, n_estimators=100

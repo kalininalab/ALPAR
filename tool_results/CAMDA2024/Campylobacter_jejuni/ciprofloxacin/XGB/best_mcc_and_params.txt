@@ -1,0 +1,2 @@
+Best result for Campylobacter_jejuni ciprofloxacin: 1.0
+Parameters: max_depth=3, min_child_weight=1, subsample=0.6, colsample_bytree=0.6, eta=0.01, n_estimators=200

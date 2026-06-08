@@ -1,0 +1,15 @@
+name: alpar-panacota
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python
+  - pip
+  - panacota
+  - python-utils<3.0.0
+  - pandas
+  - pip:
+    - psutil
+    - joblib
+    - tqdm

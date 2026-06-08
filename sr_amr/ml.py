@@ -1,21 +1,9 @@
 import sys
-import sklearn.model_selection
-import sklearn.datasets
-import sklearn.metrics
-from sklearn.inspection import permutation_importance
 import pandas as pd
-from pprint import pprint
 import numpy as np
 import pickle
-from random import randint
 import os
-from sklearn.svm import SVC
-from sklearn.model_selection import GridSearchCV
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, HistGradientBoostingClassifier
-from sklearn import tree
-from sklearn.metrics import matthews_corrcoef, make_scorer, accuracy_score, f1_score, roc_auc_score
 import csv
-import xgboost as xgb
 import secrets
 
 import warnings
@@ -25,72 +13,47 @@ warnings.filterwarnings("ignore")
 csv.field_size_limit(sys.maxsize)
 
 def output_file_writer(outfile, y_test, y_hat, cls=None, best_c=None):
+    import sklearn.metrics
 
     with open(outfile, "w") as ofile:
 
         if best_c:
             ofile.write("C: " + str(best_c))
             ofile.write("\n")
-        ofile.write("Accuracy score: " +
-                    str(sklearn.metrics.accuracy_score(y_test, y_hat)))
-        ofile.write("\n")
-        ofile.write("Balanced Accuracy score: " +
-                    str(sklearn.metrics.balanced_accuracy_score(y_test, y_hat)))
-        ofile.write("\n")
-        ofile.write("Brier score loss: " +
-                    str(sklearn.metrics.brier_score_loss(y_test, y_hat)))
-        ofile.write("\n")
-        ofile.write("F1 score macro: " +
-                    str(sklearn.metrics.f1_score(y_test, y_hat, average='macro')))
-        ofile.write("\n")
-        ofile.write("F1 score micro: " +
-                    str(sklearn.metrics.f1_score(y_test, y_hat, average='micro')))
-        ofile.write("\n")
-        ofile.write("F1 score weighted: " +
-                    str(sklearn.metrics.f1_score(y_test, y_hat, average='weighted')))
-        ofile.write("\n")
-        ofile.write("F1 score binary: " +
-                    str(sklearn.metrics.f1_score(y_test, y_hat, average='binary')))
-        ofile.write("\n")
-        ofile.write("Precision score: " +
-                    str(sklearn.metrics.precision_score(y_test, y_hat, average='binary')))
-        ofile.write("\n")
-        ofile.write("Recall score: " +
-                    str(sklearn.metrics.recall_score(y_test, y_hat, average='binary')))
-        ofile.write("\n")
-        ofile.write("Confussion matrix: " +
-                    str(sklearn.metrics.confusion_matrix(y_test, y_hat)))
-        ofile.write("\n")
-        ofile.write("ROC Curve: " +
-                    str(sklearn.metrics.roc_curve(y_test, y_hat)))
-        ofile.write("\n")
-        ofile.write("ROC AUC Score: " +
-                    str(sklearn.metrics.roc_auc_score(y_test, y_hat)))
-        ofile.write("\n")
-        ofile.write("Jaccard score: " +
-                    str(sklearn.metrics.jaccard_score(y_test, y_hat)))
-        ofile.write("\n")
-        ofile.write("Hinge loss: " +
-                    str(sklearn.metrics.hinge_loss(y_test, y_hat)))
-        ofile.write("\n")
-        ofile.write("Hamming loss: " +
-                    str(sklearn.metrics.hamming_loss(y_test, y_hat)))
-        ofile.write("\n")
-        ofile.write(
-            "Fbeta score macro: " + str(sklearn.metrics.fbeta_score(y_test, y_hat, average='macro', beta=0.5)))
-        ofile.write("\n")
-        ofile.write(
-            "Fbeta score micro: " + str(sklearn.metrics.fbeta_score(y_test, y_hat, average='micro', beta=0.5)))
-        ofile.write("\n")
-        ofile.write("Fbeta score weighted: " + str(
-            sklearn.metrics.fbeta_score(y_test, y_hat, average='weighted', beta=0.5)))
-        ofile.write("\n")
-        ofile.write("Log loss: " +
-                    str(sklearn.metrics.log_loss(y_test, y_hat)))
-        ofile.write("\n")
-        ofile.write("Matthews correlation coefficient: " +
-                    str(sklearn.metrics.matthews_corrcoef(y_test, y_hat)))
 
+        try:
+            # Accuracy metrics
+            acc = sklearn.metrics.accuracy_score(y_test, y_hat)
+            bal_acc = sklearn.metrics.balanced_accuracy_score(y_test, y_hat)
+            mcc = sklearn.metrics.matthews_corrcoef(y_test, y_hat)
+            f1 = sklearn.metrics.f1_score(y_test, y_hat, average='binary')
+            precision = sklearn.metrics.precision_score(y_test, y_hat, average='binary')
+            recall = sklearn.metrics.recall_score(y_test, y_hat, average='binary')
+            
+            ofile.write(f"Accuracy score: {acc}\n")
+            ofile.write(f"Balanced Accuracy score: {bal_acc}\n")
+            ofile.write(f"Matthews correlation coefficient: {mcc}\n")
+            ofile.write(f"F1 score binary: {f1}\n")
+            ofile.write(f"Precision score: {precision}\n")
+            ofile.write(f"Recall score: {recall}\n")
+            
+            # Confusion Matrix
+            cm = sklearn.metrics.confusion_matrix(y_test, y_hat)
+            ofile.write(f"Confusion matrix:\n{cm}\n")
+            
+            # Additional metrics
+            try:
+                roc_auc = sklearn.metrics.roc_auc_score(y_test, y_hat)
+                ofile.write(f"ROC AUC Score: {roc_auc}\n")
+            except:
+                pass
+
+            ofile.write(f"Brier score loss: {sklearn.metrics.brier_score_loss(y_test, y_hat)}\n")
+            ofile.write(f"Jaccard score: {sklearn.metrics.jaccard_score(y_test, y_hat)}\n")
+            ofile.write(f"Log loss: {sklearn.metrics.log_loss(y_test, y_hat)}\n")
+
+        except ValueError as e:
+            ofile.write(f"Error calculating metrics: {e}\n")
 
 def prps_ml_preprecessor(binary_mutation_table, prps_score_file, prps_percentage, temp_path):
 
@@ -166,6 +129,8 @@ def prps_ml_preprecessor(binary_mutation_table, prps_score_file, prps_percentage
 
 
 def decision_tree(binary_mutation_table, phenotype_table, antibiotic, random_seed, test_size, output_folder, stratify=True):
+    import sklearn.model_selection
+    from sklearn import tree
 
     output_file_template = f"{output_folder}/{antibiotic}_decision_tree"
 
@@ -222,9 +187,20 @@ def decision_tree(binary_mutation_table, phenotype_table, antibiotic, random_see
     pickle.dump(clf, open(model_file, 'wb'))
 
 
-def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, temp_folder, ram, model_type, feature_importance_analysis=False, save_model=False, resampling_strategy="holdout", custom_scorer="MCC", fia_repeats=5, n_estimators=100, max_depth=2, min_samples_leaf=1, min_samples_split=2, kernel="linear", optimization=False, train=[], test=[], validation=[], same_setup_run_count=1, stratify=True, feature_importance_analysis_strategy="gini", important_feature_limit = 10, param_grid_size = "small", param_grid_low_memory_mode = False, device= "cpu", parameter_search_strategy="grid_search", parameter_search_n_iter=20):
+def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed, cv_split, test_size, output_folder, n_jobs, temp_folder, ram, model_type, feature_importance_analysis=False, save_model=False, resampling_strategy="holdout", custom_scorer="MCC", fia_repeats=5, n_estimators=100, max_depth=2, min_samples_leaf=1, min_samples_split=2, kernel="linear", optimization=False, train=[], test=[], validation=[], same_setup_run_count=1, stratify=True, feature_importance_analysis_strategy="gini", important_feature_limit = 10, param_grid_size = "small", param_grid_low_memory_mode = False, device="cpu", parameter_search_strategy="grid_search", parameter_search_n_iter=20):
+    import sklearn.model_selection
+    import sklearn.metrics
+    from sklearn.inspection import permutation_importance
+    from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
+    from sklearn.svm import SVC
+    from sklearn.model_selection import GridSearchCV
+    from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, HistGradientBoostingClassifier
+    from sklearn.metrics import matthews_corrcoef, make_scorer, accuracy_score, f1_score, roc_auc_score
+    import xgboost as xgb
 
     output_file_template = f"seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type.upper()}"
+
+    best_y_hat = None
 
     # Check if binary_mutation_table size in GB > ram / 100 and if it is XGB, activate low memory mode, otherwise parameter grid search will kill the process
     binary_mutation_table_size = os.path.getsize(binary_mutation_table) / (1024 ** 3)  # Size in GB
@@ -344,6 +320,25 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
         X_test = np.array(X_test, dtype=int)
         y_test = np.array(y_test, dtype=int)
 
+    
+    mcc_scorer = make_scorer(matthews_corrcoef)
+    accuracy_scorer = make_scorer(accuracy_score)
+    f1_scorer = make_scorer(f1_score)
+    roc_auc_scorer = make_scorer(roc_auc_score)
+
+    if custom_scorer == "MCC":
+        selected_scorer = mcc_scorer
+        scoring_function = matthews_corrcoef
+    elif custom_scorer == "accuracy":
+        selected_scorer = accuracy_scorer
+        scoring_function = accuracy_score
+    elif custom_scorer == "f1":
+        selected_scorer = f1_scorer
+        scoring_function = f1_score
+    elif custom_scorer == "roc_auc":
+        selected_scorer = roc_auc_scorer
+        scoring_function = roc_auc_score
+
     if model_type == "rf":
 
         if param_grid_size == "small":
@@ -379,7 +374,7 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                 )
                 rf_cls.fit(X_train, y_train)
                 y_hat = rf_cls.predict(X_test)
-                current_score = sklearn.metrics.matthews_corrcoef(y_test, y_hat)
+                current_score = scoring_function(y_test, y_hat)
 
                 if current_score > best_result:
                     best_result = current_score
@@ -387,6 +382,7 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                     with open(os.path.join(output_folder, f"{output_file_template}_best_params.txt"), "w") as param_file:
                         param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_result}\n")
                         param_file.write(f"Parameters: max_depth={parameter_sample['max_depth']}, min_samples_leaf={parameter_sample['min_samples_leaf']}, min_samples_split={parameter_sample['min_samples_split']}, n_estimators={parameter_sample['n_estimators']}, max_features={parameter_sample['max_features']}\n")
+                        best_y_hat = y_hat
         else:
             if param_grid_low_memory_mode:
                 best_result = -1
@@ -399,9 +395,10 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                                     # Initialize the Random Forest classifier with each parameter
                                     rf_cls = RandomForestClassifier(class_weight={0: sum(y_train), 1: len( y_train) - sum(y_train)}, n_estimators=temp_n_estimators, max_depth=temp_max_depth, min_samples_leaf=temp_min_samples_leaf, min_samples_split=temp_min_samples_split, max_features=temp_max_features
                                     )
+                                    print(f"Training model with parameters: max_depth={temp_max_depth}, min_samples_leaf={temp_min_samples_leaf}, min_samples_split={temp_min_samples_split}, n_estimators={temp_n_estimators}, max_features={temp_max_features}")
                                     rf_cls.fit(X_train, y_train)
                                     y_hat = rf_cls.predict(X_test)
-                                    current_score = selected_scorer(y_test, y_hat)
+                                    current_score = scoring_function(y_test, y_hat)
 
                                     if current_score > best_result:
                                         best_result = current_score
@@ -409,14 +406,15 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                                         with open(os.path.join(output_folder, f"{output_file_template}_best_params.txt"), "w") as param_file:
                                             param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_result}\n")
                                             param_file.write(f"Parameters: max_depth={temp_max_depth}, min_samples_leaf={temp_min_samples_leaf}, min_samples_split={temp_min_samples_split}, n_estimators={temp_n_estimators}, max_features={temp_max_features}\n")
+                                            best_y_hat = y_hat
             else:
+                rf_cls = RandomForestClassifier(class_weight={0: sum(y_train), 1: len(
+                    y_train) - sum(y_train)}, n_estimators=n_estimators, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split)
+                
                 if resampling_strategy == "cv":
                     if custom_scorer == "MCC":
                         scorer = "matthews_corrcoef"
 
-                    rf_cls = RandomForestClassifier(class_weight={0: sum(y_train), 1: len(
-                    y_train) - sum(y_train)}, n_estimators=n_estimators, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split)
-                
                     grid_search = GridSearchCV(
                         rf_cls, param_grid, cv=cv_split, scoring=scorer)
                     grid_search.fit(X_train, y_train)
@@ -424,13 +422,14 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                     y_hat = grid_search.predict(X_test)
 
                 else:
+
                     rf_cls.fit(X_train, y_train)
                     y_hat = rf_cls.predict(X_test)
 
     elif model_type == "xgb":
 
-        dtrain = xgb.DMatrix(X_train, label=y_train)
-        dtest = xgb.DMatrix(X_test, label=y_test)
+        dtrain = xgb.DMatrix(X_train, label=y_train, feature_names=feature_names)
+        dtest = xgb.DMatrix(X_test, label=y_test, feature_names=feature_names)
 
         if param_grid_size == "small":
             param_grid = {
@@ -460,22 +459,9 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                 'n_estimators': [10, 50, 100, 200, 500]
             }
 
-        mcc_scorer = make_scorer(matthews_corrcoef)
-        accuracy_scorer = make_scorer(accuracy_score)
-        f1_scorer = make_scorer(f1_score)
-        roc_auc_scorer = make_scorer(roc_auc_score)
-
-        if custom_scorer == "MCC":
-            selected_scorer = mcc_scorer
-        elif custom_scorer == "accuracy":
-            selected_scorer = accuracy_scorer
-        elif custom_scorer == "f1":
-            selected_scorer = f1_scorer
-        elif custom_scorer == "roc_auc":
-            selected_scorer = roc_auc_scorer
+        best_result = -1
 
         if parameter_search_strategy == "random_search":
-            best_result = -1
             sampled_params = parameter_sampler(param_grid, n_iter=parameter_search_n_iter)
             for parameter_sample in sampled_params:
                 # Initialize the XGBoost classifier with each parameter
@@ -483,6 +469,7 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                     objective='binary:logistic',
                     eval_metric='logloss',
                     seed=random_seed,
+                    device=device,
                     n_jobs=n_jobs,
                     max_depth=parameter_sample['max_depth'],
                     min_child_weight=parameter_sample['min_child_weight'],
@@ -501,10 +488,15 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                     with open(os.path.join(output_folder, f"{output_file_template}_best_params.txt"), "w") as param_file:
                         param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_result}\n")
                         param_file.write(f"Parameters: max_depth={parameter_sample['max_depth']}, min_child_weight={parameter_sample['min_child_weight']}, subsample={parameter_sample['subsample']}, colsample_bytree={parameter_sample['colsample_bytree']}, eta={parameter_sample['eta']}, n_estimators={parameter_sample['n_estimators']}\n")
+                    best_y_hat = y_hat
 
         else:
             if param_grid_low_memory_mode:
-                best_result = -1
+                total_number_of_parameter_combinations = 1
+                for value in param_grid.values():
+                    total_number_of_parameter_combinations *= len(value)
+                print(f"XGBoost: Total number of parameter combinations to be evaluated: {total_number_of_parameter_combinations}")
+                current_number_of_processed_combinations = 0
                 sorted_importances = {}
                 for temp_max_depth in param_grid['max_depth']:
                     for temp_min_child_weight in param_grid['min_child_weight']:
@@ -512,11 +504,13 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                             for temp_colsample_bytree in param_grid['colsample_bytree']:
                                 for temp_eta in param_grid['eta']:
                                     for temp_n_estimators in param_grid['n_estimators']:
+                                        print(f"Training model {current_number_of_processed_combinations + 1} / {total_number_of_parameter_combinations}")
                                         # Initialize the XGBoost classifier with each parameter
                                         xgb_model = xgb.XGBClassifier(
                                             objective='binary:logistic',
                                             eval_metric='logloss',
                                             seed=random_seed,
+                                            device=device,
                                             n_jobs=n_jobs,
                                             max_depth=temp_max_depth,
                                             min_child_weight=temp_min_child_weight,
@@ -527,7 +521,7 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                                         )
                                         xgb_model.fit(X_train, y_train)
                                         y_hat = xgb_model.predict(X_test)
-                                        current_score = selected_scorer(y_test, y_hat)
+                                        current_score = scoring_function(y_test, y_hat)
 
                                         if current_score > best_result:
                                             best_result = current_score
@@ -535,6 +529,8 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                                             with open(os.path.join(output_folder, f"{output_file_template}_best_params.txt"), "w") as param_file:
                                                 param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_result}\n")
                                                 param_file.write(f"Parameters: max_depth={temp_max_depth}, min_child_weight={temp_min_child_weight}, subsample={temp_subsample}, colsample_bytree={temp_colsample_bytree}, eta={temp_eta}, n_estimators={temp_n_estimators}\n")
+                                            best_y_hat = y_hat
+                                        current_number_of_processed_combinations += 1
 
             else:
                 # Initialize the XGBoost classifier
@@ -542,6 +538,7 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                     objective='binary:logistic',
                     eval_metric='logloss',
                     seed=random_seed,
+                    device=device,
                     n_jobs=n_jobs
                 )
 
@@ -559,7 +556,7 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                         estimator=xgb_model,
                         param_grid=param_grid,
                         scoring=selected_scorer,
-                        cv=1,
+                        cv=cv_split,
                         verbose=1,
                         n_jobs=n_jobs
                     )
@@ -568,9 +565,6 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
 
                 # Get the best parameters and update the params dictionary
                 best_params = grid_search.best_params_
-                with open(os.path.join(output_folder, f"{output_file_template}_best_params.txt"), "w") as param_file:
-                    param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_result}\n")
-                    param_file.write(f"Parameters: {best_params}\n")
 
                 # Train the final model with the best parameters
                 bst = xgb.train(best_params, dtrain, num_boost_round=n_estimators)
@@ -578,6 +572,11 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                 # Predict on the test set
                 y_hat = bst.predict(dtest)
                 y_hat = np.round(y_hat)
+                best_custom_score = scoring_function(y_test, y_hat)
+                with open(os.path.join(output_folder, f"{output_file_template}_best_params.txt"), "w") as param_file:
+                    param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_custom_score}\n")
+                    param_file.write(f"Parameters: {best_params}\n")
+
 
     elif model_type == "svm":
         best_model_mcc = -1.0
@@ -604,7 +603,7 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
         y_hat = best_model.predict(X_test)
 
     elif model_type == "gb":
-        gb_cls = GradientBoostingClassifier(n_estimators=n_estimators, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split, class_weight={0: sum(y_train), 1: len(y_train) - sum(y_train)})
+        gb_cls = GradientBoostingClassifier(n_estimators=n_estimators, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split)
 
         param_grid = {
             'n_estimators': [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100],
@@ -652,9 +651,22 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
             histgb_cls.fit(X_train, y_train)
             y_hat = histgb_cls.predict(X_test)
 
-    outfile = os.path.join(output_folder, f"{output_file_template}_Result")
+    elif model_type == "lr":
+        if resampling_strategy == "cv":
+            lr_cls = LogisticRegressionCV(cv=cv_split, random_state=random_seed, class_weight='balanced', max_iter=1000)
+            lr_cls.fit(X_train, y_train)
+            y_hat = lr_cls.predict(X_test)
+        else:
+            lr_cls = LogisticRegression(random_state=random_seed, class_weight='balanced', max_iter=1000)
+            lr_cls.fit(X_train, y_train)
+            y_hat = lr_cls.predict(X_test)
 
-    output_file_writer(outfile, y_test, y_hat)
+    outfile = os.path.join(output_folder, f"{output_file_template}_Result")
+    
+    if best_y_hat is not None:
+        output_file_writer(outfile, y_test, best_y_hat)
+    else:
+        output_file_writer(outfile, y_test, y_hat)
 
     if save_model:
         if model_type == "rf":
@@ -677,8 +689,14 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
             model_file = os.path.join(
                 output_folder, f"{output_file_template}_model.sav")
             pickle.dump(bst, open(model_file, 'wb'))
+        elif model_type == "lr":
+            model_file = os.path.join(
+                output_folder, f"{output_file_template}_model.sav")
+            pickle.dump(lr_cls, open(model_file, 'wb'))
 
     if feature_importance_analysis:
+
+        print("Performing feature importance analysis...")
 
         dont_return_path = False
 
@@ -694,34 +712,61 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                 r = permutation_importance(
                     best_model, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
 
+                with open(os.path.join(output_folder, f"{output_file_template}_FIA_permutation_importance"), "w") as ofile:
+                    for i in r.importances_mean.argsort()[::-1]:
+                        if r.importances_mean[i] - 2 * r.importances_std[i] > 0:
+                            ofile.write(
+                                f"{feature_names[i]:<8};{r.importances_mean[i]:.3f};+/-{r.importances_std[i]:.3f}\n")
+
             elif model_type == "gb":
                 importances = gb_cls.feature_importances_
 
             elif model_type == "histgb":
-                importances = histgb_cls.feature_importances_
+                print(f"Warning! HISTGB cannot be used with 'gini' feature importance analysis strategy. Running permutation importance. Please choose 'permutation_importance' next time.")
+                r = permutation_importance(
+                    histgb_cls, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
+
+                with open(os.path.join(output_folder, f"{output_file_template}_FIA_permutation_importance"), "w") as ofile:
+                    for i in r.importances_mean.argsort()[::-1]:
+                        if r.importances_mean[i] - 2 * r.importances_std[i] > 0:
+                            ofile.write(
+                                f"{feature_names[i]:<8};{r.importances_mean[i]:.3f};+/-{r.importances_std[i]:.3f}\n")
+
+            elif model_type == "lr":
+                print(f"Warning! LR cannot be used with 'gini' feature importance analysis strategy. Running permutation importance. Please choose 'permutation_importance' next time.")
+                r = permutation_importance(
+                    lr_cls, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
+
+                with open(os.path.join(output_folder, f"{output_file_template}_FIA_permutation_importance"), "w") as ofile:
+                    for i in r.importances_mean.argsort()[::-1]:
+                        if r.importances_mean[i] - 2 * r.importances_std[i] > 0:
+                            ofile.write(
+                                f"{feature_names[i]:<8};{r.importances_mean[i]:.3f};+/-{r.importances_std[i]:.3f}\n")
             
             elif model_type == "xgb":
                 if param_grid_low_memory_mode:
-                    importances = xgb_model.feature_importances_
+                    importances = bst.feature_importances_
                 else:
-                    importances = bst.get_score(importance_type='weight')
-                    importances = np.array([importances[feature] for feature in feature_names])
+                    importance_scores = bst.get_score(importance_type='weight')
+                    print("Raw XGB scores:", importance_scores)
+                    importances = np.array([importance_scores.get(feature, 0) for feature in feature_names])
 
-            gini_importances = pd.Series(importances, index=feature_names)
-            importances_dict = gini_importances.to_dict()
-            sorted_importances = sorted(importances_dict.items(), key=lambda x: x[1], reverse=True)
+            if model_type != "svm" and model_type != "histgb" and model_type != "lr":
+                gini_importances = pd.Series(importances, index=feature_names)
+                importances_dict = gini_importances.to_dict()
+                sorted_importances = sorted(importances_dict.items(), key=lambda x: x[1], reverse=True)
 
-            with open(os.path.join(output_folder, f"{output_file_template}_FIA_{feature_importance_analysis_strategy}"), "w") as file:
-                if important_feature_limit == -1:
-                    for key, value in sorted_importances:
-                        if value > 0:
+                with open(os.path.join(output_folder, f"{output_file_template}_FIA_{feature_importance_analysis_strategy}"), "w") as file:
+                    if important_feature_limit == -1:
+                        for key, value in sorted_importances:
+                            if value > 0:
+                                file.write(f"{key}\t{value}\n")
+                    else:
+                        if len(sorted_importances) < important_feature_limit:
+                            important_feature_limit = len(sorted_importances)
+                            print(f"Warning: Number of important features is less than the specified limit. Limit is set to {important_feature_limit}.")
+                        for key, value in sorted_importances[:important_feature_limit]:
                             file.write(f"{key}\t{value}\n")
-                else:
-                    if len(sorted_importances) < important_feature_limit:
-                        important_feature_limit = len(sorted_importances)
-                        print(f"Warning: Number of important features is less than the specified limit. Limit is set to {important_feature_limit}.")
-                    for key, value in sorted_importances[:important_feature_limit]:
-                        file.write(f"{key}\t{value}\n")
 
         elif feature_importance_analysis_strategy == "permutation_importance":
             if model_type == "rf":
@@ -739,6 +784,9 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
             elif model_type == "xgb":
                 r = permutation_importance(
                     bst, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
+            elif model_type == "lr":
+                r = permutation_importance(
+                    lr_cls, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
 
             with open(os.path.join(output_folder, f"{output_file_template}_FIA_{feature_importance_analysis_strategy}"), "w") as ofile:
                 for i in r.importances_mean.argsort()[::-1]:

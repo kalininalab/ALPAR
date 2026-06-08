@@ -23,7 +23,7 @@ def fia_file_annotation(fia_file, annotation_file):
     with open(os.path.join(parent_dir, f"Annotated_{filename}"), "w") as ofile:
         ofile.write("Mutation;ImportanceValue;Effect;Gene;Product\n")
         for line in lines:
-            splitted = line.split(";")
+            splitted = line.split("\t")
             mutation = splitted[0].strip()
             importance = splitted[1].strip()
             try:

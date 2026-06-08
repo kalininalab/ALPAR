@@ -1,0 +1,8 @@
+name: alpar-snippy
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python>=3.12
+  - snippy==4.6.0

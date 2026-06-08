@@ -1,0 +1,16 @@
+name: alpar
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python>=3.12
+  - pandas
+  - numpy
+  - psutil
+  - biopython
+  - joblib
+  - tqdm
+  - pip
+  - pip:
+    - -e .

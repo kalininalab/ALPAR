@@ -11,28 +11,19 @@ import multiprocessing
 import shutil
 import subprocess
 import pandas as pd
+import psutil
 
-from sr_amr.utils import is_tool_installed, temp_folder_remover, time_function, copy_and_zip_file
+from sr_amr.utils import is_tool_installed, temp_folder_remover, time_function, copy_and_zip_file, ensure_conda_env, conda_env_wrapper
 from sr_amr.version import __version__
 
-
-from sr_amr.panacota import panacota_pre_processor, panacota_post_processor, panacota_pipeline_runner
-from sr_amr.gwas import pyseer_runner, pyseer_similarity_matrix_creator, pyseer_phenotype_file_creator, pyseer_genotype_matrix_creator, pyseer_post_processor, pyseer_gwas_graph_creator, decision_tree_input_creator
-from sr_amr.binary_tables import snippy_runner, prokka_runner, random_name_giver, panaroo_input_creator, panaroo_runner, binary_table_creator, binary_mutation_table_gpa_information_adder, binary_mutation_table_gpa_information_adder_panaroo, phenotype_dataframe_creator, phenotype_dataframe_creator_post_processor, prokka_create_database, snippy_processed_file_creator, annotation_file_from_snippy, cdhit_preprocessor, cdhit_runner, gene_presence_absence_file_creator
-from sr_amr.binary_table_threshold import binary_table_threshold_with_percentage
-from sr_amr.phylogeny_tree import mash_preprocessor, mash_distance_runner
-from sr_amr.prps import PRPS_runner
-from sr_amr.ds import datasail_runner, datasail_pre_precessor
-from sr_amr.ml import prps_ml_preprecessor, combined_ml
-from sr_amr.full_automatix import automatix_runner
-from sr_amr.ml_common_files import fia_file_annotation
-from sr_amr.structman import structman_input_creator, annotation_function
-from sr_amr.prediction import process_data_for_prediction, predict, equalize_columns
+import subprocess
+import json
 
 import warnings
 
 warnings.filterwarnings("ignore")
 
+accepted_ml_algorithms = ["rf", "svm", "gb", "histgb", "xgb", "lr"]
 
 def main():
     # Create the parser
@@ -56,15 +47,23 @@ def main():
         '-o', '--output', type=str, help='path of the output folder', required=True)
     parser_automatix.add_argument(
         '--reference', type=str, help='path of the reference file', required=True)
-    parser_automatix.add_argument('--custom_database', type=str,
-                                  help='creates and uses custom database for prokka, require path of the fasta file, default=None')
-    parser_automatix.add_argument('--just_mutations', action='store_true',
-                                  help='only creates binary mutation table with mutations, without gene presence absence information, default=False')
+
+    parser_automatix.add_argument('--variant_calling_tool', type=str, help='variant calling tool to use, available selections: [snippy], default=snippy', default="snippy")
+    parser_automatix.add_argument('--annotation_tool', type=str, help='annotation tool to use, available selections: [prokka, bakta], default=prokka', default="prokka")
+    parser_automatix.add_argument('--gene_presence_absence_analysis_tool', type=str, help='gene presence absence analysis tool to use, available selections: [cd-hit, panaroo], default=cd-hit', default="cd-hit")
+
+    parser_automatix.add_argument('--prokka_custom_database', type=str, nargs=2,
+                                      help='creates and uses custom database for prokka, require path of the fasta file and genus name, default=None')
+    
+    parser_automatix.add_argument('--bakta_db', type=str, help='path to bakta database, if none given and bakta as annotation tool selected, will automatically download, default=None')
+
+    parser_automatix.add_argument('--only_variants', action='store_true', help='only creates binary mutation table with mutations, without gene presence absence information, default=False')
+    
     parser_automatix.add_argument('--no_feature_importance_analysis', action='store_true',help='do not run feature importance analysis on ML step, default=False')
     parser_automatix.add_argument(
         '--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
     parser_automatix.add_argument(
-        '--threads', type=int, help='number of threads to use, default=1', default=1)
+        '--threads', type=int, help='number of threads to use, -1 for all available threads, default=1', default=1)
     parser_automatix.add_argument(
         '--ram', type=int, help='amount of ram to use in GB, default=8', default=8)
     parser_automatix.add_argument(
@@ -72,12 +71,16 @@ def main():
     parser_automatix.add_argument('--overwrite', action='store_true',
                                   help='overwrite the output and temp folder if exists, default=False')
     parser_automatix.add_argument('--ml_algorithm', nargs='+',
-                              help='classification algorithm to be used, available selections: [rf, svm, gb, histgb], default=[rf, svm, gb, histgb]', default=["rf", "svm", "gb", "histgb"])
+                              help='classification algorithm to be used, available selections: [rf, svm, gb, histgb, lr, xgb], default=[rf, svm, lr, xgb]', default=["rf", "svm", "lr", "xgb"])
     parser_automatix.add_argument('--no_ml', action='store_true', help='do not run machine learning analysis, default=False')
     parser_automatix.add_argument('--fast', action='store_true', help='fast mode, does not run PanACoTA pipeline for phylogenetic tree analysis, default=False')
     parser_automatix.add_argument('--checkpoint', action='store_true',
                                   help='continues run from the checkpoint, default=False')
-    parser_automatix.add_argument('--use_panaroo', action='store_true',help='use panaroo for gene presence absence analysis, WARNING: REQUIRES A LOT OF MEMORY, default=False')
+
+    parser_automatix.add_argument('--run_qc', action='store_true', help='run automated QC on input genomes, default=False')
+    parser_automatix.add_argument('--qc_length_threshold', type=float, help='fraction of median length allowed, default=0.1', default=0.1)
+    parser_automatix.add_argument('--qc_max_contigs', type=int, help='maximum allowed number of contigs, default=500', default=500)
+
     parser_automatix.add_argument('--no_datasail', action='store_true', help='splits data randomly instead of using genomic distances, default=False')
     parser_automatix.add_argument('--verbosity', type=int,
                                   help='verbosity level, default=1', default=1)
@@ -94,10 +97,21 @@ def main():
         '-o', '--output', type=str, help='path of the output folder', required=True)
     parser_main_pipeline.add_argument(
         '--reference', type=str, help='path of the reference file', required=True)
-    parser_main_pipeline.add_argument('--create_phenotype_from_folder', type=str,
-                                      help='create phenotype file from the folders that contains genomic files, folder path should be given with the option, default=None')
-    parser_main_pipeline.add_argument('--custom_database', type=str, nargs=2,
+    
+    parser_main_pipeline.add_argument('--create_phenotype_from_folder', action='store_true',
+                                      help='create phenotype file from the input folder that contains genomic files, default=True')
+    
+    parser_main_pipeline.add_argument('--variant_calling_tool', type=str, help='variant calling tool to use, available selections: [snippy], default=snippy', default="snippy")
+    parser_main_pipeline.add_argument('--annotation_tool', type=str, help='annotation tool to use, available selections: [prokka, bakta], default=prokka', default="prokka")
+    parser_main_pipeline.add_argument('--gene_presence_absence_analysis_tool', type=str, help='gene presence absence analysis tool to use, available selections: [cd-hit, panaroo], default=cd-hit', default="cd-hit")
+
+    parser_main_pipeline.add_argument('--prokka_custom_database', type=str, nargs=2,
                                       help='creates and uses custom database for prokka, require path of the fasta file and genus name, default=None')
+    
+    parser_main_pipeline.add_argument('--bakta_db', type=str, help='path to bakta database, if none given and bakta as annotation tool selected, will automatically download, default=None')
+
+    parser_main_pipeline.add_argument('--only_variants', action='store_true', help='only creates binary mutation table with mutations, without gene presence absence information, default=False')
+    
     parser_main_pipeline.add_argument(
         '--temp', type=str, help='path of the temporary directory, default=output_folder/temp')
     parser_main_pipeline.add_argument('--overwrite', action='store_true',
@@ -105,15 +119,14 @@ def main():
     parser_main_pipeline.add_argument(
         '--keep_temp_files', action='store_true', help='keep the temporary files, default=False')
     parser_main_pipeline.add_argument(
-        '--threads', type=int, help='number of threads to use, default=1', default=1)
+        '--threads', type=int, help='number of threads to use, -1 for all available threads, default=1', default=1)
     parser_main_pipeline.add_argument(
-        '--ram', type=int, help='amount of ram to use in GB, default=4', default=4)
-    parser_main_pipeline.add_argument('--no_gene_presence_absence', action='store_true',
-                                      help='do not run gene presence absence functions, default=False')
-    parser_main_pipeline.add_argument(
-        '--no_gene_annotation', action='store_true', help='do not run gene annotation, default=False')
-    parser_main_pipeline.add_argument(
-        '--use_panaroo', action='store_true', help='use panaroo for gene presence absence analysis, WARNING: REQUIRES A LOT OF MEMORY, default=False')
+        '--ram', type=int, help='amount of ram to use in GB, -1 for all available ram, default=4', default=4)
+    
+    parser_main_pipeline.add_argument('--run_qc', action='store_true', help='run automated QC on input genomes, default=False')
+    parser_main_pipeline.add_argument('--qc_length_threshold', type=float, help='fraction of median length allowed, default=0.1', default=0.1)
+    parser_main_pipeline.add_argument('--qc_max_contigs', type=int, help='maximum allowed number of contigs, default=500', default=500)
+    
     parser_main_pipeline.add_argument('--checkpoint', action='store_true',
                                       help='continues run from the checkpoint, default=False')
     parser_main_pipeline.add_argument('--verbosity', type=int,
@@ -172,7 +185,7 @@ def main():
     parser_panacota.add_argument('--overwrite', action='store_true',
                                  help='overwrite the output folder if exists, default=False')
     parser_panacota.add_argument(
-        '--threads', type=int, help='number of threads to use, default=1', default=1)
+        '--threads', type=int, help='number of threads to use, -1 for all available threads, default=1', default=1)
     parser_panacota.add_argument(
         '--name', type=str, help='name of the analysis, default=WIBI', default="WIBI")
     parser_panacota.add_argument(
@@ -223,7 +236,7 @@ def main():
     parser_gwas.add_argument('-t', '--tree', type=str,
                              help='phylogenetic tree path', required=True)
     parser_gwas.add_argument('--threads', type=int,
-                             help='number of threads to use, default=1', default=1)
+                             help='number of threads to use, -1 for all available threads, default=1', default=1)
     parser_gwas.add_argument('--overwrite', action='store_true',
                              help='overwrite the output folder if exists, default=False')
     parser_gwas.add_argument('--verbosity', type=int,
@@ -245,7 +258,7 @@ def main():
     parser_prps.add_argument('--overwrite', action='store_true',
                              help='overwrite the output and temp folder if exists, default=False')
     parser_prps.add_argument(
-        '--threads', type=int, help='number of threads to use, default=1', default=1)
+        '--threads', type=int, help='number of threads to use, -1 for all available threads, default=1', default=1)
     parser_prps.add_argument('--keep_temp_files', action='store_true',
                              help='keep the temporary files, default=False')
     parser_prps.add_argument('--verbosity', type=int,
@@ -287,7 +300,7 @@ def main():
     parser_ml.add_argument('--overwrite', action='store_true',
                            help='overwrite the output folder if exists, default=False')
     parser_ml.add_argument(
-        '--threads', type=int, help='number of threads to use, default=1', default=1)
+        '--threads', type=int, help='number of threads to use, -1 for all available threads, default=1', default=1)
     parser_ml.add_argument(
         '--ram', type=int, help='amount of ram to use in GB, default=4', default=4)
     parser_ml.add_argument(
@@ -335,7 +348,7 @@ def main():
     parser_ml.add_argument('--param_grid_low_memory_mode', action='store_true',
                            help='Only for XGB, if given, uses low memory mode for parameter grid search, if given memory is not 100 times more than datasize, will automatically activate, default=False')
     parser_ml.add_argument('--device', type=str,
-                           help='Only for XGB, device to use for training, available selections: [cpu, cuda], default=cpu', default="cpu")
+                           help='Only for XGB, device to use for training, available selections: [cpu, cuda], default=cuda', default="cuda")
     parser_ml.add_argument('--parameter_search_strategy', type=str,
                            help='parameter search strategy, available selections: [grid_search, random_search], default=grid_search', default="grid_search")
     parser_ml.add_argument('--parameter_search_n_iter', type=int,
@@ -394,7 +407,7 @@ def main():
         '--no_gene_annotation', action='store_true', help='do not run gene annotation, default=False')
     parser_prediction.add_argument('--use_panaroo', action='store_true', help='use panaroo for gene presence absence analysis, WARNING: REQUIRES A LOT OF MEMORY, default=False')
     parser_prediction.add_argument('--threads', type=int,
-                                   help='number of threads to use, default=1', default=1)
+                                   help='number of threads to use, -1 for all available threads, default=1', default=1)
     parser_prediction.add_argument('--ram', type=int, help='amount of ram to use in GB, default=4', default=4)
     parser_prediction.add_argument('--temp', type=str,
                                    help='path of the temporary directory, default=output_folder/temp')
@@ -416,22 +429,29 @@ def main():
         parser.print_help()
         sys.exit(1)
 
-
-def run_snippy_and_prokka(strain, random_names, snippy_output, prokka_output, args, snippy_flag, prokka_flag, custom_db=None):
+def run_variant_calling_and_annotation(strain, random_names, args):
     # if args.ram / args.threads < 8:
     #     print("Warning: Not enough ram for the processes. Minimum 8 GB of ram per thread is recommended.")
+    from sr_amr.binary_tables import snippy_runner, prokka_runner, bakta_runner
     
     # Snippy creates issue with high memory usage, so it is limited to 100 GB
+    snippy_ram = args.ram
     if args.ram > 100:
         #print(f"Warning: Due to restrictions of snippy, ram is limited to 100 GB for snippy run only.")
-        args.ram = 100
+        snippy_ram = 100
 
-    if snippy_flag:
-        snippy_runner(strain, random_names[os.path.splitext(strain.split("/")[-1].strip())[
-                      0]], snippy_output, args.reference, f"{args.temp}/snippy_log.txt", 1, args.ram)
-    if prokka_flag:
-        prokka_runner(strain, random_names[os.path.splitext(strain.split("/")[-1].strip())[
-                      0]], prokka_output, args.reference, f"{args.temp}/prokka_log.txt", 1, custom_db)
+    snippy_runner(strain, random_names[os.path.splitext(strain.split("/")[-1].strip())[
+                    0]], os.path.join(args.output, args.variant_calling_tool), args.reference, f"{args.temp}/snippy_log.txt", 1, snippy_ram, env_name=f"alpar-{args.variant_calling_tool}")
+    
+    if not args.only_variants:
+
+        if args.annotation_tool == "bakta":
+            bakta_runner(strain, random_names[os.path.splitext(strain.split("/")[-1].strip())[
+                        0]], os.path.join(args.output, args.annotation_tool), f"{args.temp}/bakta_log.txt", f"{args.temp}/bakta/", 1, args.bakta_db, env_name=f"alpar-{args.annotation_tool}")
+            
+        elif args.annotation_tool == "prokka":
+            prokka_runner(strain, random_names[os.path.splitext(strain.split("/")[-1].strip())[
+                        0]], os.path.join(args.output, args.annotation_tool), args.reference, f"{args.temp}/prokka_log.txt", 1, args.prokka_custom_database[1] if args.prokka_custom_database else None, env_name=f"alpar-{args.annotation_tool}")
 
 
 def binary_table_pipeline(args):
@@ -493,17 +513,12 @@ def binary_table_pipeline(args):
         print(f"Snakemake failed with return code {smk_process.returncode}")
 
 
+@conda_env_wrapper("alpar-panacota")
 def panacota_pipeline(args):
 
     start_time = time.time()
 
-    tool_list = ["PanACoTA"]
-
-    for tool in tool_list:
-        if not is_tool_installed(tool):
-            print(f"Error: {tool} is not installed.")
-            print("Please install the tool via `pip install panacota` and try again.")
-            sys.exit(1)
+    from sr_amr.panacota import panacota_pre_processor, panacota_pipeline_runner, panacota_post_processor
 
     temp_folder_created = False
 
@@ -552,7 +567,7 @@ def panacota_pipeline(args):
         print(f"Running PanACoTA pipeline with {args.threads} cores...")
 
         panacota_pipeline_runner(os.path.join(panacota_output, "panacota_input.lst"), panacota_temp, panacota_output, args.name, args.threads, panacota_log_file,
-                                type=args.data_type, min_seq_id=args.min_seq_id, mode=args.clustering_mode, core_genome_percentage=args.core_genome_percentage)
+                                type=args.data_type, min_seq_id=args.min_seq_id, mode=args.clustering_mode, core_genome_percentage=args.core_genome_percentage, env_name="alpar-panacota")
 
         print(f"Running PanACoTA pipeline post-precessor...")
 
@@ -575,9 +590,12 @@ def panacota_pipeline(args):
     print(time_function(start_time, end_time))
 
 
+@conda_env_wrapper("alpar-pyseer")
 def gwas_pipeline(args):
 
     start_time = time.time()
+
+    from sr_amr.gwas import pyseer_genotype_matrix_creator, pyseer_phenotype_file_creator, pyseer_similarity_matrix_creator, pyseer_runner, pyseer_post_processor, pyseer_gwas_graph_creator, decision_tree_input_creator
 
     # Sanity checks
 
@@ -626,10 +644,10 @@ def gwas_pipeline(args):
             args.phenotype, os.path.join(gwas_output, "pyseer_phenotypes"))
         # pyseer_similarity_matrix_creator(phylogenetic_tree, output_file):
         pyseer_similarity_matrix_creator(
-            args.tree, os.path.join(gwas_output, "similarity_matrix.tsv"))
+            args.tree, os.path.join(gwas_output, "similarity_matrix.tsv"), env_name="alpar-pyseer")
         # pyseer_runner(genotype_file_path, phenotype_file_path, similarity_matrix, output_file_directory, threads):
         pyseer_runner(os.path.join(gwas_output, "genotype_matrix.tsv"), os.path.join(gwas_output, "pyseer_phenotypes"),
-                    os.path.join(gwas_output, "similarity_matrix.tsv"), os.path.join(gwas_output, "gwas_results"), args.threads)
+                    os.path.join(gwas_output, "similarity_matrix.tsv"), os.path.join(gwas_output, "gwas_results"), args.threads, env_name="alpar-pyseer")
 
         if not os.path.exists(os.path.join(gwas_output, "sorted")):
             os.mkdir(os.path.join(gwas_output, "sorted"))
@@ -654,9 +672,12 @@ def gwas_pipeline(args):
     print(time_function(start_time, end_time))
 
 
+@conda_env_wrapper("alpar-prps")
 def prps_pipeline(args):
 
     start_time = time.time()
+
+    from sr_amr.prps import PRPS_runner, PRPS_runner_continuous, PRPS_binary_check
 
     # Sanity checks
 
@@ -693,7 +714,13 @@ def prps_pipeline(args):
     try:
         print("Running PRPS...")
 
-        PRPS_runner(args.tree, args.input, prps_output, prps_temp)
+        print("Checking if input file is binary or continuous...")
+        if PRPS_binary_check(args.input):
+            print("Input file is binary. Running PRPS for binary data...")
+            PRPS_runner(args.tree, args.input, prps_output, prps_temp, env_name="alpar-prps")
+        else:
+            print("Input file is continuous. Running PRPS for continuous data...")
+            PRPS_runner_continuous(args.tree, args.input, prps_output, prps_temp, env_name="alpar-prps")
 
         if not args.keep_temp_files:
             print("Removing temp folder...")
@@ -711,9 +738,181 @@ def prps_pipeline(args):
     print(time_function(start_time, end_time))
 
 
+def _run_datasail_pipeline(args):
+    """
+    Run DataSAIL pipeline for data splitting against information leakage.
+    Returns: tuple of (train_strains, test_strains, datasail_output)
+    Runs in the alpar-datasail conda environment via subprocess.
+    """
+    import json
+    
+    # First ensure the environment exists
+    from sr_amr.utils import ensure_conda_env
+    ensure_conda_env("alpar-datasail")
+    
+    train_strains = []
+    test_strains = []
+    
+    datasail_temp = os.path.join(args.temp, "datasail")
+    datasail_output = os.path.join(args.output, "datasail")
+
+    if os.path.exists(os.path.join(datasail_output, "splits.tsv")):
+        print("Warning: Split file already exists, it will be used for calculations. If you want to re-run the datasail, please remove the splits.tsv file from the output folder.")
+
+    if os.path.exists(os.path.join(datasail_output, args.antibiotic, "splits.tsv")):
+        print(f"Warning: Split file already exists at {os.path.join(datasail_output, args.antibiotic, 'splits.tsv')}, it will be used for calculations. If you want to re-run the datasail, please remove the splits.tsv file from the output folder.")
+        datasail_output = os.path.join(datasail_output, args.antibiotic)
+        
+    else:
+        # Check if output folder empty
+        if os.path.exists(datasail_output) and os.path.isdir(datasail_output):
+            if not args.overwrite:
+                print("Error: Datasail output folder is not empty. If you want to overwrite, please use the --overwrite flag.")
+                sys.exit(1)
+
+        # Create the temp folder
+        if not os.path.exists(datasail_temp):
+            os.mkdir(datasail_temp)
+
+        # Create the output folder
+        if not os.path.exists(datasail_output):
+            os.mkdir(datasail_output)
+
+        if os.path.exists(f"{os.path.abspath(os.path.dirname(args.sail))}/random_names.txt"):
+            random_names_dict = f"{os.path.abspath(os.path.dirname(args.sail))}/random_names.txt"
+            print(f"Using provided random names file at {random_names_dict}...")
+        else:
+            random_names_dict = None
+
+        if args.test_train_split:
+            train_test = [float(1-args.test_train_split),
+                          float(args.test_train_split)]
+        
+        if args.sail_distance_matrix:
+            print("Using provided distance matrix...")
+            distance_matrix = args.sail_distance_matrix
+        else:
+            print("Creating distance matrix...")
+
+            # Run datasail_pre_precessor in conda environment
+            cmd = [
+                "conda", "run", "-n", "alpar-datasail", "--no-capture-output",
+                "python", "-c",
+                f"""
+import sys
+sys.path.insert(0, '{os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}')
+from sr_amr.ds import datasail_pre_precessor
+datasail_pre_precessor(
+    '{args.sail}', 
+    '{datasail_temp}', 
+    {repr(random_names_dict)}, 
+    '{datasail_output}', 
+    {args.threads}, 
+    env_name='alpar-datasail'
+)
+"""
+            ]
+            
+            result = subprocess.run(cmd, capture_output=False)
+            if result.returncode != 0:
+                print("Error: Failed to run datasail_pre_precessor")
+                sys.exit(1)
+            
+            distance_matrix = os.path.join(datasail_output, "distance_matrix.tsv")
+
+            print(f"Distance matrix created: {distance_matrix}")
+        
+        print("Running datasail...")
+
+        if not args.sail_epsilon:
+            args.sail_epsilon = 0.1
+        if not args.sail_delta:
+            args.sail_delta = 0.1
+        if not args.sail_solver:
+            args.sail_solver = "SCIP"
+        if args.sail_max_time:
+            sail_max_time = args.sail_max_time
+        else:
+            sail_max_time = 600
+        if args.sail_stratify:
+            import pandas as pd
+            phenotype_df = pd.read_csv(f'{args.phenotype}', sep='\t', index_col=0)
+            phenotype_df_dict = phenotype_df.T.to_dict(orient='index')
+        else:
+            phenotype_df_dict = None
+        
+        # Run datasail_runner in conda environment
+        cmd = [
+            "conda", "run", "-n", "alpar-datasail", "--no-capture-output",
+            "python", "-c",
+            f"""
+import sys
+sys.path.insert(0, '{os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}')
+from sr_amr.ds import datasail_runner
+import json
+
+datasail_output_result = datasail_runner(
+    '{distance_matrix}', 
+    '{datasail_output}',
+    splits={repr([float(1-args.test_train_split), float(args.test_train_split)])}, 
+    cpus={args.threads}, 
+    epsilon={args.sail_epsilon}, 
+    delta={args.sail_delta}, 
+    solver='{args.sail_solver}', 
+    sail_max_time={sail_max_time}, 
+    df_dict={repr(phenotype_df_dict)}, 
+    antibiotic='{args.antibiotic}'
+)
+print(json.dumps({{'datasail_output': datasail_output_result}}))
+"""
+        ]
+        
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            print("Error: Failed to run datasail_runner")
+            print(result.stderr)
+            sys.exit(1)
+        
+        # Parse output to get datasail_output path
+        try:
+            output_data = json.loads(result.stdout.split('\n')[-2])
+            datasail_output = output_data['datasail_output']
+        except:
+            # If parsing fails, assume it's still the original path
+            pass
+
+        if not args.keep_temp_files:
+            print(f"Removing temp folder {datasail_temp}...")
+            temp_folder_remover(datasail_temp)
+
+        if not os.path.exists(os.path.join(datasail_output, "splits.tsv")):
+            print(
+                "Error: Splits file does not exist. Check the datasail output folder.")
+            sys.exit(1)
+
+    with open(os.path.join(datasail_output, "splits.tsv")) as splits_file:
+        lines = splits_file.readlines()
+        for line in lines:
+            splitted = line.split("\t")
+            if splitted[1].strip() == "train":
+                train_strains.append(splitted[0].strip())
+            elif splitted[1].strip() == "test":
+                test_strains.append(splitted[0].strip())
+    
+    return train_strains, test_strains, datasail_output
+
+
+
+@conda_env_wrapper("alpar-ml")
 def ml_pipeline(args):
 
     start_time = time.time()
+
+    if args.sail:
+        ensure_conda_env("alpar-datasail")
+
+    from sr_amr.ml import prps_ml_preprecessor, combined_ml
+    from sr_amr.ml_common_files import fia_file_annotation
 
     # Sanity checks
 
@@ -728,11 +927,7 @@ def ml_pipeline(args):
 
     ml_output = os.path.join(args.output, "ml")
     ml_temp = os.path.join(args.temp, "ml")
-    svm_output = os.path.join(ml_output, "svm")
-    rf_output = os.path.join(ml_output, "rf")
-    gb_output = os.path.join(ml_output, "gb")
-    hist_gb_output = os.path.join(ml_output, "hist_gb")
-    xgb_output = os.path.join(ml_output, "xgb")
+    algorithms_output = os.path.join(ml_output, args.ml_algorithm)
 
     # Check if output folder empty
     if os.path.exists(ml_output) and os.path.isdir(ml_output):
@@ -758,8 +953,6 @@ def ml_pipeline(args):
                 os.makedirs(ml_temp, exist_ok=True)
     else:
         os.makedirs(ml_temp, exist_ok=True)
-
-    accepted_ml_algorithms = ["rf", "svm", "gb", "histgb"]
 
     if args.ml_algorithm not in accepted_ml_algorithms:
         print("Error: ML algorithm is not accepted.")
@@ -831,98 +1024,14 @@ def ml_pipeline(args):
 
     train_strains = []
     test_strains = []
+    validation_strains = []
 
     if args.sail:
-
         if args.train_strains_file or args.test_strains_file:
             print("Error: If you want to use DataSAIL as data split, train and test strains files should not be provided.")
             sys.exit(1)
 
-        datasail_temp = os.path.join(args.temp, "datasail")
-        datasail_output = os.path.join(args.output, "datasail")
-
-        if os.path.exists(os.path.join(datasail_output, "splits.tsv")):
-            print("Warning: Split file already exists, it will be used for calculations. If you want to re-run the datasail, please remove the splits.tsv file from the output folder.")
-
-        if os.path.exists(os.path.join(datasail_output, args.antibiotic, "splits.tsv")):
-            print(f"Warning: Split file already exists at {os.path.join(datasail_output, args.antibiotic, 'splits.tsv')}, it will be used for calculations. If you want to re-run the datasail, please remove the splits.tsv file from the output folder.")
-            datasail_output = os.path.join(datasail_output, args.antibiotic)
-            
-        else:
-            # Check if output folder empty
-            if os.path.exists(datasail_output) and os.path.isdir(datasail_output):
-                if not args.overwrite:
-                    print("Error: Output folder is not empty.")
-                    sys.exit(1)
-
-            # Create the temp folder
-            if not os.path.exists(datasail_temp):
-                os.mkdir(datasail_temp)
-
-            # Create the output folder
-            if not os.path.exists(datasail_output):
-                os.mkdir(datasail_output)
-
-            if os.path.exists(f"{os.path.dirname(args.sail)}/random_names.txt"):
-                random_names_dict = f"{os.path.dirname(args.sail)}/random_names.txt"
-            else:
-                random_names_dict = None
-
-            if args.test_train_split:
-                train_test = [float(1-args.test_train_split),
-                              float(args.test_train_split)]
-            
-            if args.sail_distance_matrix:
-                print("Using provided distance matrix...")
-                distance_matrix = args.sail_distance_matrix
-            else:
-                print("Creating distance matrix...")
-
-                datasail_pre_precessor(
-                    args.sail, datasail_temp, random_names_dict, datasail_output, args.threads)
-                
-                distance_matrix = os.path.join(datasail_output, "distance_matrix.tsv")
-
-                print(f"Distance matrix created: {distance_matrix}")
-            
-            print("Running datasail...")
-
-            if not args.sail_epsilon:
-                args.sail_epsilon = 0.1
-            if not args.sail_delta:
-                args.sail_delta = 0.1
-            if not args.sail_solver:
-                args.sail_solver = "SCIP"
-            if args.sail_max_time:
-                sail_max_time = args.sail_max_time
-            else:
-                sail_max_time = 600
-            if args.sail_stratify:
-                phenotype_df = pd.read_csv(f'{args.phenotype}', sep='\t', index_col=0)
-                phenotype_df_dict = phenotype_df.T.to_dict(orient='index')
-            else:
-                phenotype_df_dict = None
-                
-            datasail_output = datasail_runner(distance_matrix, datasail_output,
-                            splits=train_test, cpus=args.threads, epsilon=args.sail_epsilon, delta=args.sail_delta, solver=args.sail_solver, sail_max_time=sail_max_time, df_dict=phenotype_df_dict, antibiotic=args.antibiotic)
-
-            if not args.keep_temp_files:
-                print(f"Removing temp folder {datasail_temp}...")
-                temp_folder_remover(datasail_temp)
-
-            if not os.path.exists(os.path.join(datasail_output, "splits.tsv")):
-                print(
-                    "Error: Splits file does not exist. Check the datasail output folder.")
-                sys.exit(1)
-
-        with open(os.path.join(datasail_output, "splits.tsv")) as splits_file:
-            lines = splits_file.readlines()
-            for line in lines:
-                splitted = line.split("\t")
-                if splitted[1].strip() == "train":
-                    train_strains.append(splitted[0].strip())
-                elif splitted[1].strip() == "test":
-                    test_strains.append(splitted[0].strip())
+        train_strains, test_strains, _ = _run_datasail_pipeline(args)
 
     if args.train_strains_file and args.test_strains_file:
         if os.path.exists(args.train_strains_file):
@@ -946,9 +1055,9 @@ def ml_pipeline(args):
         if args.validation_strains_file:
             if os.path.exists(args.validation_strains_file):
                 with open(args.validation_strains_file) as validation_file:
-                    validation_strains = validation_file.readlines()
-                    for validation_strain in validation_strains:
-                        validation_strains.append(validation_strain.strip())
+                    validation_strains_lines = validation_file.readlines()
+                    for validation_strain_line in validation_strains_lines:
+                        validation_strains.append(validation_strain_line.strip())
             else:
                 print("Error: Validation strains file does not exist.")
                 sys.exit(1)
@@ -978,112 +1087,32 @@ def ml_pipeline(args):
     else:
         stratiy_random_split = True
 
-    if args.ml_algorithm == "rf":
+    print("Running ML pipeline...")
 
-        if os.path.exists(rf_output):
-            if args.overwrite:
-                print("Warning: Output folder is not empty. Old files will be deleted.")
-                temp_folder_remover(rf_output)
-                os.makedirs(rf_output, exist_ok=True)
-            else:
-                print("Error: Output folder is not empty.")
-                print(
-                    "If you want to overwrite the output folder, use --overwrite option.")
-                sys.exit(1)
-        else:
-            os.makedirs(rf_output, exist_ok=True)
-
-        with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
-            with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
-
-                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, "rf", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, validation=validation_strains, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit, param_grid_size=args.param_grid_size, param_grid_low_memory_mode= args.param_grid_low_memory_mode, parameter_search_strategy=args.parameter_search_strategy, parameter_search_n_iter=args.parameter_search_n_iter) 
-
-    elif args.ml_algorithm == "svm":
-
-        if os.path.exists(svm_output):
-            if args.overwrite:
-                print("Warning: Output folder is not empty. Old files will be deleted.")
-                temp_folder_remover(svm_output)
-                os.makedirs(svm_output, exist_ok=True)
-            else:
-                print("Error: Output folder is not empty.")
-                print(
-                    "If you want to overwrite the output folder, use --overwrite option.")
-                sys.exit(1)
-        else:
-            os.makedirs(svm_output, exist_ok=True)
-
-        ml_log_name = f"seed_{args.random_state}_testsize_{args.test_train_split}_resampling_{args.resampling_strategy}_SVM"
-
-        with open(os.path.join(ml_output, f"{ml_log_name}_log_file.txt"), "w") as log_file:
-            with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
-                
-                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, "svm", args.feature_importance_analysis, args.save_model, resampling_strategy="cv", custom_scorer="MCC", fia_repeats=5, train=train_strains, test=test_strains, validation=validation_strain, stratify=stratiy_random_split, feature_importance_analysis_strategy="permutation_importance", important_feature_limit=args.important_feature_limit)
-
-    elif args.ml_algorithm == "gb":
-
-        if os.path.exists(gb_output):
-            if args.overwrite:
-                print("Warning: Output folder is not empty. Old files will be deleted.")
-                temp_folder_remover(gb_output)
-                os.makedirs(gb_output, exist_ok=True)
-            else:
-                print("Error: Output folder is not empty.")
-                print(
-                    "If you want to overwrite the output folder, use --overwrite option.")
-                sys.exit(1)
-        else:
-            os.makedirs(gb_output, exist_ok=True)
-
-        with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
-            with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
-
-                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, "gb", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, validation=validation_strain, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit) 
-
-    elif args.ml_algorithm == "xgb":
-
-        if os.path.exists(xgb_output):
-            if args.overwrite:
-                print("Warning: Output folder is not empty. Old files will be deleted.")
-                temp_folder_remover(xgb_output)
-                os.makedirs(xgb_output, exist_ok=True)
-            else:
-                print("Error: Output folder is not empty.")
-                print(
-                    "If you want to overwrite the output folder, use --overwrite option.")
-                sys.exit(1)
-        else:
-            os.makedirs(xgb_output, exist_ok=True)
-
-        with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
-            with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
-
-                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, "xgb", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, validation=validation_strains, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit, param_grid_size=args.param_grid_size, param_grid_low_memory_mode= args.param_grid_low_memory_mode, device=args.device, parameter_search_strategy=args.parameter_search_strategy, parameter_search_n_iter=args.parameter_search_n_iter) 
-
-    elif args.ml_algorithm == "histgb":
-
-        if os.path.exists(hist_gb_output):
-            if args.overwrite:
-                print("Warning: Output folder is not empty. Old files will be deleted.")
-                temp_folder_remover(hist_gb_output)
-                os.makedirs(hist_gb_output, exist_ok=True)
-            else:
-                print("Error: Output folder is not empty.")
-                print(
-                    "If you want to overwrite the output folder, use --overwrite option.")
-                sys.exit(1)
-        else:
-            os.makedirs(hist_gb_output, exist_ok=True)
-
-        #TODO
-        with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
-            with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file): 
-
-                if args.min_samples_leaf == 1:
-                    args.min_samples_leaf = 20
-
-                fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, "histgb", args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, validation=validation_strain, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit) 
-
+    with open(os.path.join(ml_output, "log_file.txt"), "w") as log_file:
+        with contextlib.redirect_stdout(log_file), contextlib.redirect_stderr(log_file):
+            with open(os.path.join(ml_output, "parameters.txt"), "w") as parameters_file:
+                parameters_file.write(f"ML algorithm: {args.ml_algorithm}\n")
+                parameters_file.write(f"Scoring method: {args.scoring}\n")
+                parameters_file.write(f"Test train split: {args.test_train_split}\n")
+                parameters_file.write(f"Random state: {args.random_state}\n")
+                parameters_file.write(f"Number of threads: {args.threads}\n")
+                parameters_file.write(f"Amount of ram: {args.ram}\n")
+                parameters_file.write(f"Feature importance analysis: {args.feature_importance_analysis}\n")
+                if args.feature_importance_analysis:
+                    parameters_file.write(f"Feature importance analysis strategy: {args.feature_importance_analysis_strategy}\n")
+                    parameters_file.write(f"Number of repeats for feature importance analysis: {args.feature_importance_analysis_number_of_repeats}\n")
+                if args.prps:
+                    parameters_file.write(f"PRPS output used for ML pre-precessor: {args.prps}\n")
+                    parameters_file.write(f"PRPS percentage used for ML pre-precessor: {PRPS_percentage}\n")
+                if args.sail:
+                    parameters_file.write(f"DataSAIL distance matrix used for data split: {args.sail_distance_matrix}\n")
+                    parameters_file.write(f"DataSAIL epsilon used for data split: {args.sail_epsilon}\n")
+                    parameters_file.write(f"DataSAIL delta used for data split: {args.sail_delta}\n")
+                    parameters_file.write(f"DataSAIL solver used for data split: {args.sail_solver}\n")
+                    parameters_file.write(f"DataSAIL max time used for data split: {args.sail_max_time}\n")
+                    parameters_file.write(f"DataSAIL stratify used for data split: {args.sail_stratify}\n")
+            fia_file = combined_ml(binary_mutation_table_path, args.phenotype, args.antibiotic, args.random_state, args.cv, args.test_train_split, ml_output, args.threads, ml_temp, args.ram, args.ml_algorithm, args.feature_importance_analysis, args.save_model, resampling_strategy=args.resampling_strategy, custom_scorer="MCC", fia_repeats=5, n_estimators=args.n_estimators, max_depth=args.max_depth, min_samples_leaf=args.min_samples_leaf, min_samples_split=args.min_samples_split, train=train_strains, test=test_strains, validation=validation_strains, stratify=stratiy_random_split, feature_importance_analysis_strategy=args.feature_importance_analysis_strategy, important_feature_limit=args.important_feature_limit, param_grid_size=args.param_grid_size, param_grid_low_memory_mode= args.param_grid_low_memory_mode, parameter_search_strategy=args.parameter_search_strategy, parameter_search_n_iter=args.parameter_search_n_iter, device=args.device) 
 
     if args.feature_importance_analysis:
         if args.annotation:
@@ -1118,6 +1147,8 @@ def ml_pipeline(args):
 def binary_table_threshold(args):
 
     start_time = time.time()
+
+    from sr_amr.binary_table_threshold import binary_table_threshold_with_percentage
 
     # Check the arguments
     if args.input is None:
@@ -1184,6 +1215,8 @@ def binary_table_threshold(args):
 def phenotype_table_pipeline(args):
 
     start_time = time.time()
+
+    from sr_amr.binary_tables import random_name_giver, phenotype_dataframe_creator
 
     # Sanity checks
 
@@ -1294,9 +1327,12 @@ def phenotype_table_pipeline(args):
     print(time_function(start_time, end_time))
 
 
+@conda_env_wrapper("alpar-mashtree")
 def phylogenetic_tree_pipeline(args):
 
     start_time = time.time()
+
+    from sr_amr.phylogeny_tree import mash_preprocessor, mash_distance_runner
 
     # Sanity checks
 
@@ -1340,7 +1376,7 @@ def phylogenetic_tree_pipeline(args):
     mash_preprocessor(args.input, mash_output,
                       mash_temp, args.random_names_dict)
 
-    mash_distance_runner(mash_output, mash_temp)
+    mash_distance_runner(mash_output, mash_temp, env_name="alpar-mashtree")
 
     print("Phylogenetic tree pipeline is finished, results can be found in the ", mash_output)
 
@@ -1357,12 +1393,7 @@ def fully_automated_pipeline(args):
 
     start_time = time.time()
 
-    tool_list = ["PanACoTA", "snippy", "prokka", "panaroo", "pyseer"]
-
-    for tool in tool_list:
-        if not is_tool_installed(tool):
-            print(f"Error: {tool} is not installed.")
-            sys.exit(1)
+    from sr_amr.full_automatix import automatix_runner
 
     # Sanity checks
 
@@ -1381,13 +1412,12 @@ def fully_automated_pipeline(args):
             print("Error: Output folder is not empty.")
             print("Please provide an empty output folder or use the --overwrite option.")
             sys.exit(1)
-    
+
     if args.ml_algorithm:
         for algorithm in args.ml_algorithm:
-            if algorithm not in ["rf", "svm", "gb", "histgb"]:
+            if algorithm not in accepted_ml_algorithms:
                 print("Error: ML algorithm is not accepted.")
                 sys.exit(1)
-
     automatix_runner(args)
 
     end_time = time.time()
@@ -1396,6 +1426,8 @@ def fully_automated_pipeline(args):
 
 
 def structman_pipeline(args):
+
+    from sr_amr.structman import structman_input_creator
 
     if args.input is None:
         print("Error: Input file or folder path is required.")
@@ -1435,6 +1467,22 @@ def prediction_pipeline(args):
 
     start_time = time.time()
 
+    ensure_conda_env("alpar-snippy")
+    if args.use_bakta:
+        ensure_conda_env("alpar-bakta")
+    else:
+        ensure_conda_env("alpar-prokka")
+
+    if not args.no_gene_presence_absence:
+        if args.use_panaroo:
+            ensure_conda_env("alpar-panaroo")
+        else:
+            ensure_conda_env("alpar-cd-hit")
+
+    from sr_amr.binary_tables import check_and_download_bakta_db, random_name_giver, prokka_create_database, snippy_processed_file_creator, binary_table_creator, annotation_file_from_snippy, panaroo_input_creator, panaroo_runner, binary_mutation_table_gpa_information_adder_panaroo, cdhit_preprocessor, cdhit_runner, gene_presence_absence_file_creator, binary_mutation_table_gpa_information_adder
+    from sr_amr.ml import prps_ml_preprecessor
+    from sr_amr.prediction import process_data_for_prediction, predict, equalize_columns
+
     if args.input is None and args.prediction_table is None:
         print("Error: Input file or folder path is required.")
         sys.exit(1)
@@ -1460,7 +1508,7 @@ def prediction_pipeline(args):
         os.mkdir(args.temp)
 
     snippy_flag = True
-    prokka_flag = True
+    gene_annotation_flag = True
     panaroo_flag = False
     gpa_flag = True
     prps_flag = False
@@ -1477,13 +1525,13 @@ def prediction_pipeline(args):
         panaroo_flag = False
         gpa_flag = False
     if args.no_gene_annotation:
-        prokka_flag = False
+        gene_annotation_flag = False
     if args.use_panaroo:
         panaroo_flag = True
 
     if args.verbosity > 3:
         print("Will run snippy: ", snippy_flag)
-        print("Will run prokka: ", prokka_flag)
+        print("Will run prokka: ", gene_annotation_flag)
         print("Will run panaroo: ", panaroo_flag)
         print("Will run gene presence absence: ", gpa_flag)
 
@@ -1492,22 +1540,25 @@ def prediction_pipeline(args):
         os.mkdir(args.output)
 
     if not os.path.exists(os.path.join(args.output, "snippy")):
-        os.mkdir(os.path.join(args.output, "snippy"))
-    if not os.path.exists(os.path.join(args.output, "prokka")):
-        os.mkdir(os.path.join(args.output, "prokka"))
-    if not os.path.exists(os.path.join(args.output, "panaroo")):
-        os.mkdir(os.path.join(args.output, "panaroo"))
+        os.makedirs(os.path.join(args.output, "snippy"), exist_ok=True)
+    if args.use_panaroo and not os.path.exists(os.path.join(args.output, "panaroo")):
+        os.makedirs(os.path.join(args.output, "panaroo"), exist_ok=True)
     if not os.path.exists(os.path.join(args.output, "cd-hit")):
-        os.mkdir(os.path.join(args.output, "cd-hit"))
+        os.makedirs(os.path.join(args.output, "cd-hit"), exist_ok=True)
+    if args.use_bakta and not os.path.exists(os.path.join(args.output, "bakta")):
+        os.makedirs(os.path.join(args.output, "bakta"), exist_ok=True)
+    if not args.use_bakta and not os.path.exists(os.path.join(args.output, "prokka")):
+        os.makedirs(os.path.join(args.output, "prokka"), exist_ok=True)
 
     snippy_output = os.path.join(args.output, "snippy")
     prokka_output = os.path.join(args.output, "prokka")
     panaroo_output = os.path.join(args.output, "panaroo")
+    bakta_output = os.path.join(args.output, "bakta")
     cd_hit_output = os.path.join(args.output, "cd-hit")
 
     # Create the temp folder for the panaroo input
-    if not os.path.exists(os.path.join(args.temp, "panaroo")):
-        os.mkdir(os.path.join(args.temp, "panaroo"))
+    if args.use_panaroo and not os.path.exists(os.path.join(args.temp, "panaroo")):
+        os.makedirs(os.path.join(args.temp, "panaroo"), exist_ok=True)
     # Create the temp folder for the cdhit input
     if not os.path.exists(os.path.join(args.temp, "cdhit")):
         os.mkdir(os.path.join(args.temp, "cdhit"))
@@ -1535,7 +1586,7 @@ def prediction_pipeline(args):
 
         print("Creating custom database...")
         prokka_create_database(
-            args.custom_database[0], args.custom_database[1], args.temp, args.threads, args.ram)
+            args.custom_database[0], args.custom_database[1], args.temp, args.threads, args.ram, env_name="alpar-cd-hit")
         print("Custom database created.")
 
     if args.input:
@@ -1589,15 +1640,17 @@ def prediction_pipeline(args):
 
         num_parallel_tasks = args.threads
 
-        params = [(strain, random_names, snippy_output, prokka_output,
-                   args, snippy_flag, prokka_flag) for strain in strain_list]
+        annotation_output_to_use = bakta_output if args.use_bakta else prokka_output
+
+        params = [(strain, random_names, snippy_output, annotation_output_to_use,
+                   args, snippy_flag, gene_annotation_flag) for strain in strain_list]
 
         if args.custom_database:
-            params = [(strain, random_names, snippy_output, prokka_output, args,
-                       snippy_flag, prokka_flag, args.custom_database[1]) for strain in strain_list]
+            params = [(strain, random_names, snippy_output, annotation_output_to_use, args,
+                       snippy_flag, gene_annotation_flag, args.custom_database[1]) for strain in strain_list]
 
-        with multiprocessing.Pool(num_parallel_tasks) as pool:
-            pool.starmap(run_snippy_and_prokka, params)
+        # with multiprocessing.Pool(num_parallel_tasks) as pool:
+        #     pool.starmap(run_snippy_and_prokka, params)
 
         strains_to_be_processed = []
 
@@ -1607,17 +1660,17 @@ def prediction_pipeline(args):
         strains_to_be_skiped = []
 
         for strain in random_names.keys():
-            if prokka_flag and snippy_flag:
+            if gene_annotation_flag and snippy_flag:
                 if random_names[strain] in prokka_output_strains and random_names[strain] in snippy_output_strains:
                     strains_to_be_processed.append(random_names[strain])
                 else:
                     strains_to_be_skiped.append(random_names[strain])
-            elif prokka_flag and not snippy_flag:
+            elif gene_annotation_flag and not snippy_flag:
                 if random_names[strain] in prokka_output_strains:
                     strains_to_be_processed.append(random_names[strain])
                 else:
                     strains_to_be_skiped.append(random_names[strain])
-            elif snippy_flag and not prokka_flag:
+            elif snippy_flag and not gene_annotation_flag:
                 if random_names[strain] in snippy_output_strains:
                     strains_to_be_processed.append(random_names[strain])
                 else:
@@ -1632,7 +1685,7 @@ def prediction_pipeline(args):
         print("Creating binary mutation table...")
         # Create the binary table
         binary_table_creator(snippy_output, os.path.join(
-            args.output, "binary_mutation_table.tsv"), args.threads, strains_to_be_processed)
+            args.output, "binary_mutation_table.tsv"), args.threads, strains_to_be_processed, args.temp)
 
         print("Creating annotation table...")
 
@@ -1648,7 +1701,7 @@ def prediction_pipeline(args):
                 print("Running panaroo...")
                 # Run panaroo
                 panaroo_runner(os.path.join(args.temp, "panaroo"), panaroo_output, os.path.join(
-                    args.temp, "panaroo_log.txt"), args.threads)
+                    args.temp, "panaroo_log.txt"), args.threads, env_name="alpar-panaroo")
 
                 print("Adding gene presence absence information to the binary table...")
                 # Add gene presence absence information to the binary table
@@ -1681,7 +1734,7 @@ def prediction_pipeline(args):
                 shutil.copy(os.path.join(args.temp, 'cdhit', 'protein_positions.csv'), os.path.join(args.output, 'cd-hit', 'protein_positions.csv'))
 
                 print(f"CD-HIT is running...")
-                cdhit_runner(os.path.join(args.temp, "cdhit", "combined_proteins.faa"), os.path.join(args.output, "cd-hit", "cdhit_output.txt"), n_cpu=args.threads)
+                cdhit_runner(os.path.join(args.temp, "cdhit", "combined_proteins.faa"), os.path.join(args.output, "cd-hit", "cdhit_output.txt"), n_cpu=args.threads, env_name="alpar-cd-hit")
 
                 print(f"Gene presence-absence matrix is being created...")
                 gene_presence_absence_file_creator(os.path.join(args.output, "cd-hit", "cdhit_output.txt.clstr"), strains_to_be_processed, os.path.join(args.temp, "cdhit"))
@@ -1778,3 +1831,4 @@ def prediction_pipeline(args):
 
 if __name__ == "__main__":
     main()
+

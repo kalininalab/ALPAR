@@ -2,12 +2,9 @@
 
 import os
 import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
 import math
 import pathlib
 import csv
-from sr_amr.ml import decision_tree
 import sys
 
 import warnings
@@ -123,10 +120,13 @@ def pyseer_individual_genotype_creator(pyseer_genotype_matrix, pyseer_phenotype_
 
 # This function creates a similarity matrix from a phylogenetic tree.
 # It runs a script with the phylogenetic tree as an argument and writes the output to a file.
-def pyseer_similarity_matrix_creator(phylogenetic_tree, output_file):
+def pyseer_similarity_matrix_creator(phylogenetic_tree, output_file, env_name=None):
 
     # Define the command to run the script
     script_command = f"python {PATH_OF_SCRIPT}/phylogeny_distance.py --lmm {phylogenetic_tree} > {output_file}"
+
+    if env_name:
+        script_command = f"conda run -n {env_name} --no-capture-output {script_command}"
 
     # Run the command
     os.system(script_command)
@@ -134,7 +134,7 @@ def pyseer_similarity_matrix_creator(phylogenetic_tree, output_file):
 # This function runs the pyseer tool for each phenotype in the phenotype file path.
 # It constructs a command to run pyseer with the appropriate arguments for each phenotype,
 # checks if the output directory exists and creates it if not, then runs the command.
-def pyseer_runner(genotype_file_path, phenotype_file_path, similarity_matrix, output_file_directory, threads):
+def pyseer_runner(genotype_file_path, phenotype_file_path, similarity_matrix, output_file_directory, threads, env_name=None):
 
     # Get a list of phenotypes
     phenotypes = os.listdir(f"{phenotype_file_path}")
@@ -144,6 +144,9 @@ def pyseer_runner(genotype_file_path, phenotype_file_path, similarity_matrix, ou
 
         # Construct the command to run pyseer
         script_command = f"pyseer --lmm --phenotypes {phenotype_file_path}/{phenotype} --pres {genotype_file_path} --similarity {similarity_matrix} --cpu {threads} > {output_file_directory}/{phenotype}.tsv"
+
+        if env_name:
+            script_command = f"conda run -n {env_name} --no-capture-output {script_command}"
 
         # If the output directory doesn't exist, create it
         if not os.path.exists(f"{output_file_directory}"):
@@ -210,6 +213,8 @@ def pyseer_plot_file_creator(input_file, output_file):
 
 
 def pyseer_gwas_graph_creator(pyseer_output_folder, output_folder):
+    import seaborn as sns
+    import matplotlib.pyplot as plt
 
     gwas_sorted_files = os.listdir(
         os.path.join(pyseer_output_folder, "sorted_cleaned"))
@@ -246,6 +251,7 @@ def pyseer_gwas_graph_creator(pyseer_output_folder, output_folder):
         os.remove(os.path.join(output_folder, f"{gwas_sorted_file[:-4]}.plot"))
 
 def decision_tree_input_creator(binary_table, phenotype_file_path, pyseer_output_folder, output_folder):
+    from sr_amr.ml import decision_tree
     
     gwas_sorted_files = os.listdir(
         os.path.join(pyseer_output_folder, "sorted_cleaned"))
@@ -316,3 +322,46 @@ def decision_tree_input_creator(binary_table, phenotype_file_path, pyseer_output
 
             os.makedirs(os.path.join(output_folder, 'decision_tree'), exist_ok=True)
             decision_tree(os.path.join(output_folder, 'gwas_top_results.tsv'), phenotype_file_path, gwas_sorted_file.split('.')[0], 42, 0.2, os.path.join(output_folder, 'decision_tree'))
+
+def compare_gwas_ml(pyseer_file, ml_feature_importance_file, output_file, top_n=50):
+    """
+    Compares GWAS (Pyseer) results with ML Feature Importance results.
+    """
+    # Load Pyseer results (assuming it has 'variant' and 'lrt-pvalue')
+    # Or 'Gene' and 'log10(p)' depending on the file
+    try:
+        gwas_df = pd.read_csv(pyseer_file, sep="\t")
+        # Identify p-value column (it varies in Pyseer)
+        p_col = None
+        for col in ['lrt-pvalue', 'p-value', 'filter-pvalue']:
+            if col in gwas_df.columns:
+                p_col = col
+                break
+        
+        if p_col:
+            gwas_df = gwas_df.sort_values(by=p_col).head(top_n)
+            gwas_features = set(gwas_df['variant' if 'variant' in gwas_df.columns else gwas_df.columns[0]])
+        else:
+            gwas_features = set()
+    except Exception as e:
+        print(f"Error reading GWAS file {pyseer_file}: {e}")
+        gwas_features = set()
+
+    # Load ML results
+    try:
+        ml_df = pd.read_csv(ml_feature_importance_file, sep="\t")
+        ml_df = ml_df.sort_values(by="Importance", ascending=False).head(top_n)
+        ml_features = set(ml_df['Feature'])
+    except Exception as e:
+        print(f"Error reading ML file {ml_feature_importance_file}: {e}")
+        ml_features = set()
+
+    common = gwas_features.intersection(ml_features)
+    
+    with open(output_file, 'w') as f:
+        f.write(f"Common features found in both GWAS and ML (Top {top_n}):\n")
+        for feature in common:
+            f.write(f"{feature}\n")
+        f.write(f"\nTotal common: {len(common)}\n")
+        
+    return common

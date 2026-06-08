@@ -1,0 +1,17 @@
+name: alpar-ml
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python>=3.12
+  - numpy
+  - pandas
+  - scikit-learn>=1.0
+  - seaborn
+  - matplotlib
+  - xgboost
+  - joblib
+  - pip:
+    - psutil
+    - tqdm
