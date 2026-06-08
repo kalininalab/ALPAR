@@ -682,4 +682,4 @@ rule create_binary_tables:
         rules.annotation_file_from_snippy.output,
         rules.cdhit_protein_positions.output,
         rules.panpa_build_index.output,
-    default_target: True
+    output: touch(TEMP_DIR / "create_binary_tables.done")

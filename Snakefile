@@ -52,7 +52,16 @@ ANTIBIOTICS = tuple(antibiotic.name for antibiotic in IN_DIR.iterdir())
 
 include: SNAKEFILES_DIR / "create_binary_tables.smk"
 include: SNAKEFILES_DIR / "phylogeny.smk"
+include: SNAKEFILES_DIR / "prps.smk"
 
+
+rule automatix:
+    input:
+        rules.create_binary_tables.output,
+        rules.phylogeny.output,
+        rules.prps.output,
+    output: touch(TEMP_DIR / "flags" / "automatix.done")
+    default_target: True
 
 # -----------------------
 # Save logs in temp directory

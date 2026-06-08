@@ -34,3 +34,7 @@ rule mashtree_runner:
             --outtree {output} \
             >> {log} 2>&1
         """
+
+rule phylogeny:
+    input: rules.mashtree_runner.output
+    output: touch(TEMP_DIR / "flags" / "phylogeny.done")
