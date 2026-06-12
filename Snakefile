@@ -26,7 +26,7 @@ BENCHMARKS_DIR = OUT_DIR / "benchmarks"
 
 if config_env := config.get("env_dir", None):
     # Use local environments from the specified path
-    ENVS_DIR = str(Path(config_env) / "{0}")
+    ENVS_DIR = str(Path(config_env) / "alpar-smk-{0}")
 else:
     # Download environments from files at snakefiles/envs
     ENVS_DIR = str(SNAKEFILES_DIR / "envs" / "alpar-smk-{0}.yaml")
