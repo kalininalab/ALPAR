@@ -136,9 +136,10 @@ def datasail_runner(distance_matrix, output_folder, splits=[0.8, 0.2], cpus=1, m
         splits, _, _ = datasail(
             techniques=["C1e"], splits=splits, names=["train", "test"], e_type="P", e_data=[(n, "a" * i) for i, n in enumerate(dm.columns)], e_dist=Path(distance_matrix), max_sec=max_time, threads=cpus, verbose="I", delta=delta, epsilon=epsilon, runs=1, solver=solver, linkage="average", e_clusters=50)   
     else:
-        splits, _, _ = datasail(techniques=["C1e"], splits=splits, names=["train", "test"], e_type="P", e_data=[(n, "a" * i) for i, n in enumerate(dm.columns)], e_dist=Path(distance_matrix), max_sec=max_time, threads=cpus, max_sol=10, verbose="I", delta=delta, epsilon=epsilon, runs=1, solver=solver, cache=False, linkage="average", e_strat=df_dict[antibiotic], e_clusters=100)
+        splits, _, _ = datasail(techniques=["C1e"], splits=splits, names=["train", "test"], e_type="P", e_data=[(n, "a" * i) for i, n in enumerate(dm.columns)], e_dist=Path(distance_matrix), max_sec=max_time, threads=cpus, verbose="I", delta=delta, epsilon=epsilon, runs=1, solver=solver, cache=False, linkage="average", e_strat=df_dict[antibiotic], e_clusters=100)
         
         output_folder = os.path.join(output_folder, antibiotic)
+    os.makedirs(output_folder, exist_ok=True)
 
     with open(f"{output_folder}/splits.tsv", "w") as ofile:
         for key in splits["C1e"][0]:
