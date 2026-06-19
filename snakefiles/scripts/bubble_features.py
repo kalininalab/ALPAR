@@ -33,7 +33,7 @@ class SnakemakeHandler(BaseModel):
     phenotype_table: FilePath = Field(
         description='Path to the phenotype table file.'
     )
-    log_file: Annotated[NewPath, BeforeValidator(force_new_file)] = Field(
+    log_file: FilePath | NewPath = Field(
         description='Path to file for dumping python logs.'
     )
     antibiotics: tuple[str, ...] = Field(
@@ -362,10 +362,13 @@ class Cohort(NamedTuple):
             )
         raise ValueError('Only comparisons between Cohort or Set types allowed.')
 
+    def __bool__(self) -> bool:
+        return bool(self.susceptible) or bool(self.resistant)
+
     def __iter__(self) -> Generator[str, None, None]:
         yield from self.susceptible
         yield from self.resistant
-    
+
     def __repr__(self) -> str:
         return f'Cohort[{self.antibiotic}](s={len(self.susceptible)},r={len(self.resistant)})'
 
@@ -404,6 +407,31 @@ def split_phenotypes(df: pl.DataFrame, antibiotic: str) -> Cohort:
 
 # Log-odds ratios
 
+def realized_paths(
+        dag: rx.PyDiGraph[GFASegment, GFALink],
+        source: int,
+        sink: int,
+        parent_cohort: Cohort
+) -> Generator[tuple[tuple[int, ...], Cohort], None, None]:
+    """Every source -> sink path that some strain in parent_cohort actually
+    walks, as (path, path_cohort). Branches no strain takes are pruned."""
+    path = [source]
+
+    def dfs(node: int, cohort: Cohort) -> Generator[tuple[tuple[int, ...], Cohort], None, None]:
+        if node == sink:
+            yield tuple(path), cohort
+            return
+        for succ in iter(dag.successor_indices(node)):
+            succ_cohort = cohort & dag.get_node_data(succ).strains
+            if not succ_cohort:
+                continue
+            path.append(succ)
+            yield from dfs(succ, succ_cohort)
+            path.pop()
+
+    root = parent_cohort & dag.get_node_data(source).strains
+    if root:
+        yield from dfs(source, root)
 
 def bubble_lor_is_significant(bubble_lor: dict[frozenset[str], float]) -> bool:
     if len(bubble_lor) < 2:
@@ -427,8 +455,7 @@ def write_bubble_lor(
         return
 
     path_lor = dict[frozenset[str], float]()
-    for path in rx.all_simple_paths(dag, bubble.dag_ends[0], bubble.dag_ends[1]):
-        path_cohort = parent_cohort
+    for path, path_cohort in realized_paths(dag, bubble.dag_ends[0], bubble.dag_ends[1], parent_cohort):
         susceptible_mult = 1
         resistance_mult = 1
 
@@ -600,5 +627,5 @@ if __name__ == '__main__':
     except NameError:
         handler = _parse_args()
     logger.remove()
-    logger.add(handler.log_file, backtrace=True, diagnose=True, enqueue=True)
+    logger.add(handler.log_file, backtrace=True, diagnose=True, enqueue=False)
     main(handler)
