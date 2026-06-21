@@ -53,6 +53,7 @@ ANTIBIOTICS = tuple(antibiotic.name for antibiotic in IN_DIR.iterdir())
 include: SNAKEFILES_DIR / "create_binary_tables.smk"
 include: SNAKEFILES_DIR / "phylogeny.smk"
 include: SNAKEFILES_DIR / "prps.smk"
+include: SNAKEFILES_DIR / "gwas.smk"
 
 
 rule automatix:
@@ -60,6 +61,7 @@ rule automatix:
         rules.create_binary_tables.output,
         rules.phylogeny.output,
         rules.prps.output,
+        rules.gwas.output,
     output: touch(TEMP_DIR / "flags" / "automatix.done")
     default_target: True
 

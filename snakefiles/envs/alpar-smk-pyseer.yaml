@@ -1,0 +1,7 @@
+name: alpar-smk-pyseer
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - pyseer=1.4.1
