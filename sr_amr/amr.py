@@ -395,15 +395,21 @@ def main():
                                    help='path of the ml model', required=True)
     parser_prediction.add_argument(
         '--reference', type=str, help='path of the reference file')
-    parser_prediction.add_argument('--custom_database', type=str, nargs=2,
-                                    help='creates and uses custom database for prokka, require path of the fasta file and genus name, default=None')
-    parser_prediction.add_argument('--no_gene_presence_absence', action='store_true',
-                                    help='do not run gene presence absence functions, default=False')
+    
+    parser_prediction.add_argument('--variant_calling_tool', type=str, help='variant calling tool to use, available selections: [snippy], default=snippy', default="snippy")
+    parser_prediction.add_argument('--annotation_tool', type=str, help='annotation tool to use, available selections: [prokka, bakta], default=prokka', default="prokka")
+    parser_prediction.add_argument('--gene_presence_absence_analysis_tool', type=str, help='gene presence absence analysis tool to use, available selections: [cd-hit, panaroo], default=cd-hit', default="cd-hit")
+
+    parser_prediction.add_argument('--prokka_custom_database', type=str, nargs=2,
+                                      help='creates and uses custom database for prokka, require path of the fasta file and genus name, default=None')
+    
+    parser_prediction.add_argument('--bakta_db', type=str, help='path to bakta database, if none given and bakta as annotation tool selected, will automatically download, default=None')
+
+    parser_prediction.add_argument('--only_variants', action='store_true', help='only creates binary mutation table with mutations, without gene presence absence information, default=False')
+    
     parser_prediction.add_argument('--prps', type=str, nargs=2,
                                     help='use prps scores, prps score table path and percentage should be given, percentage default value = 30, default = None, 30', default=[None, 30])
-    parser_prediction.add_argument(
-        '--no_gene_annotation', action='store_true', help='do not run gene annotation, default=False')
-    parser_prediction.add_argument('--use_panaroo', action='store_true', help='use panaroo for gene presence absence analysis, WARNING: REQUIRES A LOT OF MEMORY, default=False')
+
     parser_prediction.add_argument('--threads', type=int,
                                    help='number of threads to use, -1 for all available threads, default=1', default=1)
     parser_prediction.add_argument('--ram', type=int, help='amount of ram to use in GB, default=4', default=4)
@@ -1917,21 +1923,23 @@ def prediction_pipeline(args):
 
     start_time = time.time()
 
-    ensure_conda_env("alpar-snippy")
-    if args.use_bakta:
-        ensure_conda_env("alpar-bakta")
-    else:
-        ensure_conda_env("alpar-prokka")
-
-    if not args.no_gene_presence_absence:
-        if args.use_panaroo:
-            ensure_conda_env("alpar-panaroo")
-        else:
-            ensure_conda_env("alpar-cd-hit")
-
     from sr_amr.binary_tables import check_and_download_bakta_db, random_name_giver, prokka_create_database, snippy_processed_file_creator, binary_table_creator, annotation_file_from_snippy, panaroo_input_creator, panaroo_runner, binary_mutation_table_gpa_information_adder_panaroo, cdhit_preprocessor, cdhit_runner, gene_presence_absence_file_creator, binary_mutation_table_gpa_information_adder
     from sr_amr.ml import prps_ml_preprecessor
     from sr_amr.prediction import process_data_for_prediction, predict, equalize_columns
+
+    ensure_conda_env("alpar-snippy")
+    if args.annotation_tool == "bakta":
+        ensure_conda_env("alpar-bakta")
+        print("Checking Bakta database...")
+        args.bakta_db = check_and_download_bakta_db(args.bakta_db, f"{args.temp}/bakta_db_init.log")
+        if args.bakta_db is None:
+            print("Error: Could not find or download Bakta database. Exiting.")
+            sys.exit(1)
+    elif args.annotation_tool == "prokka":
+        ensure_conda_env("alpar-prokka")
+        
+    ensure_conda_env(args.gene_presence_absence_analysis_tool)
+
 
     if args.input is None and args.prediction_table is None:
         print("Error: Input file or folder path is required.")
@@ -1957,12 +1965,6 @@ def prediction_pipeline(args):
     if not os.path.exists(args.temp):
         os.mkdir(args.temp)
 
-    snippy_flag = True
-    gene_annotation_flag = True
-    panaroo_flag = False
-    gpa_flag = True
-    prps_flag = False
-
     if args.no_gene_presence_absence and args.use_panaroo:
         print("Error: Gene presence absence and Panaroo cannot be used together.")
         sys.exit(1)
@@ -1970,63 +1972,20 @@ def prediction_pipeline(args):
     if args.prps[0] is not None:
         prps_flag = True
             #args.prps[0] = os.path.join(args.output, "prps", "prps_scores.tsv")
+    
+    os.makedirs(os.path.join(args.output, args.variant_calling_tool))
+    os.makedirs(os.path.join(args.output, args.annotation_tool))
+    os.makedirs(os.path.join(args.output, args.gene_presence_absence_analysis_tool))
 
-    if args.no_gene_presence_absence:
-        panaroo_flag = False
-        gpa_flag = False
-    if args.no_gene_annotation:
-        gene_annotation_flag = False
-    if args.use_panaroo:
-        panaroo_flag = True
-
-    if args.verbosity > 3:
-        print("Will run snippy: ", snippy_flag)
-        print("Will run prokka: ", gene_annotation_flag)
-        print("Will run panaroo: ", panaroo_flag)
-        print("Will run gene presence absence: ", gpa_flag)
-
-    # Create the output folder
-    if not os.path.exists(args.output):
-        os.mkdir(args.output)
-
-    if not os.path.exists(os.path.join(args.output, "snippy")):
-        os.makedirs(os.path.join(args.output, "snippy"), exist_ok=True)
-    if args.use_panaroo and not os.path.exists(os.path.join(args.output, "panaroo")):
-        os.makedirs(os.path.join(args.output, "panaroo"), exist_ok=True)
-    if not os.path.exists(os.path.join(args.output, "cd-hit")):
-        os.makedirs(os.path.join(args.output, "cd-hit"), exist_ok=True)
-    if args.use_bakta and not os.path.exists(os.path.join(args.output, "bakta")):
-        os.makedirs(os.path.join(args.output, "bakta"), exist_ok=True)
-    if not args.use_bakta and not os.path.exists(os.path.join(args.output, "prokka")):
-        os.makedirs(os.path.join(args.output, "prokka"), exist_ok=True)
-
-    snippy_output = os.path.join(args.output, "snippy")
-    prokka_output = os.path.join(args.output, "prokka")
-    panaroo_output = os.path.join(args.output, "panaroo")
-    bakta_output = os.path.join(args.output, "bakta")
-    cd_hit_output = os.path.join(args.output, "cd-hit")
-
-    # Create the temp folder for the panaroo input
-    if args.use_panaroo and not os.path.exists(os.path.join(args.temp, "panaroo")):
-        os.makedirs(os.path.join(args.temp, "panaroo"), exist_ok=True)
-    # Create the temp folder for the cdhit input
-    if not os.path.exists(os.path.join(args.temp, "cdhit")):
-        os.mkdir(os.path.join(args.temp, "cdhit"))
-
-
-    if args.verbosity > 3:
-        print(f"Output folder created: {args.output}")
-        print(f"Snippy output folder created: {snippy_output}")
-        print(f"Prokka output folder created: {prokka_output}")
-        print(f"Panaroo output folder created: {panaroo_output}")
+    os.makedirs(os.path.join(args.temp, args.gene_presence_absence_analysis_tool))
 
     do_not_remove_temp = False
 
     if args.keep_temp_files:
         do_not_remove_temp = True
 
-    if args.custom_database and args.input:
-        if len(args.custom_database) != 2:
+    if args.prokka_custom_database and args.input:
+        if len(args.prokka_custom_database) != 2:
             print("Error: Custom database option should have two arguments.")
             sys.exit(1)
 
@@ -2036,10 +1995,13 @@ def prediction_pipeline(args):
 
         print("Creating custom database...")
         prokka_create_database(
-            args.custom_database[0], args.custom_database[1], args.temp, args.threads, args.ram, env_name="alpar-cd-hit")
+            args.custom_database[0], args.custom_database[1], args.temp, args.threads, args.ram, env_name="alpar-prokka")
         print("Custom database created.")
+    
+    if args.prediction_table:
+        binary_table_to_be_used = args.prediction_table
 
-    if args.input:
+    elif args.input:
 
         if args.reference is None:
             print("Error: Reference genome is required.")
@@ -2085,178 +2047,179 @@ def prediction_pipeline(args):
                         line.split("/")[-1].strip())[0])
                     strain_list.append(line.strip())
 
+        # Run snippy and annotation tool in parallel for each strain
+
         print(f"Number of strains to be processed: {len(strain_list)}")
-        print("Running snippy and prokka...")
+        print("Running variant calling and annotation...")
 
         num_parallel_tasks = args.threads
 
-        annotation_output_to_use = bakta_output if args.use_bakta else prokka_output
+        if args.ram / args.threads < 8 and args.annotation_tool == "bakta":
+            print("Warning: Not enough ram for the processes. Minimum 4 GB of ram per thread is recommended.")
+            print(f"Current ram per thread: {int(args.ram / args.threads)} GB")
+            print(f"Setting number of parallel tasks to {int(args.ram / 8)} to avoid memory issues.")
+            num_parallel_tasks = int(args.ram / 8)
 
-        params = [(strain, random_names, snippy_output, annotation_output_to_use,
-                   args, snippy_flag, gene_annotation_flag) for strain in strain_list]
+        params = [(strain, random_names, args) for strain in strain_list]
 
-        if args.custom_database:
-            params = [(strain, random_names, snippy_output, annotation_output_to_use, args,
-                       snippy_flag, gene_annotation_flag, args.custom_database[1]) for strain in strain_list]
-
-        # with multiprocessing.Pool(num_parallel_tasks) as pool:
-        #     pool.starmap(run_snippy_and_prokka, params)
+        with multiprocessing.Pool(num_parallel_tasks) as pool:
+            pool.starmap(run_variant_calling_and_annotation, params)
 
         strains_to_be_processed = []
 
-        prokka_output_strains = os.listdir(prokka_output)
-        snippy_output_strains = os.listdir(snippy_output)
+        variant_calling_output_strains = os.listdir(os.path.join(args.output, args.variant_calling_tool))
+        if not args.only_variants:
+            annotation_tool_output_strains = os.listdir(os.path.join(args.output, args.annotation_tool))
 
         strains_to_be_skiped = []
 
         for strain in random_names.keys():
-            if gene_annotation_flag and snippy_flag:
-                if random_names[strain] in prokka_output_strains and random_names[strain] in snippy_output_strains:
-                    strains_to_be_processed.append(random_names[strain])
+            if random_names[strain] in variant_calling_output_strains:
+                if not args.only_variants:
+                    if random_names[strain] in annotation_tool_output_strains:
+                        strains_to_be_processed.append(random_names[strain])
+                    else:
+                        print(f"Warning: {strain} is missing from annotation tool output, skipping this strain.")
+                        strains_to_be_skiped.append(random_names[strain])
                 else:
-                    strains_to_be_skiped.append(random_names[strain])
-            elif gene_annotation_flag and not snippy_flag:
-                if random_names[strain] in prokka_output_strains:
                     strains_to_be_processed.append(random_names[strain])
-                else:
-                    strains_to_be_skiped.append(random_names[strain])
-            elif snippy_flag and not gene_annotation_flag:
-                if random_names[strain] in snippy_output_strains:
-                    strains_to_be_processed.append(random_names[strain])
-                else:
-                    strains_to_be_skiped.append(random_names[strain])
+            else:
+                print(f"Warning: {strain} is missing from variant calling output, skipping this strain.")
+                strains_to_be_skiped.append(random_names[strain])
 
         print(f"Number of strains processed: {len(strains_to_be_processed)}")
         print(f"Number of strains skipped: {len(strains_to_be_skiped)}")
 
-        snippy_processed_file_creator(snippy_output, os.path.join(
+        snippy_processed_file_creator(os.path.join(args.output, args.variant_calling_tool), os.path.join(
             args.output, "snippy_processed_strains.txt"))
 
         print("Creating binary mutation table...")
         # Create the binary table
-        binary_table_creator(snippy_output, os.path.join(
+        binary_table_creator(os.path.join(args.output, args.variant_calling_tool), os.path.join(
             args.output, "binary_mutation_table.tsv"), args.threads, strains_to_be_processed, args.temp)
 
         print("Creating annotation table...")
 
-        annotation_file_from_snippy(snippy_output, args.output)
+        annotation_file_from_snippy(os.path.join(args.output, args.variant_calling_tool), args.output)
 
-        if panaroo_flag:
-            try:
-                print("Creating panaroo input...")
-                # Create the panaroo input
-                panaroo_input_creator(os.path.join(args.output, "random_names.txt"), prokka_output, os.path.join(
-                    args.temp, "panaroo"), strains_to_be_processed)
-
-                print("Running panaroo...")
-                # Run panaroo
-                panaroo_runner(os.path.join(args.temp, "panaroo"), panaroo_output, os.path.join(
-                    args.temp, "panaroo_log.txt"), args.threads, env_name="alpar-panaroo")
-
-                print("Adding gene presence absence information to the binary table...")
-                # Add gene presence absence information to the binary table
-
-                if not os.path.exists(os.path.join(panaroo_output, "gene_presence_absence.csv")):
-                    print("Warning: Gene presence absence file does not exist.")
-                    print(
-                        "Gene presence absence information will not be added to the binary table.")
-                    do_not_remove_temp = True
-
-                else:
-                    binary_mutation_table_gpa_information_adder_panaroo(os.path.join(args.output, "binary_mutation_table.tsv"), os.path.join(
-                        panaroo_output, "gene_presence_absence.csv"), os.path.join(args.output, "binary_mutation_table_with_gene_presence_absence.tsv"))
-                    do_not_remove_temp = False
-
-            except Exception as e:
-                print("Error: Panaroo could not be run.")
-                print(e)
-                do_not_remove_temp = True
-
-        if gpa_flag:
-
-            try: 
-
-                print("Creating gene presence absence input...")
-                # Create the gene presence absence information
-                print(f"CD-HIT preprecessor is running...")
-                cdhit_preprocessor(os.path.join(args.output, "random_names.txt"), prokka_output, os.path.join(args.temp, "cdhit"), strains_to_be_processed)
-
-                shutil.copy(os.path.join(args.temp, 'cdhit', 'protein_positions.csv'), os.path.join(args.output, 'cd-hit', 'protein_positions.csv'))
-
-                print(f"CD-HIT is running...")
-                cdhit_runner(os.path.join(args.temp, "cdhit", "combined_proteins.faa"), os.path.join(args.output, "cd-hit", "cdhit_output.txt"), n_cpu=args.threads, env_name="alpar-cd-hit")
-
-                print(f"Gene presence-absence matrix is being created...")
-                gene_presence_absence_file_creator(os.path.join(args.output, "cd-hit", "cdhit_output.txt.clstr"), strains_to_be_processed, os.path.join(args.temp, "cdhit"))
-
-                print("Adding gene presence absence information to the binary table...")
-                # Add gene presence absence information to the binary table
-
-                if not os.path.exists(os.path.join(args.temp, "cdhit", "gene_presence_absence_matrix.csv")):
-                    print("Warning: Gene presence absence file does not exist.")
-                    print(
-                        "Gene presence absence information will not be added to the binary table.")
-                    do_not_remove_temp = True
-                
-                else:
-                    binary_mutation_table_gpa_information_adder(os.path.join(args.output, "binary_mutation_table.tsv"), os.path.join(args.temp, "cdhit", "gene_presence_absence_matrix.csv"), os.path.join(args.output, "binary_mutation_table_with_gene_presence_absence.tsv"))
-                    do_not_remove_temp = False
-
-            except Exception as e:
-                print("Error: CD-HIT could not be run.")
-                print(e)
-                do_not_remove_temp = True
-
-        if panaroo_flag or gpa_flag:
-            if not os.path.exists(os.path.join(args.output, "binary_mutation_table_with_gene_presence_absence.tsv")):
-                print("Error: Gene presence absence information could not be added to the binary table.")
-                print("Please check the logs for more information.")
-                print("Using just mutations...")
-                binary_table_to_be_used = os.path.join(args.output, "binary_mutation_table.tsv")
+        if not args.only_variants:
             
-            else:
-                binary_table_to_be_used = os.path.join(args.output, "binary_mutation_table_with_gene_presence_absence.tsv")
-        else:
+            try:
+                print("Strains to be processed list is empty, checking file")
+                if os.path.exists(os.path.join(args.output, "snippy_processed_strains.txt")):
+                    with open(os.path.join(args.output, "snippy_processed_strains.txt"), "r") as infile:
+                        strains_to_be_processed = [line.strip() for line in infile.readlines()]
+                        print(f"Strains to be processed list is created from file, number of strains: {len(strains_to_be_processed)}")
+                else:
+                    print("Error: Strains to be processed list is empty and snippy_processed_strains.txt file does not exist.")
+                    print("Gene presence absence analysis will be skipped.")
+                    do_not_remove_temp = True
+                    strains_to_be_processed = []
+            except Exception as e:
+                print("Error: Could not create strains to be processed list.")
+                print(e)
+                print("Gene presence absence analysis will be skipped.")
+                do_not_remove_temp = True
+                strains_to_be_processed = []
+
+            os.makedirs(os.path.join(args.output, args.annotation_tool), exist_ok=True)
+
+            if args.annotation_tool == "bakta" and args.gene_presence_absence_analysis_tool == "panaroo":
+                    print("Warning: Panaroo is not fully compatible with Bakta annotations, automatically falling back to cd-hit for gene presence absence analysis instead. If you want to use panaroo, please use prokka for annotation.")
+                    print("For more information: https://github.com/gtonkinhill/panaroo/issues/373")
+                    args.gene_presence_absence_analysis_tool = "cd-hit"
+            
+            if args.gene_presence_absence_analysis_tool == "panaroo":
+
+                try:
+                    print("Creating panaroo input...")
+                    # Create the panaroo input
+                    panaroo_input_creator(os.path.join(args.output, "random_names.txt"), os.path.join(args.output, args.annotation_tool), os.path.join(
+                        args.temp, args.gene_presence_absence_analysis_tool), strains_to_be_processed)
+
+                    print("Running panaroo...")
+                    # Run panaroo
+                    panaroo_runner(os.path.join(args.temp, args.gene_presence_absence_analysis_tool), os.path.join(args.output, args.gene_presence_absence_analysis_tool), os.path.join(
+                        args.temp, "panaroo_log.txt"), args.threads, env_name=f"alpar-{args.gene_presence_absence_analysis_tool}")
+
+                    print("Adding gene presence absence information to the binary table...")
+                    # Add gene presence absence information to the binary table
+
+                    if not os.path.exists(os.path.join(os.path.join(args.output, args.gene_presence_absence_analysis_tool), "gene_presence_absence.csv")):
+                        print("Warning: Gene presence absence file does not exist.")
+                        print(
+                            "Gene presence absence information will not be added to the binary table.")
+                        do_not_remove_temp = True
+
+                    else:
+                        binary_mutation_table_gpa_information_adder_panaroo(os.path.join(args.output, "binary_mutation_table.tsv"), os.path.join(
+                            os.path.join(args.output, args.gene_presence_absence_analysis_tool), "gene_presence_absence.csv"), os.path.join(args.output, "binary_mutation_table_with_gene_presence_absence.tsv"))
+                        do_not_remove_temp = False
+
+                except Exception as e:
+                    print("Error: Panaroo could not be run.")
+                    print(e)
+                    do_not_remove_temp = True
+
+            if args.gene_presence_absence_analysis_tool == "cd-hit":
+
+                try: 
+                    print("Creating gene presence absence input...")
+                    # Create the gene presence absence information
+                    print(f"CD-HIT preprecessor is running...")
+                    cdhit_preprocessor(os.path.join(args.output, "random_names.txt"), os.path.join(args.output, args.annotation_tool), os.path.join(args.temp, args.gene_presence_absence_analysis_tool), strains_to_be_processed)
+
+                    shutil.copy(os.path.join(args.temp, args.gene_presence_absence_analysis_tool, 'protein_positions.csv'), os.path.join(args.output, args.gene_presence_absence_analysis_tool, 'protein_positions.csv'))
+
+                    print(f"CD-HIT is running...")
+                    cdhit_runner(os.path.join(args.temp, args.gene_presence_absence_analysis_tool, "combined_proteins.faa"), os.path.join(args.output, args.gene_presence_absence_analysis_tool, "cdhit_output.txt"), n_cpu=args.threads, env_name=f"alpar-{args.gene_presence_absence_analysis_tool}")
+
+                    print(f"Gene presence-absence matrix is being created...")
+                    gene_presence_absence_file_creator(os.path.join(args.output, args.gene_presence_absence_analysis_tool, "cdhit_output.txt.clstr"), strains_to_be_processed, os.path.join(args.temp, args.gene_presence_absence_analysis_tool))
+
+                    print("Adding gene presence absence information to the binary table...")
+                    # Add gene presence absence information to the binary table
+
+                    if not os.path.exists(os.path.join(args.temp, args.gene_presence_absence_analysis_tool, "gene_presence_absence_matrix.csv")):
+                        print("Warning: Gene presence absence file does not exist.")
+                        print(
+                            "Gene presence absence information will not be added to the binary table.")
+                        do_not_remove_temp = True
+                    
+                    else:
+                        binary_mutation_table_gpa_information_adder(os.path.join(args.output, "binary_mutation_table.tsv"), os.path.join(args.temp, args.gene_presence_absence_analysis_tool, "gene_presence_absence_matrix.csv"), os.path.join(args.output, "binary_mutation_table_with_gene_presence_absence.tsv"))
+                        do_not_remove_temp = False
+
+                except Exception as e:
+                    print("Error: CD-HIT could not be run.")
+                    print(e)
+                    do_not_remove_temp = True
+
+
+        ########################
+
+        if args.only_variants:
             binary_table_to_be_used = os.path.join(args.output, "binary_mutation_table.tsv")
-
-        print("Equalizing columns in the binary table...")
-
-        if prps_flag:
-            os.makedirs(os.path.join(args.temp, 'prps'), exist_ok=True)
-            prps_ml_preprecessor(args.model_binary_table, args.prps[0], args.prps[1], os.path.join(args.temp, "prps"))
-            equalize_columns(os.path.join(args.temp, 'prps', 'prps_filtered_table.tsv'), binary_table_to_be_used, os.path.join(
-                args.output, "equalized_binary_mutation_table.tsv"))
         else:
-            equalize_columns(args.model_binary_table, binary_table_to_be_used, os.path.join(
-                args.output, "equalized_binary_mutation_table.tsv"))
-        
-        print("Running prediction...")
-        
-        predict(args.model, os.path.join(args.output, "equalized_binary_mutation_table.tsv"), args.output)
+            binary_table_to_be_used = os.path.join(args.output, "binary_mutation_table_with_gene_presence_absence.tsv")
 
-        print(f"Prediction is finished. Results can be found in the {os.path.join(args.output, 'predictions.csv')}")
+    print("Equalizing columns in the binary table...")
 
-    if args.prediction_table:
-        prediction_table_to_be_used = args.prediction_table
+    if args.prps[0] is not None:
+        os.makedirs(os.path.join(args.temp, 'prps'), exist_ok=True)
+        prps_ml_preprecessor(args.model_binary_table, args.prps[0], args.prps[1], os.path.join(args.temp, "prps"))
+        equalize_columns(os.path.join(args.temp, 'prps', 'prps_filtered_table.tsv'), binary_table_to_be_used, os.path.join(
+            args.output, "equalized_binary_mutation_table.tsv"))
+    else:
+        equalize_columns(args.model_binary_table, binary_table_to_be_used, os.path.join(
+            args.output, "equalized_binary_mutation_table.tsv"))
+    
+    print("Running prediction...")
+    
+    predict(args.model, os.path.join(args.output, "equalized_binary_mutation_table.tsv"), args.output)
 
-        print("Equalizing columns in the binary table...")
-
-        if prps_flag:
-            os.makedirs(os.path.join(args.temp, 'prps'), exist_ok=True)
-            prps_ml_preprecessor(prediction_table_to_be_used, args.prps[0], args.prps[1], os.path.join(args.temp, 'prps'))
-            equalize_columns(os.path.join(args.temp, 'prps', 'prps_filtered_table.tsv'), prediction_table_to_be_used, os.path.join(
-                args.output, "equalized_binary_mutation_table.tsv"))
-
-        else:
-            equalize_columns(args.model_binary_table, prediction_table_to_be_used, os.path.join(
-                args.output, "equalized_binary_mutation_table.tsv"))
-        
-        print("Running prediction...")
-
-        predict(args.model, os.path.join(args.output, "equalized_binary_mutation_table.tsv"), args.output)
-
-        print(f"Prediction is finished. Results can be found in the {os.path.join(args.output, 'predictions.csv')}")
-
+    print(f"Prediction is finished. Results can be found in the {os.path.join(args.output, 'predictions.csv')}")
+ 
     if args.keep_temp_files:
         print("Warning, temp files will be kept this might take up space.")
 
