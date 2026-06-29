@@ -69,7 +69,25 @@ rule pyseer_runner:
             > {output} 2> {log}
         """
 
-rule pyseer_post_processor:
+rule pyseer_post_processor_sort:
+    input: rules.pyseer_runner.output,
+    output: TEMP_DIR / "gwas" / "pyseer_results_sorted" / "{antibiotic}.tsv"
+    benchmark: BENCHMARKS_DIR / "pyseer_post_processor_{antibiotic}.tsv"
+    log: LOGS_DIR / "gwas" / "pyseer_post_processor_{antibiotic}.log"
+    conda: ENVS_DIR.format("miller")
+    threads: 1
+    shell:
+        r"""
+        mlr --tsv \
+            sort -n lrt-pvalue \
+            {input} > {output} 2> {log}
+        
+        if [ ! -f {output} ]; then
+            head -1 {input} > {output}
+        fi
+        """
+
+rule pyseer_post_processor_clean:
     input: rules.pyseer_runner.output,
     output: TEMP_DIR / "gwas" / "pyseer_results_sorted_cleaned" / "{antibiotic}.tsv"
     benchmark: BENCHMARKS_DIR / "pyseer_post_processor_{antibiotic}.tsv"
@@ -79,15 +97,18 @@ rule pyseer_post_processor:
     shell:
         r"""
         mlr --tsv \
-            sort -n lrt-pvalue \
             then filter '$[NF] != "bad-chisq"' \
             {input} > {output} 2> {log}
+        
+        if [ ! -f {output} ]; then
+            head -1 {input} > {output}
+        fi
         """
 
 rule pyseer_gwas_graph_creator:
     input:
         gwas_results = rules.pyseer_runner.output[0],
-        gwas_postprocessed = rules.pyseer_post_processor.output[0],
+        gwas_postprocessed = rules.pyseer_post_processor_sort.output[0],
     output: TEMP_DIR / "gwas" / "graphs" / "{antibiotic}.jpg"
     log: LOGS_DIR / "gwas" / "pyseer_gwas_graph_creator_{antibiotic}.log"
     conda: ENVS_DIR.format("gwas")
@@ -100,7 +121,7 @@ rule decision_tree_input_creator:
         binary_table = rules.pyseer_genotype_matrix_creator.input[0],
         phenotype_file = rules.pyseer_phenotype_file_creator.input[0],
         pyseer_output_raw = rules.pyseer_runner.output[0],
-        pyseer_output_sorted_cleaned = rules.pyseer_post_processor.output[0],
+        pyseer_output_sorted_cleaned = rules.pyseer_post_processor_clean.output[0],
     output:
         tree_result = TEMP_DIR / "gwas" / "decision_tree" / "{antibiotic}_result.txt",
         tree_model = TEMP_DIR / "gwas" / "decision_tree" / "{antibiotic}_model.pkl",
