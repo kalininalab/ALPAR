@@ -30,10 +30,13 @@ class SnakemakeHandler(BaseModel):
 
 def pyseer_plot_file_creator(input_file) -> pd.DataFrame:
 
+    logger.info(f"Reading postprocessed GWAS file: {input_file}")
     with open(input_file) as infile:
         lines = infile.readlines()
+    logger.info(f"Loaded {len(lines)} total lines from postprocessed GWAS file")
 
     rows = []
+    parse_fallback_count = 0
     for line in lines[1:]:
         splitted = line.split("\t")
 
@@ -43,6 +46,7 @@ def pyseer_plot_file_creator(input_file) -> pd.DataFrame:
 
         except:
             mut_position = int(0)
+            parse_fallback_count += 1
 
         lrt_p_val = float(splitted[3].strip())
 
@@ -57,19 +61,40 @@ def pyseer_plot_file_creator(input_file) -> pd.DataFrame:
             "r^2": 0,
         })
 
+    if parse_fallback_count:
+        logger.warning(
+            f"Could not parse mutation position for {parse_fallback_count} rows; defaulted BP to 0"
+        )
+    logger.info(f"Prepared {len(rows)} rows for plotting")
+
     return pd.DataFrame(rows)
 
 @logger.catch
 def main(handler: SnakemakeHandler):
 
+    logger.info("Starting pyseer GWAS graph creation")
+    logger.debug(
+        f"Inputs - gwas_results: {handler.gwas_results}, "
+        f"gwas_postprocessed: {handler.gwas_postprocessed}, "
+        f"output_figure: {handler.output_figure}"
+    )
+
     df = pyseer_plot_file_creator(handler.gwas_postprocessed)
+    logger.info(f"Data frame created with {len(df)} records")
 
     with handler.gwas_results.open('r') as raw_gwas_file:
         lines = raw_gwas_file.readlines()
         threshold_denominator = len(lines) - 1
+    logger.info(
+        f"Bonferroni threshold denominator computed from GWAS results: {threshold_denominator}"
+    )
 
     bonferini_adjusted_threshold = 0.05 / threshold_denominator
     threshold = -(math.log(bonferini_adjusted_threshold))
+    logger.info(
+        f"Bonferroni-adjusted p-value threshold: {bonferini_adjusted_threshold:.6e}; "
+        f"-log(p) threshold: {threshold:.6f}"
+    )
 
     grid = sns.relplot(data=df, x='BP', y='log10(p)',
                         hue='log10(p)', palette='RdYlGn_r', aspect=1)
@@ -77,7 +102,14 @@ def main(handler: SnakemakeHandler):
     grid.ax.set_ylabel("-log10(p-value)")
     grid.ax.axhline(threshold, linestyle='--', linewidth='1')
 
+    logger.info(f"Saving figure to {handler.output_figure}")
     plt.savefig(handler.output_figure, dpi=1200)
+
+    if not handler.output_figure.exists():
+        logger.error(f"Output figure {handler.output_figure} was not created.")
+        handler.output_figure.touch()
+    else:
+        logger.success(f"Output figure successfully created: {handler.output_figure}")
 
 
 if __name__ == "__main__":
