@@ -3,6 +3,7 @@ import pickle
 import csv
 import numpy as np
 from sr_amr.ml import prps_ml_preprecessor
+from sr_amr.utils import conda_env_wrapper
 
 def process_data_for_prediction(input_path_or_file):
 
@@ -59,9 +60,9 @@ def equalize_columns(binary_table1, binary_table2, output_file):
         writer.writerow(headers1)
         for key, value in reordered_data2.items():
             writer.writerow([key] + [value[col] for col in headers1 if col not in ['Strain', '', 'strain', 'Strains', 'strains', ' ']])
-
-
-def predict(trained_model, prediction_df, output_dir):
+            
+@conda_env_wrapper("alpar-ml")
+def predict(trained_model, prediction_df, output_dir, model_name=None):
 
     prediction_dict = {}
 
@@ -87,9 +88,11 @@ def predict(trained_model, prediction_df, output_dir):
         prediction_dict[idx] = prediction
 
     # Write the predictions to a file
-    with open(os.path.join(output_dir, "predictions.csv"), "w") as outfile:
+
+    output_file_name = "predictions"
+    if model_name:
+        output_file_name = f"{model_name}"
+
+    with open(os.path.join(output_dir, f"{output_file_name}.csv"), "w") as outfile:
         for key in prediction_dict.keys():
             outfile.write(f"{key}\t{prediction_dict[key]}\n")
-
-# Example usage
-# predict('path_to_trained_model.pkl', 'path_to_prediction_df.tsv', 'output_directory')

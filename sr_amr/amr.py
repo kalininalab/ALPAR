@@ -391,8 +391,10 @@ def main():
     parser_prediction.add_argument('-b', '--model_binary_table', type=str, help='binary mutation table path that is used to create model', required=True)
     parser_prediction.add_argument('-o', '--output', type=str,
                                    help='path of the output folder', required=True)
-    parser_prediction.add_argument('--model', type=str,
-                                   help='path of the ml model', required=True)
+    parser_prediction.add_argument('--model', type=str, nargs='+',
+                                   help='path(s) of the ml model(s)', required=True)
+    parser_prediction.add_argument('--model_names', type=str, nargs='+',
+                                   help='name(s) of the ml model(s), should be given in the same order as --model option', required=True)
     parser_prediction.add_argument(
         '--reference', type=str, help='path of the reference file')
     
@@ -769,7 +771,7 @@ def binary_table_pipeline(args):
         num_parallel_tasks = args.threads
 
         if args.ram / args.threads < 8 and args.annotation_tool == "bakta":
-            print("Warning: Not enough ram for the processes. Minimum 4 GB of ram per thread is recommended.")
+            print("Warning: Not enough ram for the processes. Minimum 8 GB of ram per thread is recommended.")
             print(f"Current ram per thread: {int(args.ram / args.threads)} GB")
             print(f"Setting number of parallel tasks to {int(args.ram / 8)} to avoid memory issues.")
             num_parallel_tasks = int(args.ram / 8)
@@ -1919,6 +1921,7 @@ def structman_pipeline(args):
 
     structman_input_creator(args)
 
+
 def prediction_pipeline(args):
 
     start_time = time.time()
@@ -1965,19 +1968,16 @@ def prediction_pipeline(args):
     if not os.path.exists(args.temp):
         os.mkdir(args.temp)
 
-    if args.no_gene_presence_absence and args.use_panaroo:
-        print("Error: Gene presence absence and Panaroo cannot be used together.")
-        sys.exit(1)
-
     if args.prps[0] is not None:
         prps_flag = True
             #args.prps[0] = os.path.join(args.output, "prps", "prps_scores.tsv")
     
-    os.makedirs(os.path.join(args.output, args.variant_calling_tool))
-    os.makedirs(os.path.join(args.output, args.annotation_tool))
-    os.makedirs(os.path.join(args.output, args.gene_presence_absence_analysis_tool))
+    os.makedirs(os.path.join(args.output, args.variant_calling_tool), exist_ok=True)
+    os.makedirs(os.path.join(args.output, args.annotation_tool), exist_ok=True)
+    os.makedirs(os.path.join(args.output, args.gene_presence_absence_analysis_tool), exist_ok=True)
 
-    os.makedirs(os.path.join(args.temp, args.gene_presence_absence_analysis_tool))
+    os.makedirs(os.path.join(args.temp, args.gene_presence_absence_analysis_tool), exist_ok=True)
+    os.makedirs(os.path.join(args.temp, args.annotation_tool), exist_ok=True)
 
     do_not_remove_temp = False
 
@@ -2015,6 +2015,7 @@ def prediction_pipeline(args):
                 strain_path = os.path.join(args.input, strain)
                 strain_path = os.path.abspath(strain_path)
                 strain_path = strain_path.replace("\\", "/")
+                strain_path = strain_path.rstrip('/')
                 outfile.write(f"{strain_path}\n")
 
         input_file = os.path.join(args.output, "strains.txt")
@@ -2055,7 +2056,7 @@ def prediction_pipeline(args):
         num_parallel_tasks = args.threads
 
         if args.ram / args.threads < 8 and args.annotation_tool == "bakta":
-            print("Warning: Not enough ram for the processes. Minimum 4 GB of ram per thread is recommended.")
+            print("Warning: Not enough ram for the processes. Minimum 8 GB of ram per thread is recommended.")
             print(f"Current ram per thread: {int(args.ram / args.threads)} GB")
             print(f"Setting number of parallel tasks to {int(args.ram / 8)} to avoid memory issues.")
             num_parallel_tasks = int(args.ram / 8)
@@ -2215,8 +2216,15 @@ def prediction_pipeline(args):
             args.output, "equalized_binary_mutation_table.tsv"))
     
     print("Running prediction...")
-    
-    predict(args.model, os.path.join(args.output, "equalized_binary_mutation_table.tsv"), args.output)
+
+    for model in args.model:
+        if args.model_names:
+            model_name = args.model_names[args.model.index(model)]
+        else:
+            model_name = os.path.splitext(os.path.basename(model))[0]
+        print(f"Running prediction for model: {model}")
+        os.makedirs(os.path.join(args.output, "predictions"), exist_ok=True)
+        predict(model, os.path.join(args.output, "equalized_binary_mutation_table.tsv"), os.path.join(args.output, "predictions"), model_name=model_name)
 
     print(f"Prediction is finished. Results can be found in the {os.path.join(args.output, 'predictions.csv')}")
  
