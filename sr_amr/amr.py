@@ -1938,7 +1938,7 @@ def prediction_pipeline(args):
     elif args.annotation_tool == "prokka":
         ensure_conda_env("alpar-prokka")
         
-    ensure_conda_env(args.gene_presence_absence_analysis_tool)
+    ensure_conda_env(f"alpar-{args.gene_presence_absence_analysis_tool}")
 
 
     if args.input is None and args.prediction_table is None:

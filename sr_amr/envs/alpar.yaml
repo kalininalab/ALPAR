@@ -9,7 +9,7 @@ dependencies:
   - python>=3.12
   - pandas
   - numpy
-  - alpar>=1.3.9
+  - alpar>=1.3.10
   - pip
   - pip:
     - psutil
