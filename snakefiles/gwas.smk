@@ -87,24 +87,6 @@ rule pyseer_post_processor_sort:
         fi
         """
 
-rule pyseer_post_processor_sort:
-    input: rules.pyseer_runner.output,
-    output: TEMP_DIR / "gwas" / "pyseer_results_sorted" / "{antibiotic}.tsv"
-    benchmark: BENCHMARKS_DIR / "pyseer_post_processor_sort_{antibiotic}.tsv"
-    log: LOGS_DIR / "gwas" / "pyseer_post_processor_sort_{antibiotic}.log"
-    conda: ENVS_DIR.format("miller")
-    threads: 1
-    shell:
-        r"""
-        mlr --tsv \
-            sort -n lrt-pvalue \
-            {input} > {output} 2> {log}
-        
-        if [ ! -f {output} ]; then
-            head -1 {input} > {output}
-        fi
-        """
-
 rule pyseer_post_processor_clean:
     input: rules.pyseer_post_processor_sort.output,
     output: TEMP_DIR / "gwas" / "pyseer_results_sorted_cleaned" / "{antibiotic}.tsv"
