@@ -81,10 +81,6 @@ rule pyseer_post_processor_sort:
         mlr --tsv \
             sort -n lrt-pvalue \
             {input} > {output} 2> {log}
-        
-        if [ ! -f {output} ]; then
-            head -1 {input} > {output}
-        fi
         """
 
 rule pyseer_post_processor_clean:
@@ -100,7 +96,8 @@ rule pyseer_post_processor_clean:
             then filter '$[NF] != "bad-chisq"' \
             {input} > {output} 2> {log}
         
-        if [ ! -f {output} ]; then
+        if [ $(wc -l < {output}) -eq 0 ]; then
+            echo "No valid results after cleaning {input}" >> {log}
             head -1 {input} > {output}
         fi
         """
