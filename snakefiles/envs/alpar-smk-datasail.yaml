@@ -1,0 +1,10 @@
+name: alpar-smk-datasail
+channels:
+  - conda-forge
+  - defaults
+  - bioconda
+  - kalininalab
+dependencies:
+  - datasail=1.3.0
+  - grakel=0.1.10
+  - mash=2.3
