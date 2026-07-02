@@ -87,7 +87,7 @@ rule pyseer_post_processor_sort:
         fi
         """
 
-rule pyseer_post_processor_clean:
+rule pyseer_post_processor_sort:
     input: rules.pyseer_runner.output,
     output: TEMP_DIR / "gwas" / "pyseer_results_sorted" / "{antibiotic}.tsv"
     benchmark: BENCHMARKS_DIR / "pyseer_post_processor_sort_{antibiotic}.tsv"
@@ -106,7 +106,7 @@ rule pyseer_post_processor_clean:
         """
 
 rule pyseer_post_processor_clean:
-    input: rules.pyseer_runner.output,
+    input: rules.pyseer_post_processor_sort.output,
     output: TEMP_DIR / "gwas" / "pyseer_results_sorted_cleaned" / "{antibiotic}.tsv"
     benchmark: BENCHMARKS_DIR / "pyseer_post_processor_clean_{antibiotic}.tsv"
     log: LOGS_DIR / "gwas" / "pyseer_post_processor_clean_{antibiotic}.log"
