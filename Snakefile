@@ -54,6 +54,8 @@ include: SNAKEFILES_DIR / "create_binary_tables.smk"
 include: SNAKEFILES_DIR / "phylogeny.smk"
 include: SNAKEFILES_DIR / "prps.smk"
 include: SNAKEFILES_DIR / "gwas.smk"
+include: SNAKEFILES_DIR / "datasail.smk"
+include: SNAKEFILES_DIR / "ml.smk"
 
 
 rule automatix:
