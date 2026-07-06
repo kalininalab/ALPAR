@@ -145,4 +145,14 @@ def datasail_runner(distance_matrix, output_folder, splits=[0.8, 0.2], cpus=1, m
         for key in splits["C1e"][0]:
             ofile.write(f"{key}\t{splits['C1e'][0][key]}\n")
 
+    with open(f"{output_folder}/train.tsv", "w") as ofile:
+        for key in splits["C1e"][0]:
+            if splits['C1e'][0][key] == "train":
+                ofile.write(f"{key}\n")
+
+    with open(f"{output_folder}/test.tsv", "w") as ofile:
+        for key in splits["C1e"][0]:
+            if splits['C1e'][0][key] == "test":
+                ofile.write(f"{key}\n")
+
     return output_folder
