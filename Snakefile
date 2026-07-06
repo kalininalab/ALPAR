@@ -64,6 +64,7 @@ rule automatix:
         rules.phylogeny.output,
         rules.prps.output,
         rules.gwas.output,
+        rules.datasail.output,
     output: touch(TEMP_DIR / "flags" / "automatix.done")
     default_target: True
 

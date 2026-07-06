@@ -1,0 +1,106 @@
+from contextlib import suppress
+from typing import Annotated, Literal
+
+import pandas as pd
+import datasail.settings
+import datasail.sail
+from loguru import logger
+from pydantic import BaseModel, Field, FilePath, NewPath, BeforeValidator, PositiveInt
+
+with suppress(ImportError):
+    from snakemake.script import snakemake
+
+from scripts._commons import force_new_file
+
+
+class SnakemakeHandler(BaseModel):
+    distance_matrix: FilePath = Field(
+        description="Path to the distance matrix file."
+    )
+    phenotype_dataframe: FilePath = Field(
+        description="Path to the phenotype dataframe file."
+    )
+    output_file: NewPath = Field(
+        description="Path to file."
+    )
+    log_file: Annotated[NewPath, BeforeValidator(force_new_file)] = Field(
+        description="Path to file for dumping python logs."
+    )
+    threads: PositiveInt = Field(
+        description="Number of threads to use for the datasail algorithm."
+    )
+    antibiotic: str = Field(
+        description="Antibiotic to run the datasail algorithm on."
+    )
+    techniques: str = "C1e"
+    splits: list = [0.8, 0.2]
+    names: list = ["train", "test"]
+    e_type: str = "P"
+    max_sec: int = 600
+    verbose: str = "I"
+    delta: float = 0.1
+    epsilon: float = 0.1
+    runs: int = 1
+    solver: str = "SCIP"
+    linkage: Literal['average', 'single', 'complete'] = "average"
+    e_clusters: int = 50
+
+@logger.catch
+def main(handler: SnakemakeHandler):
+    
+    phenotype_df = pd.read_csv(f'{handler.phenotype_dataframe}', sep='\t', index_col=0)
+    phenotype_df_dict = phenotype_df.T.to_dict(orient='index')
+    
+    dm = pd.read_csv(handler.distance_matrix, sep="\t", index_col=0, header=0)
+
+    splits, _, _ = datasail.sail.datasail(
+        techniques=[handler.techniques],
+        splits=handler.splits,
+        names=handler.names,
+        e_type=handler.e_type,
+        e_data=((n, "a" * i) for i, n in enumerate(dm.columns)),
+        e_dist=handler.distance_matrix,
+        max_sec=handler.max_sec,
+        threads=handler.threads,
+        verbose=handler.verbose,
+        delta=handler.delta,
+        epsilon=handler.epsilon,
+        runs=handler.runs,
+        solver=handler.solver,
+        cache=False,
+        linkage=handler.linkage,
+        e_strat=phenotype_df_dict[handler.antibiotic],
+        e_clusters=handler.e_clusters
+    )
+
+    with handler.output_file.open('w') as ofile:
+        for key in splits[handler.techniques][0]:
+            ofile.write(f"{key}\t{splits[handler.techniques][0][key]}\n")
+
+
+
+if __name__ == "__main__":
+    handler = SnakemakeHandler(
+        distance_matrix=snakemake.input['distance_matrix'],
+        phenotype_dataframe=snakemake.input['phenotype_dataframe'],
+        output_file=snakemake.output[0],
+        log_file=snakemake.log[0],
+        antibiotic=snakemake.wildcards['antibiotic'],
+        threads=snakemake.threads,
+        techniques=snakemake.params['techniques'],
+        splits=snakemake.params['splits'],
+        names=snakemake.params['names'],
+        e_type=snakemake.params['e_type'],
+        max_sec=snakemake.params['max_sec'],
+        verbose=snakemake.params['verbose'],
+        delta=snakemake.params['delta'],
+        epsilon=snakemake.params['epsilon'],
+        runs=snakemake.params['runs'],
+        solver=snakemake.params['solver'],
+        linkage=snakemake.params['linkage'],
+        e_clusters=snakemake.params['e_clusters'],
+    )
+    logger.remove()
+    logger.add(handler.log_file, backtrace=True, diagnose=True, enqueue=True)
+    datasail.settings.LOGGER = logger
+    main(handler)
