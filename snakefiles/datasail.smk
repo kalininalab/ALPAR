@@ -57,47 +57,6 @@ rule datasail_pre_processor:
             {input} > {output} 2> {log}
         """
 
-rule make_e_data:
-    """
-    Build the placeholder --e-data file DataSAIL needs for e_type=P.
-    Uses each entity's own ID as its "sequence" so every value is
-    unique (identical placeholders would get silently merged by
-    DataSAIL's duplicate-detection). Depends only on the distance
-    matrix, so it's shared by every downstream split rule.
-    """
-    input: rules.datasail_pre_processor.output,
-    output: TEMP_DIR / "datasail" / "e_data.tsv",
-    log: LOGS_DIR / "make_e_data.log",
-    benchmark: BENCHMARKS_DIR / "make_e_data.tsv",
-    threads: 1,
-    shell: # Here you must update the shell command, feel free to use miller also
-        r"""
-        awk -F'\t' 'BEGIN{{OFS="\t"; print "ID","seq"}}
-                    NR==1{{for(i=2;i<=NF;i++) print $i,$i}}' \
-            {input} > {output} 2> {log}
-        """
-
-rule make_e_strat:
-    input: rules.phenotype_dataframe_creator.output,
-    output: TEMP_DIR / "datasail" / "strat_{antibiotic}.tsv",
-    log: LOGS_DIR / "make_strat_{antibiotic}.log",
-    threads: 1,
-    shell:
-        r"""
-        awk -F'\t' -v ab="{wildcards.antibiotic}" '
-            NR==1 {{
-                for (i=2; i<=NF; i++) if ($i==ab) col=i;
-                if (!col) {{ print "antibiotic "ab" not found" > "/dev/stderr"; exit 1 }}
-                print "strain\tclass"; next
-            }}
-            {{
-                v=$col
-                if (v=="" || v=="NA" || v=="nan") next   # drop samples with no phenotype
-                print $1"\tc"v                            # -> "c0"/"c1": read as str, correct branch
-            }}' {input} > {output} 2> {log}
-        """
-
-
 rule datasail_runner:
     input:
         distance_matrix = rules.datasail_pre_processor.output[0],
