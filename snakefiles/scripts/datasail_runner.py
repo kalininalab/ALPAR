@@ -21,7 +21,9 @@ class SnakemakeHandler(BaseModel):
         description="Path to the phenotype dataframe file."
     )
     output_file: NewPath = Field(
-        description="Path to file."
+        description="""Path to file.
+        <hash>\t<train/test>
+        """
     )
     log_file: Annotated[NewPath, BeforeValidator(force_new_file)] = Field(
         description="Path to file for dumping python logs."
