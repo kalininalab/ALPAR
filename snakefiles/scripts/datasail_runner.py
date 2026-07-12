@@ -1,8 +1,13 @@
-from contextlib import suppress
+import inspect
+import logging
+import os
+import sys
+import warnings
+from contextlib import contextmanager, suppress
 from typing import Annotated, Literal
 
+import cvxpy
 import pandas as pd
-import datasail.settings
 import datasail.sail
 from loguru import logger
 from pydantic import BaseModel, Field, FilePath, NewPath, BeforeValidator, PositiveInt
@@ -80,6 +85,69 @@ def main(handler: SnakemakeHandler):
             ofile.write(f"{key}\t{splits[handler.techniques][0][key]}\n")
 
 
+class InterceptHandler(logging.Handler):
+    """Forward stdlib logging records (DataSAIL, py.warnings) into loguru."""
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            level = logger.level(record.levelname).name
+        except ValueError:
+            level = record.levelno
+
+        # walk out of the logging module so loguru reports the real caller
+        frame, depth = inspect.currentframe(), 0
+        while frame and (depth == 0 or frame.f_code.co_filename == logging.__file__):
+            frame = frame.f_back
+            depth += 1
+
+        logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
+
+def silence_cvxpy_banner() -> None:
+    """cvxpy prints its banner with print(); force verbose=False at the source."""
+    _orig_solve = cvxpy.Problem.solve
+
+    def _quiet_solve(self, *args, **kwargs):
+        kwargs["verbose"] = False
+        return _orig_solve(self, *args, **kwargs)
+
+    cvxpy.Problem.solve = _quiet_solve
+
+@contextmanager
+def redirect_fds(path: os.PathLike):
+    """Catch C-level writes (SCIP) that bypass sys.stdout entirely."""
+    sys.stdout.flush()
+    sys.stderr.flush()
+    saved_out, saved_err = os.dup(1), os.dup(2)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND)
+    try:
+        os.dup2(fd, 1)
+        os.dup2(fd, 2)
+        yield
+    finally:
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os.dup2(saved_out, 1)
+        os.dup2(saved_err, 2)
+        os.close(saved_out)
+        os.close(saved_err)
+        os.close(fd)
+
+def setup_logging(log_file) -> None:
+    logger.remove()
+    logger.add(log_file, backtrace=True, diagnose=True, enqueue=True)
+
+    # root handler catches DataSAIL's "DataSAIL" logger *and* py.warnings
+    logging.basicConfig(handlers=[InterceptHandler()], level=logging.DEBUG, force=True)
+
+    ds = logging.getLogger("DataSAIL")
+    ds.handlers = [InterceptHandler()]  # keep one element: DataSAIL touches handlers[0]
+    ds.propagate = False
+    ds.setLevel(logging.DEBUG)
+
+    logging.captureWarnings(True)       # warnings.warn -> "py.warnings" logger -> loguru
+    warnings.simplefilter("default")
+
+    silence_cvxpy_banner()
 
 if __name__ == "__main__":
     handler = SnakemakeHandler(
@@ -102,7 +170,6 @@ if __name__ == "__main__":
         linkage=snakemake.params['linkage'],
         e_clusters=snakemake.params['e_clusters'],
     )
-    logger.remove()
-    logger.add(handler.log_file, backtrace=True, diagnose=True, enqueue=True)
-    datasail.settings.LOGGER = logger
-    main(handler)
+    setup_logging(handler.log_file)
+    with redirect_fds(handler.log_file):
+        main(handler)
