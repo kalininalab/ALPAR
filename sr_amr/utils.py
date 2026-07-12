@@ -9,6 +9,10 @@ import subprocess
 import json
 import sys
 import tempfile
+import base64
+import pickle
+import argparse
+from functools import wraps
 
 warnings.filterwarnings("ignore")
 
@@ -56,11 +60,12 @@ def conda_env_wrapper(env_name):
     the entire CLI command using 'conda run -n env_name'.
     """
     def decorator(func):
-        def wrapper(args):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
             # Check if we are already in the target environment or in a subprocess
             current_env = os.environ.get("CONDA_DEFAULT_ENV")
             if current_env == env_name or os.environ.get("ALPAR_SUBPROCESS") == "1":
-                return func(args)
+                return func(*args, **kwargs)
             
             ensure_conda_env(env_name)
             
@@ -85,7 +90,35 @@ def conda_env_wrapper(env_name):
                 else:
                     new_env["PYTHONPATH"] = str(root_dir)
 
-                cmd = ["conda", "run", "-n", env_name, "--no-capture-output", "python", "-m", "sr_amr.amr"] + sys.argv[1:]
+                # Make a pickle-safe representation of argparse.Namespace
+                ser_args = list(args)
+                if len(ser_args) == 1 and isinstance(ser_args[0], argparse.Namespace):
+                    ns = vars(ser_args[0]).copy()
+                    ns.pop('func', None)
+                    ser_args[0] = ("__ARGPARSE_NAMESPACE__", ns)
+
+                payload = base64.b64encode(pickle.dumps((tuple(ser_args), kwargs))).decode("ascii")
+                new_env["ALPAR_WRAPPED_FUNCTION"] = f"{func.__module__}:{func.__name__}"
+                new_env["ALPAR_WRAPPED_PAYLOAD"] = payload
+
+                cmd = [
+                    "conda",
+                    "run",
+                    "-n",
+                    env_name,
+                    "--no-capture-output",
+                    "python",
+                    "-c",
+                    (
+                        "import base64, importlib, os, pickle, sys, argparse as _argparse; "
+                        "target = os.environ['ALPAR_WRAPPED_FUNCTION']; "
+                        "payload = os.environ['ALPAR_WRAPPED_PAYLOAD']; "
+                        "module_name, func_name = target.split(':', 1); "
+                        "raw_args, kwargs = pickle.loads(base64.b64decode(payload.encode('ascii'))); "
+                        "args = [ _argparse.Namespace(**a[1]) if (isinstance(a, tuple) and len(a) == 2 and a[0] == '__ARGPARSE_NAMESPACE__') else a for a in raw_args ]; "
+                        "func = getattr(importlib.import_module(module_name), func_name); func(*args, **kwargs); sys.exit(0)"
+                    ),
+                ]
 
                 try:
                     result = subprocess.run(cmd, env=new_env)

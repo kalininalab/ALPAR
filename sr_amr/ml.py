@@ -652,14 +652,114 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
             y_hat = histgb_cls.predict(X_test)
 
     elif model_type == "lr":
-        if resampling_strategy == "cv":
-            lr_cls = LogisticRegressionCV(cv=cv_split, random_state=random_seed, class_weight='balanced', max_iter=1000)
-            lr_cls.fit(X_train, y_train)
-            y_hat = lr_cls.predict(X_test)
+        # Changed to Regularized Logistic Regression
+        if param_grid_size == "small":
+            param_grid = {
+                'C': [0.01, 0.1, 1.0, 10.0],
+                'penalty': ['l1', 'l2']
+            }
+            cv_param_grid = [
+                {'penalty': ['l1', 'l2'], 'C': [0.01, 0.1, 1.0, 10.0], 'l1_ratio': [None]}
+            ]
+        elif param_grid_size == "medium":
+            param_grid = {
+                'C': [0.001, 0.01, 0.1, 1.0, 10.0, 100.0],
+                'penalty': ['l1', 'l2']
+            }
+            cv_param_grid = [
+                {'penalty': ['l1', 'l2'], 'C': [0.001, 0.01, 0.1, 1.0, 10.0, 100.0], 'l1_ratio': [None]}
+            ]
         else:
-            lr_cls = LogisticRegression(random_state=random_seed, class_weight='balanced', max_iter=1000)
-            lr_cls.fit(X_train, y_train)
-            y_hat = lr_cls.predict(X_test)
+            param_grid = {
+                'C': np.logspace(-4, 4, 10).tolist(),
+                'penalty': ['l1', 'l2', 'elasticnet']
+            }
+            cv_param_grid = [
+                {'penalty': ['l1', 'l2'], 'C': np.logspace(-4, 4, 10).tolist(), 'l1_ratio': [None]},
+                {'penalty': ['elasticnet'], 'C': np.logspace(-4, 4, 10).tolist(), 'l1_ratio': [0.5]}
+            ]
+
+        solver_to_use = 'saga' if any(p in param_grid['penalty'] for p in ['l1', 'elasticnet']) else 'lbfgs'
+        best_result = -1
+
+        if parameter_search_strategy == "random_search":
+            sampled_params = parameter_sampler(param_grid, n_iter=parameter_search_n_iter)
+            for parameter_sample in sampled_params:
+                l1_ratio = 0.5 if parameter_sample['penalty'] == 'elasticnet' else None
+                lr_cls = LogisticRegression(
+                    penalty=parameter_sample['penalty'],
+                    C=parameter_sample['C'],
+                    solver=solver_to_use,
+                    l1_ratio=l1_ratio,
+                    class_weight='balanced',
+                    random_state=random_seed,
+                    max_iter=2000,
+                    n_jobs=n_jobs
+                )
+                lr_cls.fit(X_train, y_train)
+                y_hat = lr_cls.predict(X_test)
+                current_score = scoring_function(y_test, y_hat)
+
+                if current_score > best_result:
+                    best_result = current_score
+                    best_lr_model = lr_cls
+                    with open(os.path.join(output_folder, f"{output_file_template}_best_params.txt"), "w") as param_file:
+                        param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_result}\n")
+                        param_file.write(f"Parameters: penalty={parameter_sample['penalty']}, C={parameter_sample['C']}\n")
+                    best_y_hat = y_hat
+            lr_cls = best_lr_model
+
+        else:
+            if param_grid_low_memory_mode:
+                for temp_penalty in param_grid['penalty']:
+                    for temp_C in param_grid['C']:
+                        l1_ratio = 0.5 if temp_penalty == 'elasticnet' else None
+                        print(f"Training LR model with parameters: penalty={temp_penalty}, C={temp_C}")
+                        lr_cls = LogisticRegression(
+                            penalty=temp_penalty,
+                            C=temp_C,
+                            solver=solver_to_use,
+                            l1_ratio=l1_ratio,
+                            class_weight='balanced',
+                            random_state=random_seed,
+                            max_iter=2000,
+                            n_jobs=n_jobs
+                        )
+                        lr_cls.fit(X_train, y_train)
+                        y_hat = lr_cls.predict(X_test)
+                        current_score = scoring_function(y_test, y_hat)
+
+                        if current_score > best_result:
+                            best_result = current_score
+                            best_lr_model = lr_cls
+                            with open(os.path.join(output_folder, f"{output_file_template}_best_params.txt"), "w") as param_file:
+                                param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_result}\n")
+                                param_file.write(f"Parameters: penalty={temp_penalty}, C={temp_C}\n")
+                            best_y_hat = y_hat
+                lr_cls = best_lr_model
+            else:
+                base_lr = LogisticRegression(solver=solver_to_use, class_weight='balanced', random_state=random_seed, max_iter=2000)
+                
+                if 'elasticnet' in param_grid['penalty']:
+                    param_grid['l1_ratio'] = [0.5]
+
+                grid_search = GridSearchCV(
+                    estimator=base_lr,
+                    param_grid=cv_param_grid,
+                    scoring=selected_scorer,
+                    cv=cv_split if resampling_strategy == "cv" else 3, # Fallback to 3-fold if holdout uses grid search
+                    verbose=1,
+                    n_jobs=n_jobs
+                )
+                grid_search.fit(X_train, y_train)
+                
+                lr_cls = grid_search.best_estimator_
+                y_hat = lr_cls.predict(X_test)
+                best_custom_score = scoring_function(y_test, y_hat)
+                
+                with open(os.path.join(output_folder, f"{output_file_template}_best_params.txt"), "w") as param_file:
+                    param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_custom_score}\n")
+                    param_file.write(f"Parameters: {grid_search.best_params_}\n")
 
     outfile = os.path.join(output_folder, f"{output_file_template}_Result")
     
@@ -733,15 +833,13 @@ def combined_ml(binary_mutation_table, phenotype_table, antibiotic, random_seed,
                                 f"{feature_names[i]:<8};{r.importances_mean[i]:.3f};+/-{r.importances_std[i]:.3f}\n")
 
             elif model_type == "lr":
-                print(f"Warning! LR cannot be used with 'gini' feature importance analysis strategy. Running permutation importance. Please choose 'permutation_importance' next time.")
-                r = permutation_importance(
-                    lr_cls, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
-
-                with open(os.path.join(output_folder, f"{output_file_template}_FIA_permutation_importance"), "w") as ofile:
-                    for i in r.importances_mean.argsort()[::-1]:
-                        if r.importances_mean[i] - 2 * r.importances_std[i] > 0:
-                            ofile.write(
-                                f"{feature_names[i]:<8};{r.importances_mean[i]:.3f};+/-{r.importances_std[i]:.3f}\n")
+                print(f"Warning! LR cannot be used with 'gini' feature importance analysis strategy. Using absolute feature weights instead.")
+                importances = np.abs(lr_cls.coef_[0])
+                with open(os.path.join(output_folder, f"{output_file_template}_FIA_absolute_feature_weights"), "w") as ofile:
+                    sorted_indices = np.argsort(importances)[::-1]
+                    for i in sorted_indices:
+                        if importances[i] > 0:
+                            ofile.write(f"{feature_names[i]:<8};{importances[i]:.3f}\n")
             
             elif model_type == "xgb":
                 if param_grid_low_memory_mode:
