@@ -15,7 +15,7 @@ rule prps_ml_preprocessor:
         SCRIPTS_DIR / "prps_ml_preprocessor.py"
 
 rule copy_and_zip_file:
-    input: rules.pivot_merged_features_miller.output[0]
+    input: rules.pivot_merged_features_miller.output[0] #TODO:prps_ml_preprocessor
     output: TEMP_DIR / "ml" / "model_binary_mutation_table.tar.gz"
     benchmark: BENCHMARKS_DIR / "copy_and_zip_file.tsv"
     log: LOGS_DIR / "ml" / "copy_and_zip_file.log"
