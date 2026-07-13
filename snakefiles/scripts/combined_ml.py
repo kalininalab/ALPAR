@@ -373,7 +373,7 @@ def main(handler: SnakemakeHandler):
                                     # Initialize the Random Forest classifier with each parameter
                                     rf_cls = RandomForestClassifier(class_weight={0: sum(y_train), 1: len( y_train) - sum(y_train)}, n_estimators=temp_n_estimators, max_depth=temp_max_depth, min_samples_leaf=temp_min_samples_leaf, min_samples_split=temp_min_samples_split, max_features=temp_max_features
                                     )
-                                    print(f"Training model with parameters: max_depth={temp_max_depth}, min_samples_leaf={temp_min_samples_leaf}, min_samples_split={temp_min_samples_split}, n_estimators={temp_n_estimators}, max_features={temp_max_features}")
+                                    logger.info(f"Training model with parameters: max_depth={temp_max_depth}, min_samples_leaf={temp_min_samples_leaf}, min_samples_split={temp_min_samples_split}, n_estimators={temp_n_estimators}, max_features={temp_max_features}")
                                     rf_cls.fit(X_train, y_train)
                                     y_hat = rf_cls.predict(X_test)
                                     current_score = scoring_function(y_test, y_hat)
@@ -473,7 +473,7 @@ def main(handler: SnakemakeHandler):
                 total_number_of_parameter_combinations = 1
                 for value in param_grid.values():
                     total_number_of_parameter_combinations *= len(value)
-                print(f"XGBoost: Total number of parameter combinations to be evaluated: {total_number_of_parameter_combinations}")
+                logger.info(f"XGBoost: Total number of parameter combinations to be evaluated: {total_number_of_parameter_combinations}")
                 current_number_of_processed_combinations = 0
                 sorted_importances = {}
                 for temp_max_depth in param_grid['max_depth']:
@@ -482,7 +482,7 @@ def main(handler: SnakemakeHandler):
                             for temp_colsample_bytree in param_grid['colsample_bytree']:
                                 for temp_eta in param_grid['eta']:
                                     for temp_n_estimators in param_grid['n_estimators']:
-                                        print(f"Training model {current_number_of_processed_combinations + 1} / {total_number_of_parameter_combinations}")
+                                        logger.debug(f"Training model {current_number_of_processed_combinations + 1} / {total_number_of_parameter_combinations}")
                                         # Initialize the XGBoost classifier with each parameter
                                         xgb_model = xgb.XGBClassifier(
                                             objective='binary:logistic',
@@ -692,7 +692,7 @@ def main(handler: SnakemakeHandler):
                 for temp_penalty in param_grid['penalty']:
                     for temp_C in param_grid['C']:
                         l1_ratio = 0.5 if temp_penalty == 'elasticnet' else None
-                        print(f"Training LR model with parameters: penalty={temp_penalty}, C={temp_C}")
+                        logger.info(f"Training LR model with parameters: penalty={temp_penalty}, C={temp_C}")
                         lr_cls = LogisticRegression(
                             penalty=temp_penalty,
                             C=temp_C,
@@ -760,9 +760,7 @@ def main(handler: SnakemakeHandler):
 
     if feature_importance_analysis:
 
-        print("Performing feature importance analysis...")
-
-        dont_return_path = False
+        logger.info("Performing feature importance analysis...")
 
         if feature_importance_analysis_strategy == "gini":
 
@@ -772,7 +770,7 @@ def main(handler: SnakemakeHandler):
             # SVM need special treatment
             elif model_type == "svm":
 
-                print(f"Warning! SVM cannot be used with 'gini' feature importance analysis strategy. Running permutation importance. Please choose 'permutation_importance' next time.")
+                logger.warning("SVM cannot be used with 'gini' feature importance analysis strategy. Running permutation importance. Please choose 'permutation_importance' next time.")
                 r = permutation_importance(
                     best_model, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
 
@@ -786,18 +784,18 @@ def main(handler: SnakemakeHandler):
                 importances = gb_cls.feature_importances_
 
             elif model_type == "histgb":
-                print(f"Warning! HISTGB cannot be used with 'gini' feature importance analysis strategy. Running permutation importance. Please choose 'permutation_importance' next time.")
+                logger.warning("HISTGB cannot be used with 'gini' feature importance analysis strategy. Running permutation importance. Please choose 'permutation_importance' next time.")
                 r = permutation_importance(
                     histgb_cls, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
 
-                with open(handler.fia_permutation), "w") as ofile:
+                with open(handler.fia_permutation, "w") as ofile:
                     for i in r.importances_mean.argsort()[::-1]:
                         if r.importances_mean[i] - 2 * r.importances_std[i] > 0:
                             ofile.write(
                                 f"{feature_names[i]:<8};{r.importances_mean[i]:.3f};+/-{r.importances_std[i]:.3f}\n")
 
             elif model_type == "lr":
-                print(f"Warning! LR cannot be used with 'gini' feature importance analysis strategy. Using absolute feature weights instead.")
+                logger.warning("LR cannot be used with 'gini' feature importance analysis strategy. Using absolute feature weights instead.")
                 importances = np.abs(lr_cls.coef_[0])
                 with open(handler.fia_weights, "w") as ofile:
                     sorted_indices = np.argsort(importances)[::-1]
@@ -810,7 +808,7 @@ def main(handler: SnakemakeHandler):
                     importances = bst.feature_importances_
                 else:
                     importance_scores = bst.get_score(importance_type='weight')
-                    print("Raw XGB scores:", importance_scores)
+                    logger.debug(f"Raw XGB scores: {importance_scores}")
                     importances = np.array([importance_scores.get(feature, 0) for feature in feature_names])
 
             if model_type != "svm" and model_type != "histgb" and model_type != "lr":
@@ -826,7 +824,7 @@ def main(handler: SnakemakeHandler):
                     else:
                         if len(sorted_importances) < important_feature_limit:
                             important_feature_limit = len(sorted_importances)
-                            print(f"Warning: Number of important features is less than the specified limit. Limit is set to {important_feature_limit}.")
+                            logger.warning(f"Number of important features is less than the specified limit. Limit is set to {important_feature_limit}.")
                         for key, value in sorted_importances[:important_feature_limit]:
                             file.write(f"{key}\t{value}\n")
 
@@ -856,9 +854,8 @@ def main(handler: SnakemakeHandler):
                         ofile.write(
                             f"{feature_names[i]:<8};{r.importances_mean[i]:.3f};+/-{r.importances_std[i]:.3f}\n")
         else:
-            print("Error: Invalid feature importance analysis strategy.")
-            print("Please choose either 'gini' or 'permutation_importance'.")
-            dont_return_path = True
+            logger.error("Invalid feature importance analysis strategy.")
+            logger.error("Please choose either 'gini' or 'permutation_importance'.")
         
         for f in (
             handler.fia_permutation,
