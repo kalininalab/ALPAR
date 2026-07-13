@@ -886,10 +886,10 @@ if __name__ == "__main__":
         test_size=snakemake.wildcards['test_size'],
         model_type=snakemake.wildcards['model_type'],
         resampling_strategy=snakemake.wildcards['resampling_strategy'],
-        feature_importance_analysis_strategy=snakemake.wildcards['feature_importance_analysis_strategy'],
         # Parameters
         feature_importance_analysis=snakemake.params['feature_importance_analysis'],
         save_model=snakemake.params['save_model'],
+        feature_importance_analysis_strategy=snakemake.params['feature_importance_analysis_strategy'],
     )
     logger.remove()
     logger.add(handler.log_file, backtrace=True, diagnose=True, enqueue=True)
