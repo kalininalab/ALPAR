@@ -65,7 +65,7 @@ rule automatix:
         rules.prps.output,
         rules.gwas.output,
         rules.datasail.output,
-        rules.ml.output,
+        # rules.ml.output,
     output: touch(TEMP_DIR / "flags" / "automatix.done")
     default_target: True
 

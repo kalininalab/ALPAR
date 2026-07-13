@@ -30,14 +30,14 @@ rule combined_ml:
         binary_mutation_table = rules.pivot_merged_features_miller.output[0],
         phenotype_dataframe   = rules.phenotype_dataframe_creator.output[0],
     output:
-        best_params     = TEMP_DIR / "ml" / "{antibiotic}" / "seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type}_best_params.txt",
-        model_file      = TEMP_DIR / "ml" / "{antibiotic}" / "seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type}_model.sav",
-        result          = TEMP_DIR / "ml" / "{antibiotic}" / "seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type}_Result.txt",
+        best_params = TEMP_DIR / "ml" / "{antibiotic}" / "seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type}_best_params.txt",
+        model_file = TEMP_DIR / "ml" / "{antibiotic}" / "seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type}_model.sav",
+        result = TEMP_DIR / "ml" / "{antibiotic}" / "seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type}_Result.txt",
         fia_permutation = TEMP_DIR / "ml" / "{antibiotic}" / "seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type}_FIA_permutation_importance.txt",
-        fia_weights     = TEMP_DIR / "ml" / "{antibiotic}" / "seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type}_FIA_absolute_feature_weights.txt",
-        fia_gini        = TEMP_DIR / "ml" / "{antibiotic}" / "seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type}_FIA_gini.txt",
+        fia_weights = TEMP_DIR / "ml" / "{antibiotic}" / "seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type}_FIA_absolute_feature_weights.txt",
+        fia_gini = TEMP_DIR / "ml" / "{antibiotic}" / "seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type}_FIA_gini.txt",
     benchmark: BENCHMARKS_DIR / "combined_ml_{antibiotic}_seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type}.tsv"
-    log:       LOGS_DIR / "ml" / "{antibiotic}" / "seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type}.log"
+    log: LOGS_DIR / "ml" / "{antibiotic}" / "seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type}.log"
     params:
         feature_importance_analysis = True,
         save_model = True,
