@@ -1,6 +1,7 @@
 import inspect
 import logging
 import os
+import random
 import sys
 import warnings
 from contextlib import contextmanager, suppress
@@ -52,6 +53,39 @@ class SnakemakeHandler(BaseModel):
     linkage: Literal['average', 'single', 'complete'] = "average"
     e_clusters: int = 50
 
+def split_by_proportions(handler: SnakemakeHandler, shuffle: bool = False, seed: int | None = None) -> list[list]:
+    """
+    Split a list into chunks by proportion.
+
+    handler.splits : list of len 2 or 3, each value <= 1, sum <= 1.
+                     If sum < 1, the leftover items are dropped.
+    shuffle     : shuffle before splitting (for random train/val/test splits).
+    seed        : for reproducibility.
+    """
+    if len(handler.splits) not in (2, 3):
+        raise ValueError("splits must have length 2 or 3")
+    if any(p < 0 or p > 1 for p in handler.splits):
+        raise ValueError("each split must be between 0 and 1")
+    if sum(handler.splits) > 1 + 1e-9:
+        raise ValueError("splits must sum to <= 1")
+
+    df = pd.read_csv(handler.phenotype_dataframe, sep="\t", dtype={"checksum": str})
+    if handler.antibiotic not in df.columns:
+        raise KeyError(f"{handler.antibiotic!r} not in {list(df.columns[1:])}")
+    items = df.loc[df[handler.antibiotic].notna(), "checksum"].tolist()
+
+    if shuffle:
+        random.Random(seed).shuffle(items)
+
+    n = len(items)
+    chunks, start, cum = [], 0, 0.0
+    for p in handler.splits:
+        cum += p
+        end = round(cum * n) # cumulative rounding avoids drift
+        chunks.append(items[start:end])
+        start = end
+    return chunks
+
 @logger.catch
 def main(handler: SnakemakeHandler):
     
@@ -81,9 +115,15 @@ def main(handler: SnakemakeHandler):
     )
 
     with handler.output_file.open('w') as ofile:
-        for key in splits[handler.techniques][0]:
-            ofile.write(f"{key}\t{splits[handler.techniques][0][key]}\n")
-
+        if splits is not None:
+            for key in splits[handler.techniques][0]:
+                ofile.write(f"{key}\t{splits[handler.techniques][0][key]}\n")
+        else:
+            logger.warning('Falling back to random splits')
+            splits = split_by_proportions(handler, shuffle=True, seed=42)
+            for group_set, name in zip(splits, handler.names):
+                for key in group_set:
+                    ofile.write(f"{key}\t{name}\n")
 
 class InterceptHandler(logging.Handler):
     """Forward stdlib logging records (DataSAIL, py.warnings) into loguru."""

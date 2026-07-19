@@ -165,8 +165,6 @@ def main(handler: SnakemakeHandler):
     min_samples_split = handler.min_samples_split
     kernel = handler.kernel
     optimization = handler.optimization
-    train = handler.train
-    test = handler.test
     validation = handler.validation
     stratify = handler.stratify
     feature_importance_analysis_strategy = handler.feature_importance_analysis_strategy

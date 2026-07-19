@@ -82,20 +82,6 @@ rule datasail_runner:
     script:
         SCRIPTS_DIR / "datasail_runner.py"
 
-rule split_train_test:
-    input: rules.datasail_runner.output,
-    output:
-        train = TEMP_DIR / "datasail" / "{antibiotic}" / "train.txt",
-        test = TEMP_DIR / "datasail" / "{antibiotic}" / "test.txt",
-    log: LOGS_DIR / "split_train_test_{antibiotic}.log",
-    benchmark: BENCHMARKS_DIR / "split_train_test_{antibiotic}.tsv",
-    threads: 1,
-    shell:
-        r"""
-        grep -P '\ttrain$' {input} | cut -f1 > {output.train} 2>> {log}
-        grep -P '\ttest$' {input} | cut -f1 > {output.test} 2>> {log}
-        """
-
 rule datasail:
     input:
         lambda wildcards: expand(
