@@ -3,7 +3,7 @@ import os
 import pickle
 import secrets
 from contextlib import suppress
-from typing import Annotated, Literal
+from typing import Annotated, Literal, cast
 
 import numpy as np
 import pandas as pd
@@ -18,6 +18,7 @@ from sklearn.svm import SVC
 from sklearn.model_selection import GridSearchCV
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, HistGradientBoostingClassifier
 from sklearn.metrics import matthews_corrcoef, make_scorer, accuracy_score, f1_score, roc_auc_score
+from sklearn.utils import Bunch
 
 
 with suppress(ImportError):
@@ -29,13 +30,13 @@ class SnakemakeHandler(BaseModel):
     # Input paths
     binary_mutation_table: FilePath
     phenotype_table: FilePath
+    train: FilePath
+    test: FilePath
     # Output paths
     best_params: NewPath
     model_file: NewPath
     result: NewPath
-    fia_permutation: NewPath
-    fia_weights: NewPath
-    fia_strategy: NewPath
+    fia: NewPath
     # Other paths
     log_file: Annotated[NewPath, BeforeValidator(force_new_file)]
 
@@ -60,11 +61,9 @@ class SnakemakeHandler(BaseModel):
     min_samples_split: PositiveInt = 2
     kernel: Literal["linear", "poly", "rbf", "sigmoid", "precomputed"] = "linear"
     optimization: bool = False
-    train: list[str] = Field(default_factory=list)
-    test: list[str] = Field(default_factory=list)
     validation: list[str] = Field(default_factory=list)
     stratify: bool = True
-    feature_importance_analysis_strategy: Literal["gini", "permutation_importance"] = "gini"
+    feature_importance_analysis_strategy: Literal["gini", "permutation_importance", "absolute_feature_weights"] = "gini"
     important_feature_limit: PositiveInt = 20
     param_grid_size: Literal["small", "medium", "large"] = "small"
     param_grid_low_memory_mode: bool = False
@@ -177,6 +176,11 @@ def main(handler: SnakemakeHandler):
     device = handler.device
     parameter_search_strategy = handler.parameter_search_strategy
     parameter_search_n_iter = handler.parameter_search_n_iter
+
+    with handler.train.open() as f:
+        train = [line.strip() for line in f if line.strip()]
+    with handler.test.open() as f:
+        test = [line.strip() for line in f if line.strip()]
 
     best_y_hat = None
 
@@ -771,10 +775,12 @@ def main(handler: SnakemakeHandler):
             elif model_type == "svm":
 
                 logger.warning("SVM cannot be used with 'gini' feature importance analysis strategy. Running permutation importance. Please choose 'permutation_importance' next time.")
-                r = permutation_importance(
-                    best_model, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
+                r = cast(
+                    Bunch,
+                    permutation_importance(best_model, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
+                )
 
-                with open(handler.fia_permutation, "w") as ofile:
+                with open(handler.fia, "w") as ofile:
                     for i in r.importances_mean.argsort()[::-1]:
                         if r.importances_mean[i] - 2 * r.importances_std[i] > 0:
                             ofile.write(
@@ -785,10 +791,13 @@ def main(handler: SnakemakeHandler):
 
             elif model_type == "histgb":
                 logger.warning("HISTGB cannot be used with 'gini' feature importance analysis strategy. Running permutation importance. Please choose 'permutation_importance' next time.")
-                r = permutation_importance(
-                    histgb_cls, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
+                r = cast(
+                    Bunch,
+                    permutation_importance(
+                        histgb_cls, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
+                )
 
-                with open(handler.fia_permutation, "w") as ofile:
+                with open(handler.fia, "w") as ofile:
                     for i in r.importances_mean.argsort()[::-1]:
                         if r.importances_mean[i] - 2 * r.importances_std[i] > 0:
                             ofile.write(
@@ -797,7 +806,7 @@ def main(handler: SnakemakeHandler):
             elif model_type == "lr":
                 logger.warning("LR cannot be used with 'gini' feature importance analysis strategy. Using absolute feature weights instead.")
                 importances = np.abs(lr_cls.coef_[0])
-                with open(handler.fia_weights, "w") as ofile:
+                with open(handler.fia, "w") as ofile:
                     sorted_indices = np.argsort(importances)[::-1]
                     for i in sorted_indices:
                         if importances[i] > 0:
@@ -816,7 +825,7 @@ def main(handler: SnakemakeHandler):
                 importances_dict = gini_importances.to_dict()
                 sorted_importances = sorted(importances_dict.items(), key=lambda x: x[1], reverse=True)
 
-                with open(handler.fia_strategy, "w") as file:
+                with open(handler.fia, "w") as file:
                     if important_feature_limit == -1:
                         for key, value in sorted_importances:
                             if value > 0:
@@ -847,8 +856,9 @@ def main(handler: SnakemakeHandler):
             elif model_type == "lr":
                 r = permutation_importance(
                     lr_cls, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
-
-            with open(handler.fia_strategy, "w") as ofile:
+            
+            r = cast(Bunch, r)
+            with open(handler.fia, "w") as ofile:
                 for i in r.importances_mean.argsort()[::-1]:
                     if r.importances_mean[i] - 2 * r.importances_std[i] > 0:
                         ofile.write(
@@ -857,25 +867,20 @@ def main(handler: SnakemakeHandler):
             logger.error("Invalid feature importance analysis strategy.")
             logger.error("Please choose either 'gini' or 'permutation_importance'.")
         
-        for f in (
-            handler.fia_permutation,
-            handler.fia_weights,
-            handler.fia_strategy
-        ):
-            if not f.exists():
-                f.touch()
+        if not handler.fia.exists():
+            handler.fia.touch()
 
 if __name__ == "__main__":
     handler = SnakemakeHandler(
         # File paths
         binary_mutation_table=snakemake.input['binary_mutation_table'],
         phenotype_table=snakemake.input['phenotype_table'],
+        train=snakemake.input['train'],
+        test=snakemake.input['test'],
         best_params=snakemake.output['best_params'],
         model_file=snakemake.output['model_file'],
         result=snakemake.output['result'],
-        fia_permutation=snakemake.output['fia_permutation'],
-        fia_weights=snakemake.output['fia_weights'],
-        fia_strategy=snakemake.output['fia_strategy'],
+        fia=snakemake.output['fia'],
         log_file=snakemake.log[0],
         # Resource allocation
         threads=snakemake.threads,
@@ -886,10 +891,10 @@ if __name__ == "__main__":
         test_size=snakemake.wildcards['test_size'],
         model_type=snakemake.wildcards['model_type'],
         resampling_strategy=snakemake.wildcards['resampling_strategy'],
+        feature_importance_analysis_strategy=snakemake.wildcards['feature_importance_analysis_strategy'],
         # Parameters
         feature_importance_analysis=snakemake.params['feature_importance_analysis'],
         save_model=snakemake.params['save_model'],
-        feature_importance_analysis_strategy=snakemake.params['feature_importance_analysis_strategy'],
     )
     logger.remove()
     logger.add(handler.log_file, backtrace=True, diagnose=True, enqueue=True)
