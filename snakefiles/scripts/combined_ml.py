@@ -250,8 +250,14 @@ def main(handler: SnakemakeHandler):
     strain_to_index = {strain: idx for idx, strain in enumerate(genotype_data.keys())}
 
     # Convert data to numpy arrays for machine learning
-    genotype_array = np.array([list(map(int, genotypes)) for genotypes in genotype_data.values()])
-    phenotype_array = np.array([int(phenotypes[antibiotic_index]) for phenotypes in phenotype_data.values()])
+    def _float_with_default(value, default=0.0) -> float:
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return default
+
+    genotype_array = np.array([list(map(_float_with_default, genotypes)) for genotypes in genotype_data.values()])
+    phenotype_array = np.array([_float_with_default(phenotypes[antibiotic_index]) for phenotypes in phenotype_data.values()])
     logger.info(
         f"Prepared arrays: genotype_array shape={genotype_array.shape}, phenotype_array shape={phenotype_array.shape}"
     )
@@ -260,8 +266,8 @@ def main(handler: SnakemakeHandler):
         logger.info(
             f"Using automatic train_test_split with test_size={float(test_size)} and stratify={stratify}"
         )
-        X = genotype_array[:, :].astype(int)
-        y = phenotype_array[:].astype(int)
+        X = genotype_array[:, :].astype(float)
+        y = phenotype_array[:].astype(float)
 
         if stratify:
             X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
@@ -306,12 +312,12 @@ def main(handler: SnakemakeHandler):
                 y_validation.append(phenotype_array[idx])  # Append the phenotype value using the index
 
         # Convert lists to numpy arrays
-        X_train = np.array(X_train, dtype=int)
-        y_train = np.array(y_train, dtype=int)
-        X_test = np.array(X_test, dtype=int)
-        y_test = np.array(y_test, dtype=int)
-        X_validation = np.array(X_validation, dtype=int)
-        y_validation = np.array(y_validation, dtype=int)
+        X_train = np.array(X_train, dtype=float)
+        y_train = np.array(y_train, dtype=float)
+        X_test = np.array(X_test, dtype=float)
+        y_test = np.array(y_test, dtype=float)
+        X_validation = np.array(X_validation, dtype=float)
+        y_validation = np.array(y_validation, dtype=float)
         logger.info(
             "Explicit split complete: "
             f"train={X_train.shape}, test={X_test.shape}, validation={X_validation.shape}"
@@ -348,10 +354,10 @@ def main(handler: SnakemakeHandler):
                 y_test.append(phenotype_array[idx])  # Append the phenotype value using the index
 
         # Convert lists to numpy arrays
-        X_train = np.array(X_train, dtype=int)
-        y_train = np.array(y_train, dtype=int)
-        X_test = np.array(X_test, dtype=int)
-        y_test = np.array(y_test, dtype=int)
+        X_train = np.array(X_train, dtype=float)
+        y_train = np.array(y_train, dtype=float)
+        X_test = np.array(X_test, dtype=float)
+        y_test = np.array(y_test, dtype=float)
         logger.info(f"Explicit split complete: train={X_train.shape}, test={X_test.shape}")
         logger.info(
             f"Mapped strain counts: train={len(train_strains_to_be_used)}/{len(train)}, test={len(test_strains_to_be_used)}/{len(test)}"
