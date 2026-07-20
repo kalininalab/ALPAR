@@ -223,7 +223,11 @@ def main(handler: SnakemakeHandler):
     logger.info(
         f"Filtering for antibiotic '{antibiotic}' using phenotype index {antibiotic_index} (excluding value '2')"
     )
-    strains_to_be_skipped = [strain for strain, phenotypes in phenotype_data.items() if len(phenotypes) > antibiotic_index and phenotypes[antibiotic_index] == "2"]
+    strains_to_be_skipped = [
+        strain
+        for strain, phenotypes in phenotype_data.items()
+        if len(phenotypes) > antibiotic_index and (phenotypes[antibiotic_index] is None or phenotypes[antibiotic_index] == "2")
+    ]
     logger.info(f"Identified {len(strains_to_be_skipped)} strains to be skipped")
     if strains_to_be_skipped:
         logger.debug(
