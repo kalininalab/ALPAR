@@ -104,7 +104,7 @@ rule pyseer_post_processor_clean:
 
 rule pyseer_gwas_graph_creator:
     input:
-        gwas_results = rules.pyseer_runner.output[0],
+        gwas_results = rules.pyseer_post_processor_clean.output[0],
         gwas_postprocessed = rules.pyseer_post_processor_sort.output[0],
     output: TEMP_DIR / "gwas" / "graphs" / "{antibiotic}.jpg"
     log: LOGS_DIR / "gwas" / "pyseer_gwas_graph_creator_{antibiotic}.log"
@@ -117,7 +117,7 @@ rule decision_tree_input_creator:
     input:
         binary_table = rules.pyseer_genotype_matrix_creator.input[0],
         phenotype_file = rules.pyseer_phenotype_file_creator.input[0],
-        pyseer_output_raw = rules.pyseer_runner.output[0],
+        pyseer_output_raw = rules.pyseer_post_processor_clean.output[0],
         pyseer_output_sorted_cleaned = rules.pyseer_post_processor_clean.output[0],
     output:
         tree_result = TEMP_DIR / "gwas" / "decision_tree" / "{antibiotic}_result.txt",
