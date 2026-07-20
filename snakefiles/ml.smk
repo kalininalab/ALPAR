@@ -56,9 +56,9 @@ rule combined_ml:
         feature_importance_analysis = True,
         save_model = True,
     conda: ENVS_DIR.format("ml")
-    threads: 1
+    threads: lambda wildcards: workflow.cores // len(ANTIBIOTICS)
     resources:
-        mem_gb = lambda wildcards: workflow.global_resources.get("mem_gb", 4),
+        mem_gb = lambda wildcards: workflow.global_resources.get("mem_gb", 4) // len(ANTIBIOTICS),
     script:
         SCRIPTS_DIR / "combined_ml.py"
 
