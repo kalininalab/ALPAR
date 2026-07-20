@@ -180,12 +180,20 @@ def main(handler: SnakemakeHandler):
     with handler.test.open() as f:
         test = [line.strip() for line in f if line.strip()]
 
+    logger.info(
+        f"Loaded split definitions: train={len(train)} strains, test={len(test)} strains, validation={len(validation)} strains"
+    )
+
     best_y_hat = None
 
     # Check if binary_mutation_table size in GB > ram / 100 and if it is XGB, activate low memory mode, otherwise parameter grid search will kill the process
     binary_mutation_table_size = os.path.getsize(binary_mutation_table) / (1024 ** 3)  # Size in GB
+    logger.info(
+        f"Input genotype table size={binary_mutation_table_size:.3f} GB; RAM budget={ram} GB; model_type={model_type}"
+    )
     if binary_mutation_table_size > ram / 100 and model_type == "xgb":
         param_grid_low_memory_mode = True
+        logger.warning("Activated param_grid_low_memory_mode for XGBoost due to input table size.")
 
     # Load genotype data
     with open(binary_mutation_table, 'r') as file:
@@ -193,6 +201,9 @@ def main(handler: SnakemakeHandler):
         headers = next(reader)
         genotype_data = {rows[0]: rows[1:] for rows in reader}
         feature_names = headers[1:] 
+    logger.info(
+        f"Loaded genotype table with {len(genotype_data)} strains and {len(feature_names)} features"
+    )
 
     # Load phenotype data
     with open(phenotype_table, 'r') as file:
@@ -200,26 +211,55 @@ def main(handler: SnakemakeHandler):
         headers = next(reader)
         phenotype_data = {rows[0]: rows[1:] for rows in reader}
 
+    logger.info(f"Loaded phenotype table with {len(phenotype_data)} strains")
+
     phenotype_data = {strain: phenotypes for strain, phenotypes in phenotype_data.items() if strain in genotype_data}
+    logger.info(
+        f"After genotype/phenotype intersection: {len(phenotype_data)} strains retained"
+    )
 
     # Filter strains based on antibiotic resistance
     antibiotic_index = headers.index(antibiotic)-1
+    logger.info(
+        f"Filtering for antibiotic '{antibiotic}' using phenotype index {antibiotic_index} (excluding value '2')"
+    )
     strains_to_be_skipped = [strain for strain, phenotypes in phenotype_data.items() if len(phenotypes) > antibiotic_index and phenotypes[antibiotic_index] == "2"]
+    logger.info(f"Identified {len(strains_to_be_skipped)} strains to be skipped")
+    if strains_to_be_skipped:
+        logger.debug(
+            f"Example skipped strains (up to 10): {', '.join(strains_to_be_skipped[:10])}"
+        )
+    pre_filter_genotype_count = len(genotype_data)
+    pre_filter_phenotype_count = len(phenotype_data)
     genotype_data = {strain: genotypes for strain, genotypes in genotype_data.items() if strain not in strains_to_be_skipped}
     phenotype_data = {strain: phenotypes for strain, phenotypes in phenotype_data.items() if strain not in strains_to_be_skipped}
+    logger.info(
+        "After skipping ambiguous strains: "
+        f"genotype {pre_filter_genotype_count}->{len(genotype_data)}, "
+        f"phenotype {pre_filter_phenotype_count}->{len(phenotype_data)}"
+    )
 
     # Reorder phenotype_data according to the order of keys in genotype_data
     ordered_phenotype_data = {strain: phenotype_data[strain] for strain in genotype_data if strain in phenotype_data}
 
     phenotype_data = ordered_phenotype_data
+    logger.info(
+        f"Post-reorder dataset sizes: genotype={len(genotype_data)} strains, phenotype={len(phenotype_data)} strains"
+    )
 
     strain_to_index = {strain: idx for idx, strain in enumerate(genotype_data.keys())}
 
     # Convert data to numpy arrays for machine learning
     genotype_array = np.array([list(map(int, genotypes)) for genotypes in genotype_data.values()])
     phenotype_array = np.array([int(phenotypes[antibiotic_index]) for phenotypes in phenotype_data.values()])
+    logger.info(
+        f"Prepared arrays: genotype_array shape={genotype_array.shape}, phenotype_array shape={phenotype_array.shape}"
+    )
 
     if len(train) == 0 and len(test) == 0:
+        logger.info(
+            f"Using automatic train_test_split with test_size={float(test_size)} and stratify={stratify}"
+        )
         X = genotype_array[:, :].astype(int)
         y = phenotype_array[:].astype(int)
 
@@ -229,8 +269,10 @@ def main(handler: SnakemakeHandler):
         else:
             X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
             genotype_array, phenotype_array, random_state=random_seed, test_size=float(test_size))
+        logger.info(f"Split complete: X_train={X_train.shape}, X_test={X_test.shape}")
 
     elif len(train) > 0 and len(test) > 0 and len(validation) > 0:
+        logger.info("Using explicit train/test/validation strain lists.")
         X_train = []
         y_train = []
         X_test = []
@@ -270,8 +312,19 @@ def main(handler: SnakemakeHandler):
         y_test = np.array(y_test, dtype=int)
         X_validation = np.array(X_validation, dtype=int)
         y_validation = np.array(y_validation, dtype=int)
+        logger.info(
+            "Explicit split complete: "
+            f"train={X_train.shape}, test={X_test.shape}, validation={X_validation.shape}"
+        )
+        logger.info(
+            "Mapped strain counts: "
+            f"train={len(train_strains_to_be_used)}/{len(train)}, "
+            f"test={len(test_strains_to_be_used)}/{len(test)}, "
+            f"validation={len(validation_strains_to_be_used)}/{len(validation)}"
+        )
 
     else:
+        logger.info("Using explicit train/test strain lists.")
         X_train = []
         y_train = []
         X_test = []
@@ -299,6 +352,10 @@ def main(handler: SnakemakeHandler):
         y_train = np.array(y_train, dtype=int)
         X_test = np.array(X_test, dtype=int)
         y_test = np.array(y_test, dtype=int)
+        logger.info(f"Explicit split complete: train={X_train.shape}, test={X_test.shape}")
+        logger.info(
+            f"Mapped strain counts: train={len(train_strains_to_be_used)}/{len(train)}, test={len(test_strains_to_be_used)}/{len(test)}"
+        )
 
     
     mcc_scorer = make_scorer(matthews_corrcoef)
@@ -319,7 +376,15 @@ def main(handler: SnakemakeHandler):
         selected_scorer = roc_auc_scorer
         scoring_function = roc_auc_score
 
+    logger.info(
+        "Model run configuration: "
+        f"model_type={model_type}, parameter_search_strategy={parameter_search_strategy}, "
+        f"resampling_strategy={resampling_strategy}, custom_scorer={custom_scorer}, "
+        f"param_grid_size={param_grid_size}, low_memory_mode={param_grid_low_memory_mode}"
+    )
+
     if model_type == "rf":
+        logger.info("Starting RandomForest pipeline")
 
         if param_grid_size == "small":
             param_grid = {
@@ -347,8 +412,10 @@ def main(handler: SnakemakeHandler):
             }
         
         if parameter_search_strategy == "random_search":
+            logger.info(f"RF random_search enabled with n_iter={parameter_search_n_iter}")
             best_result = -1
             sampled_params = parameter_sampler(param_grid, n_iter=parameter_search_n_iter)
+            logger.info(f"RF sampled {len(sampled_params)} unique parameter combinations")
             for parameter_sample in sampled_params:
                 rf_cls = RandomForestClassifier(class_weight={0: sum(y_train), 1: len( y_train) - sum(y_train)}, n_estimators=parameter_sample['n_estimators'], max_depth=parameter_sample['max_depth'], min_samples_leaf=parameter_sample['min_samples_leaf'], min_samples_split=parameter_sample['min_samples_split'], max_features=parameter_sample['max_features']
                 )
@@ -359,12 +426,14 @@ def main(handler: SnakemakeHandler):
                 if current_score > best_result:
                     best_result = current_score
                     bst = rf_cls
+                    logger.info(f"RF new best {custom_scorer}={best_result}")
                     with open(output_file, "w") as param_file:
                         param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_result}\n")
                         param_file.write(f"Parameters: max_depth={parameter_sample['max_depth']}, min_samples_leaf={parameter_sample['min_samples_leaf']}, min_samples_split={parameter_sample['min_samples_split']}, n_estimators={parameter_sample['n_estimators']}, max_features={parameter_sample['max_features']}\n")
                         best_y_hat = y_hat
         else:
             if param_grid_low_memory_mode:
+                logger.info("RF low-memory exhaustive search enabled")
                 best_result = -1
                 sorted_importances = {}
                 for temp_max_depth in param_grid['max_depth']:
@@ -383,11 +452,13 @@ def main(handler: SnakemakeHandler):
                                     if current_score > best_result:
                                         best_result = current_score
                                         bst = rf_cls
+                                        logger.info(f"RF new best {custom_scorer}={best_result}")
                                         with open(output_file, "w") as param_file:
                                             param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_result}\n")
                                             param_file.write(f"Parameters: max_depth={temp_max_depth}, min_samples_leaf={temp_min_samples_leaf}, min_samples_split={temp_min_samples_split}, n_estimators={temp_n_estimators}, max_features={temp_max_features}\n")
                                             best_y_hat = y_hat
             else:
+                logger.info("RF GridSearchCV/default branch enabled")
                 rf_cls = RandomForestClassifier(class_weight={0: sum(y_train), 1: len(
                     y_train) - sum(y_train)}, n_estimators=n_estimators, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split)
                 
@@ -398,6 +469,7 @@ def main(handler: SnakemakeHandler):
                     grid_search = GridSearchCV(
                         rf_cls, param_grid, cv=cv_split, scoring=scorer)
                     grid_search.fit(X_train, y_train)
+                    logger.info(f"RF GridSearchCV best params: {grid_search.best_params_}")
 
                     y_hat = grid_search.predict(X_test)
 
@@ -407,6 +479,7 @@ def main(handler: SnakemakeHandler):
                     y_hat = rf_cls.predict(X_test)
 
     elif model_type == "xgb":
+        logger.info("Starting XGBoost pipeline")
 
         dtrain = xgb.DMatrix(X_train, label=y_train, feature_names=feature_names)
         dtest = xgb.DMatrix(X_test, label=y_test, feature_names=feature_names)
@@ -442,7 +515,9 @@ def main(handler: SnakemakeHandler):
         best_result = -1
 
         if parameter_search_strategy == "random_search":
+            logger.info(f"XGB random_search enabled with n_iter={parameter_search_n_iter}")
             sampled_params = parameter_sampler(param_grid, n_iter=parameter_search_n_iter)
+            logger.info(f"XGB sampled {len(sampled_params)} unique parameter combinations")
             for parameter_sample in sampled_params:
                 # Initialize the XGBoost classifier with each parameter
                 xgb_model = xgb.XGBClassifier(
@@ -465,6 +540,7 @@ def main(handler: SnakemakeHandler):
                 if current_score > best_result:
                     best_result = current_score
                     bst = xgb_model
+                    logger.info(f"XGB new best {custom_scorer}={best_result}")
                     with open(output_file, "w") as param_file:
                         param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_result}\n")
                         param_file.write(f"Parameters: max_depth={parameter_sample['max_depth']}, min_child_weight={parameter_sample['min_child_weight']}, subsample={parameter_sample['subsample']}, colsample_bytree={parameter_sample['colsample_bytree']}, eta={parameter_sample['eta']}, n_estimators={parameter_sample['n_estimators']}\n")
@@ -472,6 +548,7 @@ def main(handler: SnakemakeHandler):
 
         else:
             if param_grid_low_memory_mode:
+                logger.info("XGB low-memory exhaustive search enabled")
                 total_number_of_parameter_combinations = 1
                 for value in param_grid.values():
                     total_number_of_parameter_combinations *= len(value)
@@ -506,6 +583,7 @@ def main(handler: SnakemakeHandler):
                                         if current_score > best_result:
                                             best_result = current_score
                                             bst = xgb_model
+                                            logger.info(f"XGB new best {custom_scorer}={best_result}")
                                             with open(output_file, "w") as param_file:
                                                 param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_result}\n")
                                                 param_file.write(f"Parameters: max_depth={temp_max_depth}, min_child_weight={temp_min_child_weight}, subsample={temp_subsample}, colsample_bytree={temp_colsample_bytree}, eta={temp_eta}, n_estimators={temp_n_estimators}\n")
@@ -513,6 +591,7 @@ def main(handler: SnakemakeHandler):
                                         current_number_of_processed_combinations += 1
 
             else:
+                logger.info("XGB GridSearchCV + final training branch enabled")
                 # Initialize the XGBoost classifier
                 xgb_model = xgb.XGBClassifier(
                     objective='binary:logistic',
@@ -545,6 +624,7 @@ def main(handler: SnakemakeHandler):
 
                 # Get the best parameters and update the params dictionary
                 best_params = grid_search.best_params_
+                logger.info(f"XGB GridSearchCV best params: {best_params}")
 
                 # Train the final model with the best parameters
                 bst = xgb.train(best_params, dtrain, num_boost_round=n_estimators)
@@ -553,12 +633,14 @@ def main(handler: SnakemakeHandler):
                 y_hat = bst.predict(dtest)
                 y_hat = np.round(y_hat)
                 best_custom_score = scoring_function(y_test, y_hat)
+                logger.info(f"XGB final rounded test {custom_scorer}: {best_custom_score}")
                 with open(output_file, "w") as param_file:
                     param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_custom_score}\n")
                     param_file.write(f"Parameters: {best_params}\n")
 
 
     elif model_type == "svm":
+        logger.info("Starting SVM pipeline")
         best_model_mcc = -1.0
         bm_c = 0
 
@@ -566,6 +648,7 @@ def main(handler: SnakemakeHandler):
 
         if optimization:
             max_c_range = 11
+        logger.info(f"SVM C search range: 1 to {max_c_range - 1}; kernel={kernel}")
 
         for c_val in np.arange(1, max_c_range, 1):
             svm_cls = SVC(class_weight={0: sum(y_train), 1: len(
@@ -579,10 +662,12 @@ def main(handler: SnakemakeHandler):
                 best_model_mcc = cur_mcc_val
                 best_model = svm_cls
                 bm_c = c_val
+                logger.info(f"SVM new best MCC={best_model_mcc} at C={bm_c}")
 
         y_hat = best_model.predict(X_test)
 
     elif model_type == "gb":
+        logger.info("Starting GradientBoosting pipeline")
         gb_cls = GradientBoostingClassifier(n_estimators=n_estimators, max_depth=max_depth, min_samples_leaf=min_samples_leaf, min_samples_split=min_samples_split)
 
         param_grid = {
@@ -597,18 +682,22 @@ def main(handler: SnakemakeHandler):
             grid_search = GridSearchCV(
                 gb_cls, param_grid, cv=cv_split, scoring=scorer)
             grid_search.fit(X_train, y_train)
+            logger.info(f"GB GridSearchCV best params: {grid_search.best_params_}")
 
             y_hat = grid_search.predict(X_test)
 
         else:
             if len(validation) > 0:
+                logger.info("GB holdout branch using validation set for early stopping")
                 gb_cls.fit(X_train, y_train, eval_set=[(X_validation, y_validation)], early_stopping_rounds=10)
             else:
+                logger.info("GB holdout branch without validation set")
                 gb_cls.fit(X_train, y_train)
 
             y_hat = gb_cls.predict(X_test)
 
     elif model_type == "histgb":
+        logger.info("Starting HistGradientBoosting pipeline")
         histgb_cls = HistGradientBoostingClassifier(max_depth=max_depth, min_samples_leaf=min_samples_leaf, class_weight={0: sum(y_train), 1: len(y_train) - sum(y_train)})
 
         param_grid = {
@@ -624,14 +713,17 @@ def main(handler: SnakemakeHandler):
             grid_search = GridSearchCV(
                 histgb_cls, param_grid, cv=cv_split, scoring=scorer)
             grid_search.fit(X_train, y_train)
+            logger.info(f"HISTGB GridSearchCV best params: {grid_search.best_params_}")
 
             y_hat = grid_search.predict(X_test)
 
         else:
+            logger.info("HISTGB holdout branch")
             histgb_cls.fit(X_train, y_train)
             y_hat = histgb_cls.predict(X_test)
 
     elif model_type == "lr":
+        logger.info("Starting LogisticRegression pipeline")
         # Changed to Regularized Logistic Regression
         if param_grid_size == "small":
             param_grid = {
@@ -660,10 +752,13 @@ def main(handler: SnakemakeHandler):
             ]
 
         solver_to_use = 'saga' if any(p in param_grid['penalty'] for p in ['l1', 'elasticnet']) else 'lbfgs'
+        logger.info(f"LR solver selected: {solver_to_use}")
         best_result = -1
 
         if parameter_search_strategy == "random_search":
+            logger.info(f"LR random_search enabled with n_iter={parameter_search_n_iter}")
             sampled_params = parameter_sampler(param_grid, n_iter=parameter_search_n_iter)
+            logger.info(f"LR sampled {len(sampled_params)} unique parameter combinations")
             for parameter_sample in sampled_params:
                 l1_ratio = 0.5 if parameter_sample['penalty'] == 'elasticnet' else None
                 lr_cls = LogisticRegression(
@@ -683,6 +778,7 @@ def main(handler: SnakemakeHandler):
                 if current_score > best_result:
                     best_result = current_score
                     best_lr_model = lr_cls
+                    logger.info(f"LR new best {custom_scorer}={best_result}")
                     with open(output_file, "w") as param_file:
                         param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_result}\n")
                         param_file.write(f"Parameters: penalty={parameter_sample['penalty']}, C={parameter_sample['C']}\n")
@@ -691,6 +787,7 @@ def main(handler: SnakemakeHandler):
 
         else:
             if param_grid_low_memory_mode:
+                logger.info("LR low-memory exhaustive search enabled")
                 for temp_penalty in param_grid['penalty']:
                     for temp_C in param_grid['C']:
                         l1_ratio = 0.5 if temp_penalty == 'elasticnet' else None
@@ -712,12 +809,14 @@ def main(handler: SnakemakeHandler):
                         if current_score > best_result:
                             best_result = current_score
                             best_lr_model = lr_cls
+                            logger.info(f"LR new best {custom_scorer}={best_result}")
                             with open(output_file, "w") as param_file:
                                 param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_result}\n")
                                 param_file.write(f"Parameters: penalty={temp_penalty}, C={temp_C}\n")
                             best_y_hat = y_hat
                 lr_cls = best_lr_model
             else:
+                logger.info("LR GridSearchCV branch enabled")
                 base_lr = LogisticRegression(solver=solver_to_use, class_weight='balanced', random_state=random_seed, max_iter=2000)
                 
                 if 'elasticnet' in param_grid['penalty']:
@@ -732,21 +831,26 @@ def main(handler: SnakemakeHandler):
                     n_jobs=n_jobs
                 )
                 grid_search.fit(X_train, y_train)
+                logger.info(f"LR GridSearchCV best params: {grid_search.best_params_}")
                 
                 lr_cls = grid_search.best_estimator_
                 y_hat = lr_cls.predict(X_test)
                 best_custom_score = scoring_function(y_test, y_hat)
+                logger.info(f"LR final test {custom_scorer}: {best_custom_score}")
                 
                 with open(output_file, "w") as param_file:
                     param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_custom_score}\n")
                     param_file.write(f"Parameters: {grid_search.best_params_}\n")
     
     if best_y_hat is not None:
+        logger.info("Writing evaluation metrics using best_y_hat from search loop")
         output_file_writer(handler.result, y_test, best_y_hat)
     else:
+        logger.info("Writing evaluation metrics using latest y_hat")
         output_file_writer(handler.result, y_test, y_hat)
 
     if save_model:
+        logger.info(f"Saving model artifact for model_type={model_type} to {handler.model_file}")
         if model_type == "rf":
             pickle.dump(rf_cls, open(handler.model_file, 'wb'))
         elif model_type == "svm":
@@ -763,6 +867,7 @@ def main(handler: SnakemakeHandler):
     if feature_importance_analysis:
 
         logger.info("Performing feature importance analysis...")
+        logger.info(f"Feature importance strategy={feature_importance_analysis_strategy}")
 
         if feature_importance_analysis_strategy == "gini":
 
@@ -822,6 +927,9 @@ def main(handler: SnakemakeHandler):
                 gini_importances = pd.Series(importances, index=feature_names)
                 importances_dict = gini_importances.to_dict()
                 sorted_importances = sorted(importances_dict.items(), key=lambda x: x[1], reverse=True)
+                logger.info(
+                    f"Computed gini/weight importances for {len(sorted_importances)} features"
+                )
 
                 with open(handler.fia, "w") as file:
                     if important_feature_limit == -1:
@@ -836,6 +944,9 @@ def main(handler: SnakemakeHandler):
                             file.write(f"{key}\t{value}\n")
 
         elif feature_importance_analysis_strategy == "permutation_importance":
+            logger.info(
+                f"Running permutation importance with n_repeats={fia_repeats}, n_jobs={n_jobs}"
+            )
             if model_type == "rf":
                 r = permutation_importance(
                     rf_cls, X_test, y_test, n_repeats=fia_repeats, random_state=random_seed, n_jobs=n_jobs)
@@ -866,7 +977,9 @@ def main(handler: SnakemakeHandler):
             logger.error("Please choose either 'gini' or 'permutation_importance'.")
         
         if not handler.fia.exists():
+            logger.warning("FIA failed to be created. Creating an empty file to avoid Snakemake errors.")
             handler.fia.touch()
+        logger.info(f"Feature importance output written to {handler.fia}")
 
 if __name__ == "__main__":
     handler = SnakemakeHandler(
