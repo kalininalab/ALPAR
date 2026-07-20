@@ -88,6 +88,8 @@ rule pyseer_post_processor_clean:
     output: TEMP_DIR / "gwas" / "pyseer_results_sorted_cleaned" / "{antibiotic}.tsv"
     benchmark: BENCHMARKS_DIR / "pyseer_post_processor_clean_{antibiotic}.tsv"
     log: LOGS_DIR / "gwas" / "pyseer_post_processor_clean_{antibiotic}.log"
+    params:
+        mock = lookup(dpath="mock", within=config, default=False),
     conda: ENVS_DIR.format("miller")
     threads: 1
     shell:
@@ -99,6 +101,11 @@ rule pyseer_post_processor_clean:
         if [ $(wc -l < {output}) -eq 0 ]; then
             echo "No valid results after cleaning {input}" >> {log}
             head -1 {input} > {output}
+        fi
+
+        if [ "{params.mock}" = "True" ]; then
+            echo "Mock mode enabled" >> {log}
+            cat {input} > {output}
         fi
         """
 

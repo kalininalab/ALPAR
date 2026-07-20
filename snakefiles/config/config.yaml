@@ -15,3 +15,5 @@ env_dir: "/home/ayu21/miniconda3/envs"
 
 genus: "ecoli"
 gpa_method: "cd-hit"
+mock: False
+

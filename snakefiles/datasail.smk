@@ -78,6 +78,7 @@ rule datasail_runner:
         solver = "SCIP",
         linkage = "average",
         e_clusters = 50,
+        mock = lookup(dpath="mock", within=config, default=False),
     threads: 1,
     script:
         SCRIPTS_DIR / "datasail_runner.py"

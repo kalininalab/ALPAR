@@ -40,6 +40,10 @@ class SnakemakeHandler(BaseModel):
     antibiotic: str = Field(
         description="Antibiotic to run the datasail algorithm on."
     )
+    mock: bool = Field(
+        default = False,
+        description="Whether to run in mock mode.",
+    )
     techniques: str = "C1e"
     splits: list = [0.8, 0.2]
     names: list = ["train", "test"]
@@ -115,10 +119,12 @@ def main(handler: SnakemakeHandler):
     )
 
     with handler.output_file.open('w') as ofile:
-        if splits is not None:
+        try:
             for key in splits[handler.techniques][0]:
                 ofile.write(f"{key}\t{splits[handler.techniques][0][key]}\n")
-        else:
+        except:
+            if not handler.mock:
+                raise
             logger.warning('Falling back to random splits')
             splits = split_by_proportions(handler, shuffle=True, seed=42)
             for group_set, name in zip(splits, handler.names):
@@ -209,6 +215,7 @@ if __name__ == "__main__":
         solver=snakemake.params['solver'],
         linkage=snakemake.params['linkage'],
         e_clusters=snakemake.params['e_clusters'],
+        mock=snakemake.params.get('mock', False)
     )
     setup_logging(handler.log_file)
     with redirect_fds(handler.log_file):
