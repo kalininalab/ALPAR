@@ -36,12 +36,13 @@ class SnakemakeHandler(BaseModel):
     log_file: FilePath | NewPath = Field(
         description='Path to file for dumping python logs.'
     )
-    antibiotics: tuple[str, ...] = Field(
-        description='Tuple of antibiotic names to analyze.'
-    )
     output_file: NewPath = Field(
         description='Path to where the output file will be saved.'
     )
+    lor_lookup_file: NewPath = Field(
+        description='Path to where the log-odds ratio lookup file will be saved.'
+    )
+    antibiotic: str
 
 
 # PanPA Graph
@@ -326,12 +327,12 @@ def bubblegun_resolve_dag_reference(
 
 # Phenotypes
 
-def load_phenotypes(phenotype_file: str | Path, antibiotics: tuple[str, ...]) -> pl.DataFrame:
+def load_phenotypes(phenotype_file: str | Path, antibiotic: str) -> pl.DataFrame:
     phenotype_df = (
         pl.read_csv(
             phenotype_file,
             separator='\t',
-            schema={'checksum': pl.String} | {a: pl.UInt8 for a in antibiotics}
+            schema_overrides={'checksum': pl.String, antibiotic: pl.UInt8}
         )
     )
     logger.debug(
@@ -433,11 +434,11 @@ def realized_paths(
     if root:
         yield from dfs(source, root)
 
-def bubble_lor_is_significant(bubble_lor: dict[frozenset[str], float]) -> bool:
+def bubble_lor_is_significant(bubble_lor: list[tuple[str, frozenset[str], float]]) -> bool:
     if len(bubble_lor) < 2:
         return False
 
-    values = list(bubble_lor.values())
+    values = [lor for _, _, lor in bubble_lor]
     return not all(v == values[0] for v in values)
 
 LAPLACE_SMOOTHING = 1
@@ -447,14 +448,15 @@ def write_bubble_lor(
         parent_cohort: Cohort,
         dag: rx.PyDiGraph[GFASegment, GFALink],
         cluster_name: str,
-        io_file: TextIO
+        io_out_file: TextIO,
+        io_lor_file: TextIO
 ) -> None:
     if bubble.nested_chains:
         for nested_chain in bubble.nested_chains:
-            write_chain_lor(nested_chain, parent_cohort, dag, cluster_name, io_file)
+            write_chain_lor(nested_chain, parent_cohort, dag, cluster_name, io_out_file, io_lor_file)
         return
 
-    path_lor = dict[frozenset[str], float]()
+    path_lor = list[tuple[str, frozenset[str], float]]()
     for path, path_cohort in realized_paths(dag, bubble.dag_ends[0], bubble.dag_ends[1], parent_cohort):
         susceptible_mult = 1
         resistance_mult = 1
@@ -482,7 +484,13 @@ def write_bubble_lor(
             log_odds_ratio
         )
 
-        path_lor[frozenset(iter(path_cohort))] = log_odds_ratio
+        path_lor.append(
+            (
+                ','.join('>' + dag.get_node_data(node_id).name for node_id in path),
+                frozenset(iter(path_cohort)),
+                log_odds_ratio
+            )
+        )
 
     if bubble_lor_is_significant(path_lor):
         logger.info(
@@ -491,9 +499,10 @@ def write_bubble_lor(
             cluster_name,
             path_lor
         )
-        for strains, lor in path_lor.items():
+        for gaf_path, strains, lor in path_lor:
+            io_lor_file.write(f'{gaf_path}\t{lor}\n')
             for strain in strains:
-                io_file.write(f'{strain}\t{path_cohort.antibiotic}_{cluster_name}_bubble_{bubble.id}\t{lor}\n')
+                io_out_file.write(f'{strain}\t{cluster_name}_bubble_{bubble.id}\t{lor}\n')
 
 
 def write_chain_lor(
@@ -501,7 +510,8 @@ def write_chain_lor(
         parent_cohort: Cohort,
         dag: rx.PyDiGraph[GFASegment, GFALink],
         cluster_name: str,
-        io_file: TextIO
+        io_out_file: TextIO,
+        io_lor_file: TextIO,
 ) -> None:
     logger.debug(
         'Chain {} input cohort: susceptible={}, resistant={}',
@@ -518,25 +528,26 @@ def write_chain_lor(
     else:
         cohort = parent_cohort & (start_strains | end_strains)
 
-
         logger.debug(f'Calculating log-odds ratio for chain {chain.id} in cluster {cluster_name} with cohort size {len(cohort.susceptible)} susceptible and {len(cohort.resistant)} resistant strains.')
         susceptible_likelihood = (len(cohort.susceptible) + LAPLACE_SMOOTHING) / (len(parent_cohort.susceptible) + 2 * LAPLACE_SMOOTHING)
         resistant_likelihood = (len(cohort.resistant) + LAPLACE_SMOOTHING) / (len(parent_cohort.resistant) + 2 * LAPLACE_SMOOTHING)
         log_odds_ratio = math.log(resistant_likelihood / susceptible_likelihood)
 
+        logger.debug(f'Chain {chain.id} in cluster {cluster_name} has log-odds ratio {log_odds_ratio}.')
         for strain in iter(cohort):
-            logger.debug(f'Chain {chain.id} in cluster {cluster_name} has log-odds ratio {log_odds_ratio} for strain {strain}.')
-            io_file.write(f'{strain}\t{cohort.antibiotic}_{cluster_name}_chain_{chain.id}\t{log_odds_ratio}\n')
+            io_out_file.write(f'{strain}\t{cluster_name}_chain_{chain.id}\t{log_odds_ratio}\n')
+
+        io_lor_file.write(f'>{chain.ends[0]}[>0-9]+>{chain.ends[1]}\t{log_odds_ratio}\n')
 
     for bubble in chain.bubbles:
-        write_bubble_lor(bubble, cohort, dag, cluster_name, io_file)
+        write_bubble_lor(bubble, cohort, dag, cluster_name, io_out_file, io_lor_file)
 
 
 # Entrypoint
 
 @logger.catch
 def main(handler: SnakemakeHandler) -> None:
-    phenotype_df = load_phenotypes(handler.phenotype_table, handler.antibiotics)
+    phenotype_df = load_phenotypes(handler.phenotype_table, handler.antibiotic)
     dag = load_gfa_to_dag(handler.gfa_file)
     bubble_gun = load_bubblegun(handler.bubble_gun)
 
@@ -556,22 +567,24 @@ def main(handler: SnakemakeHandler) -> None:
         len(bubble_gun)
     )
 
-    with open(handler.output_file, 'w', encoding='utf-8') as f:
+    with (
+        handler.output_file.open('w', encoding='utf-8') as out_f,
+        handler.lor_lookup_file.open('w', encoding='utf-8') as lor_f
+    ):
         cluster_name = handler.output_file.stem
 
-        for antibiotic in handler.antibiotics:
-            antibiotic_cohort = split_phenotypes(phenotype_df, antibiotic)
+        antibiotic_cohort = split_phenotypes(phenotype_df, handler.antibiotic)
 
-            logger.debug(
-                "Starting cluster '{}' for antibiotic '{}': cohort_s={}, cohort_r={}",
-                cluster_name,
-                antibiotic,
-                len(antibiotic_cohort.susceptible),
-                len(antibiotic_cohort.resistant)
-            )
+        logger.debug(
+            "Starting cluster '{}' for antibiotic '{}': cohort_s={}, cohort_r={}",
+            cluster_name,
+            handler.antibiotic,
+            len(antibiotic_cohort.susceptible),
+            len(antibiotic_cohort.resistant)
+        )
 
-            for chain in bubble_gun.values():
-                write_chain_lor(chain, antibiotic_cohort, dag, cluster_name, f)
+        for chain in bubble_gun.values():
+            write_chain_lor(chain, antibiotic_cohort, dag, cluster_name, out_f, lor_f)
 
 
 
@@ -596,12 +609,16 @@ def _parse_args() -> SnakemakeHandler:
         help='Path to file for dumping python logs.'
     )
     parser.add_argument(
-        '--antibiotics', required=True, nargs='+',
-        help='One or more antibiotic names to analyze.'
+        '--antibiotic', required=True,
+        help='Antibiotic name to analyze.'
     )
     parser.add_argument(
         '--output-file', required=True, type=Path,
         help='Path to the output TSV file.'
+    )
+    parser.add_argument(
+        '--lor-lookup-file', required=True, type=Path,
+        help='Path to the log-odds ratio lookup TSV file.'
     )
     args = parser.parse_args()
     return SnakemakeHandler(
@@ -609,8 +626,9 @@ def _parse_args() -> SnakemakeHandler:
         bubble_gun=args.bubble_gun,
         phenotype_table=args.phenotype_table,
         log_file=args.log_file,
-        antibiotics=tuple(args.antibiotics),
         output_file=args.output_file,
+        lor_lookup_file=args.lor_lookup_file,
+        antibiotic=args.antibiotic,
     )
 
 
@@ -621,8 +639,9 @@ if __name__ == '__main__':
             bubble_gun=snakemake.input['bubble_gun'],
             phenotype_table=snakemake.input['phenotype_table'],
             log_file=snakemake.log[0],
-            antibiotics=tuple(snakemake.params['antibiotics']),
-            output_file=snakemake.output[0],
+            output_file=snakemake.output['output_file'],
+            lor_lookup_file=snakemake.output['lor_lookup_file'],
+            antibiotic=snakemake.wildcards['antibiotic'],
         )
     except NameError:
         handler = _parse_args()

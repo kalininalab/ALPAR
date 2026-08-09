@@ -51,20 +51,22 @@ ANTIBIOTICS = tuple(antibiotic.name for antibiotic in IN_DIR.iterdir())
 # -----------------------
 
 include: SNAKEFILES_DIR / "create_binary_tables.smk"
+include: SNAKEFILES_DIR / "datasail.smk"
+include: SNAKEFILES_DIR / "pangenome.smk"
 include: SNAKEFILES_DIR / "phylogeny.smk"
 include: SNAKEFILES_DIR / "prps.smk"
 include: SNAKEFILES_DIR / "gwas.smk"
-include: SNAKEFILES_DIR / "datasail.smk"
 include: SNAKEFILES_DIR / "ml.smk"
 
 
 rule automatix:
     input:
         rules.create_binary_tables.output,
+        rules.datasail.output,
+        rules.pangenome.output,
         rules.phylogeny.output,
         rules.prps.output,
         rules.gwas.output,
-        rules.datasail.output,
         rules.ml.output,
     output: touch(TEMP_DIR / "flags" / "automatix.done")
     default_target: True

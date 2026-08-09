@@ -67,9 +67,9 @@ class CdhitHandler(BaseModel):
     )
 
 async def write_cluster(filename: str, content: str) -> None:
-        async with SEMAPHORE:
-            async with aiofiles.open(filename, 'w', encoding='utf-8') as f:
-                await f.write(content)
+    async with SEMAPHORE:
+        async with aiofiles.open(filename, 'w', encoding='utf-8') as f:
+            await f.write(content)
 
 @logger.catch
 async def split_cluster_fasta(handler: CdhitHandler) -> None:

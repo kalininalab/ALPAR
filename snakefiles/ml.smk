@@ -1,5 +1,32 @@
 from pathlib import Path
 
+rule merge_features:
+    input:
+        rules.merge_binary_features.output,
+        rules.gather_bubble_features.output,
+    output: OUT_DIR / "merged_table_{antibiotic}.tsv",
+    threads: 1,
+    shell:
+        r"""
+        cat {input} > {output}
+        """
+
+rule pivot_merged_features_miller:
+    input: rules.merge_features.output,
+    output: OUT_DIR / "merged_table_pivot_{antibiotic}.tsv",
+    log: LOGS_DIR / "pivot_merged_features_miller_{antibiotic}.log",
+    benchmark: BENCHMARKS_DIR / "pivot_merged_features_miller_{antibiotic}.tsv",
+    conda: ENVS_DIR.format("miller"),
+    threads: workflow.cores,
+    shell:
+        r"""
+        mlr --tsv --implicit-tsv-header \
+            label hash,feature,value \
+            then reshape -s feature,value \
+            then unsparsify --fill-with '' \
+            {input} > {output} 2> {log}
+        """
+
 rule prps_ml_preprocessor:
     input:
         binary_mutation_table = rules.pivot_merged_features_miller.output[0],
@@ -25,26 +52,12 @@ rule copy_and_zip_file:
         gzip -c {input} > {output} 2> {log}
         """
 
-rule split_train_test:
-    input: rules.datasail_runner.output,
-    output:
-        train = TEMP_DIR / "datasail" / "{antibiotic}" / "train.txt",
-        test = TEMP_DIR / "datasail" / "{antibiotic}" / "test.txt",
-    log: LOGS_DIR / "split_train_test_{antibiotic}.log",
-    benchmark: BENCHMARKS_DIR / "split_train_test_{antibiotic}.tsv",
-    threads: 1,
-    shell:
-        r"""
-        grep -P '\ttrain$' {input} | cut -f1 > {output.train} 2>> {log}
-        grep -P '\ttest$' {input} | cut -f1 > {output.test} 2>> {log}
-        """
-
 rule combined_ml:
     input:
         binary_mutation_table = rules.pivot_merged_features_miller.output[0],
         phenotype_table = rules.phenotype_dataframe_creator.output[0],
-        train = rules.split_train_test.output.train,
-        test = rules.split_train_test.output.test,
+        train = lambda wildcards: expand(rules.split_train_test.output, split_category=["train"], **wildcards),
+        test = lambda wildcards: expand(rules.split_train_test.output, split_category=["test"], **wildcards),
     output:
         best_params = TEMP_DIR / "ml" / "{antibiotic}" / "seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type}_FIA_{feature_importance_analysis_strategy}_best_params.txt",
         model_file  = TEMP_DIR / "ml" / "{antibiotic}" / "seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type}_FIA_{feature_importance_analysis_strategy}_model.sav",

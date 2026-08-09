@@ -11,7 +11,7 @@ rule mash_sketch:
     output: TEMP_DIR / "datasail" / "mash_sketch.msh",
     log: LOGS_DIR / "mash_sketch.log",
     benchmark: BENCHMARKS_DIR / "mash_sketch.tsv",
-    conda: ENVS_DIR.format("datasail")
+    conda: ENVS_DIR.format("datasail"),
     threads: 8,
     shell:
         r"""
@@ -28,7 +28,7 @@ rule mash_dist:
     output: TEMP_DIR / "datasail" / "distance_matrix.tsv",
     log: LOGS_DIR / "mash_dist.log",
     benchmark: BENCHMARKS_DIR / "mash_dist.tsv",
-    conda: ENVS_DIR.format("datasail")
+    conda: ENVS_DIR.format("datasail"),
     threads: 8,
     shell:
         r"""
@@ -47,7 +47,7 @@ rule datasail_pre_processor:
     output: TEMP_DIR / "datasail" / "distance_matrix_preprocessed.tsv",
     log: LOGS_DIR / "datasail_preprocessor.log",
     benchmark: BENCHMARKS_DIR / "datasail_preprocessor.tsv",
-    conda: ENVS_DIR.format("miller")
+    conda: ENVS_DIR.format("miller"),
     threads: 1,
     shell:
         r"""
@@ -64,7 +64,7 @@ rule datasail_runner:
     output: TEMP_DIR / "datasail" / "{antibiotic}" / "splits.tsv",
     log: LOGS_DIR / "datasail_runner_{antibiotic}.log",
     benchmark: BENCHMARKS_DIR / "datasail_runner_{antibiotic}.tsv",
-    conda: ENVS_DIR.format("datasail")
+    conda: ENVS_DIR.format("datasail"),
     params:
         techniques = "C1e",
         splits = [0.8, 0.2],
@@ -82,6 +82,39 @@ rule datasail_runner:
     threads: 1,
     script:
         SCRIPTS_DIR / "datasail_runner.py"
+
+rule split_train_test:
+    input: rules.datasail_runner.output,
+    output: TEMP_DIR / "datasail" / "{antibiotic}" / "{split_category}.txt",
+    log: LOGS_DIR / "split_train_test_{antibiotic}_{split_category}.log",
+    benchmark: BENCHMARKS_DIR / "split_train_test_{antibiotic}_{split_category}.tsv",
+    threads: 1,
+    shell:
+        r"""
+        grep -P '\t{wildcards.split_category}$' {input} | cut -f1 > {output} 2>> {log}
+        """
+
+rule split_phenotype_dataframe:
+    input:
+        phenotype_dataframe = rules.phenotype_dataframe_creator.output,
+        split_category = rules.split_train_test.output,
+    output: TEMP_DIR / "datasail" / "{antibiotic}" / "{split_category}_phenotype_dataframe.tsv",
+    log: LOGS_DIR / "split_phenotype_dataframe_{antibiotic}_{split_category}.log",
+    benchmark: BENCHMARKS_DIR / "split_phenotype_dataframe_{antibiotic}_{split_category}.tsv",
+    conda: ENVS_DIR.format("miller"),
+    threads: 1,
+    shell:
+        r"""
+	mlr --tsv \
+        	join \
+	        --implicit-tsv-header \
+	        -j checksum \
+	        -l 1 \
+	        -r checksum \
+	        -f {input.split_category} \
+	        {input.phenotype_dataframe} \
+        	> {output} 2> {log}        
+	"""
 
 rule datasail:
     input:
