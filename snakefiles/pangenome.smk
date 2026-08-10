@@ -21,6 +21,19 @@ checkpoint split_cluster_fasta:
     script:
         SCRIPTS_DIR / "split_cluster_fasta.py"
 
+rule cluster_fasta_splits:
+    input:
+        cluster_store = rules.split_cluster_fasta.output[0],
+        datasail_splits = rules.datasail_runner.output[0],
+    output: directory(PANGENOME_OUT_DIR / "cluster_fasta_splits" / "{antibiotic}" / "{split_category}"),
+    log: PANGENOME_LOGS_DIR / "cluster_fasta_splits" / "{antibiotic}_{split_category}.log",
+    benchmark: BENCHMARKS_DIR / "cluster_fasta_splits_{antibiotic}_{split_category}.tsv",
+    wildcard_constraints:
+        split_category = "train|test",
+    conda: ENVS_DIR.format("python313")
+    threads: 1
+    script:
+        SCRIPTS_DIR / "cluster_fasta_splits.py"
 
 # -----------------------
 # Multiple Sequence Alignment: MAFFT
@@ -270,6 +283,104 @@ rule gather_bubble_features:
         done
         """
 
+# -----------------------
+# Bubble Features: Test
+# -----------------------
+
+def batched_panpa_graphs(wildcards) -> list[Path]:
+    panpa_graphs = get_panpa_graphs(wildcards)
+    batch_num = int(wildcards.batch_num)
+    start = batch_num * JOB_BATCH_SIZE
+    end = min(start + JOB_BATCH_SIZE, len(panpa_graphs))
+    return panpa_graphs[start:end]
+
+rule batch_panpa_align:
+    input:
+        panpa_graph_folder = rules.panpa_build_gfa.output,
+        test_sequence_folder = lambda wildcards: rules.cluster_fasta_splits.output[0].format(
+                split_category="test",
+                **wildcards,
+            ),
+        batch_graphs = batched_panpa_graphs,
+    output: directory(PANGENOME_OUT_DIR / "panpa_alignment_batches" / "{antibiotic}" / "batch_{batch_num}"),
+    log: PANGENOME_LOGS_DIR / "batch_panpa_align" / "{antibiotic}_batch_{batch_num}.log",
+    benchmark: BENCHMARKS_DIR / "batch_panpa_align_{antibiotic}_{batch_num}.tsv",
+    conda: ENVS_DIR.format("panpa-vcf")
+    threads: 1
+    shell:
+        r"""
+        mkdir -p "{output}" "$(dirname {log})"
+        : > "{log}"
+
+        for gfa_file in {input.batch_graphs}; do
+            CLUSTER=$(basename "${{gfa_file%.gfa}}")
+            QUERY_FASTA="{input.test_sequence_folder}/${{CLUSTER}}"
+            OUTPUT_GAF="{output}/${{CLUSTER}}.gaf"
+
+            echo ">> Processing $CLUSTER" >> "{log}"
+
+            if [ ! -s "$QUERY_FASTA" ]; then
+                echo "No test sequences; creating an empty GAF." >> "{log}"
+                : > "$OUTPUT_GAF"
+                continue
+            fi
+
+            TEMP_LOG=$(mktemp --suffix=.log)
+
+            if PanPA \
+                --log_file "$TEMP_LOG" \
+                align_single \
+                --gfa_files "$gfa_file" \
+                --seqs "$QUERY_FASTA" \
+                --cores {threads} \
+                --out_gaf "$OUTPUT_GAF" \
+                >> "$TEMP_LOG" 2>&1
+            then
+                STATUS=0
+            else
+                STATUS=$?
+            fi
+
+            cat "$TEMP_LOG" >> "{log}"
+            rm "$TEMP_LOG"
+
+            if [ "$STATUS" -ne 0 ]; then
+                echo "PanPA failed for $CLUSTER." >> "{log}"
+                exit "$STATUS"
+            fi
+
+            # Ensure that every cluster has a GAF, even if PanPA emitted none.
+            if [ ! -f "$OUTPUT_GAF" ]; then
+                : > "$OUTPUT_GAF"
+            fi
+        done
+        """
+
+rule gather_panpa_alignments:
+    input:
+        lambda wildcards: expand(
+            rules.batch_panpa_align.output,
+            batch_num=range((len(get_panpa_graphs(wildcards)) - 1) // JOB_BATCH_SIZE + 1),
+            **wildcards,
+        )
+    output: directory(PANGENOME_OUT_DIR / "panpa" / "alignments" / "{antibiotic}"),
+    log: PANGENOME_LOGS_DIR / "gather_panpa_alignments_{antibiotic}.log",
+    shell:
+        r"""
+        mkdir -p "{output}"
+        : > "{log}"
+
+        for batch_dir in {input}; do
+            for gaf_file in "$batch_dir"/*.gaf; do
+                [ -f "$gaf_file" ] || continue
+
+                ln -srv \
+                    "$gaf_file" \
+                    "{output}/$(basename "$gaf_file")" \
+                    >> "{log}" 2>&1
+            done
+        done
+        """
 
 # -----------------------
 # Snakefile Target
@@ -279,4 +390,5 @@ rule pangenome:
     input:
         bubble_features = expand(rules.gather_bubble_features.output, antibiotic=ANTIBIOTICS),
         panpa_index = rules.panpa_build_index.output,
+        panpa_alignments = expand(rules.gather_panpa_alignments.output, antibiotic=ANTIBIOTICS),
     output: touch(TEMP_DIR / "flags" / "pangenome.done")
