@@ -4,6 +4,31 @@ Automated Learning Pipeline for Antimicrobial Resistance
 
 ![Pipeline](docs/imgs/ALPAR_Flowchart_new.png?raw=true "Pipeline")
 
+`Antimicrobial resistance (AMR)` happens when bacteria evolve so that antibiotics no longer work against them, making infections harder to treat.
+
+This paper introduces ALPAR, a computer tool that combines genetics, bioinformatics, and machine learning to predict whether bacteria will be resistant to antibiotics.
+
+Normally, studying antibiotic resistance requires many different software programs and technical steps, which can be difficult and time-consuming. ALPAR automates most of the process in a single pipeline.
+
+Researchers can give ALPAR bacterial genome sequences, and it automatically finds genetic mutations, builds data tables, trains machine learning models, and identifies genes linked to resistance.
+
+The system also includes safeguards to reduce common mistakes, such as models learning from closely related bacteria instead of finding the true causes of resistance.
+
+To test ALPAR, the researchers analyzed about 1,000 E. coli genomes and used machine learning to predict resistance to the antibiotic ciprofloxacin.
+
+The tool successfully identified well-known resistance mutations in genes such as gyrA and parC, showing that it was finding biologically meaningful patterns.
+
+ALPAR performed much better than a traditional genome-wide association study (GWAS) approach on this dataset.
+
+The tool was also tested in international antimicrobial resistance prediction competitions (CAMDA), where it won the 2024 challenge and placed third in the 2025 challenge.
+
+When compared with an established rule-based resistance prediction tool, ALPAR achieved better overall prediction performance across many bacterial species and antibiotics.
+
+The authors conclude that ALPAR can help scientists more quickly discover resistance-related mutations and make accurate predictions from bacterial DNA data.
+
+In simple terms, ALPAR is like a smart assistant that reads bacterial DNA and helps researchers predict which antibiotics are likely to fail, potentially supporting better treatment decisions and the fight against antibiotic-resistant infections
+
+
 ## Installation
 
 Single-Reference AMR is installable from [conda](https://anaconda.org/kalininalab/ALPAR) using [mamba](https://mamba.readthedocs.io/en/latest/installation.html#existing-conda-install>):
