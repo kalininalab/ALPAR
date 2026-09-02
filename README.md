@@ -48,11 +48,61 @@ mamba install -c conda-forge -c kalininalab -c bioconda -c etetoolkit alpar
 pip install panacota
 `````
 
+### Installing with pixi
+
+Alternatively, this repository includes a [pixi.toml](pixi.toml) manifest that installs the dependencies listed in [environment.yml](environment.yml) via [pixi](https://pixi.sh/):
+
+`````shell
+pixi install
+`````
+
+With pixi, there is no separate `conda activate` step:
+
+- Run one-off commands with `pixi run <command>`, e.g. `pixi run alpar --help`. Pixi resolves/activates the environment automatically for that command.
+- Or run `pixi shell` once per terminal session to drop into a shell with the environment already active, similar to `conda activate`.
+
+### Windows: Linux/macOS-only tools require WSL
+
+ALPAR's `automatix`/`create_binary_tables` pipeline creates additional conda environments on demand for tools such as `snippy`, `prokka`, `cd-hit`, `panaroo`, `mashtree`, `bakta`, `pyseer`, and `panacota` (see [sr_amr/envs](sr_amr/envs)). Several of these packages, and their dependencies (e.g. `bcftools`, `aragorn`), are **only published for Linux/macOS on bioconda and have no `win-64` build**. As a result, the pipeline cannot run natively on Windows — environment creation for those tools will fail with errors like `nothing provides bcftools` or `PackagesNotFoundError`.
+
+To run ALPAR on a Windows machine, use **WSL2 (Windows Subsystem for Linux)**:
+
+1. Install WSL2 with a Linux distribution (run in Windows PowerShell as Administrator):
+
+    `````powershell
+    wsl --install -d Ubuntu
+    `````
+
+    Restart if prompted, then launch "Ubuntu" from the Start menu and finish the first-run setup (create a Linux username/password).
+
+2. Inside the WSL Ubuntu terminal, install pixi:
+
+    `````shell
+    curl -fsSL https://pixi.sh/install.sh | sh
+    exec $SHELL
+    `````
+
+3. Open this project **from within WSL** (either clone it inside the Linux filesystem, e.g. `~/ALPAR`, or open the existing Windows checkout via its `/mnt/c/...` path), then install and run as usual:
+
+    `````shell
+    cd ~/ALPAR   # or: cd "/mnt/c/Users/<you>/OneDrive - Danaher/Documents/GitHub/ALPAR"
+    pixi install
+    pixi run alpar automatix -i example/example_files/ -o example/example_output/ --reference example/reference.gbff
+    `````
+
+    Cloning/copying the project into the native Linux filesystem (e.g. `~/ALPAR`) instead of `/mnt/c/...` is recommended for better performance.
+
 ## Example Files
 
 Example files can be downloaded from:
 
 [Example files](https://www.bv-brc.org/)
+
+This repository also ships a small [example/](example/) folder with **synthetic placeholder genomes** (randomly generated DNA, not real bacterial sequences) so you can test that the pipeline and CLI commands run end-to-end. Strain IDs and Resistant/Susceptible labels are copied from the real [tool_results/CAMDA2025/phenotype_Neisseria_gonorrhoeae.tsv](tool_results/CAMDA2025/phenotype_Neisseria_gonorrhoeae.tsv) table, but the sequence content itself is fake, so results from this example are not scientifically meaningful. See [example/README.md](example/README.md) for details, or run it directly:
+
+`````shell
+pixi run alpar automatix -i example/example_files/ -o example/example_output/ --reference example/reference.gbff
+`````
 
 ## Automatic Pipeline
 
