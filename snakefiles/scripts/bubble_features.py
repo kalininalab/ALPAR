@@ -486,7 +486,7 @@ def write_bubble_lor(
 
         path_lor.append(
             (
-                ','.join('>' + dag.get_node_data(node_id).name for node_id in path),
+                ''.join('>' + dag.get_node_data(node_id).name for node_id in path),
                 frozenset(iter(path_cohort)),
                 log_odds_ratio
             )
@@ -500,9 +500,10 @@ def write_bubble_lor(
             path_lor
         )
         for gaf_path, strains, lor in path_lor:
-            io_lor_file.write(f'{gaf_path}\t{lor}\n')
+            feature_name = f'{cluster_name}_bubble_{bubble.id}'
+            io_lor_file.write(f'{gaf_path}\t{feature_name}\t{lor}\n')
             for strain in strains:
-                io_out_file.write(f'{strain}\t{cluster_name}_bubble_{bubble.id}\t{lor}\n')
+                io_out_file.write(f'{strain}\t{feature_name}\t{lor}\n')
 
 
 def write_chain_lor(
@@ -534,10 +535,16 @@ def write_chain_lor(
         log_odds_ratio = math.log(resistant_likelihood / susceptible_likelihood)
 
         logger.debug(f'Chain {chain.id} in cluster {cluster_name} has log-odds ratio {log_odds_ratio}.')
+        feature_name = f'{cluster_name}_chain_{chain.id}'
         for strain in iter(cohort):
-            io_out_file.write(f'{strain}\t{cluster_name}_chain_{chain.id}\t{log_odds_ratio}\n')
+            io_out_file.write(f'{strain}\t{feature_name}\t{log_odds_ratio}\n')
 
-        io_lor_file.write(f'>{chain.ends[0]}[>0-9]+>{chain.ends[1]}\t{log_odds_ratio}\n')
+        io_lor_file.write('>{start}>{end}\t{feature_name}\t{log_odds_ratio}\n'.format(
+            start=dag.get_node_data(chain.dag_ends[0]).name,
+            end=dag.get_node_data(chain.dag_ends[1]).name,
+            feature_name=feature_name,
+            log_odds_ratio=log_odds_ratio
+        ))
 
     for bubble in chain.bubbles:
         write_bubble_lor(bubble, cohort, dag, cluster_name, io_out_file, io_lor_file)
@@ -552,9 +559,11 @@ def main(handler: SnakemakeHandler) -> None:
     bubble_gun = load_bubblegun(handler.bubble_gun)
 
     handler.output_file.parent.mkdir(parents=True, exist_ok=True)
+    handler.lor_lookup_file.parent.mkdir(parents=True, exist_ok=True)
     if not bubble_gun:
         logger.warning('No chains found in BubbleGun output {}. Exiting without writing output.', handler.bubble_gun)
         handler.output_file.touch()
+        handler.lor_lookup_file.touch()
         return
 
     bubble_gun = bubblegun_resolve_dag_reference(bubble_gun, dag)

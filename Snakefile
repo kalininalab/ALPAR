@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 
@@ -45,6 +46,9 @@ RESISTANCE_STATUS_MAPPING = {
 }
 ANTIBIOTICS = tuple(antibiotic.name for antibiotic in IN_DIR.iterdir())
 
+wildcard_constraints:
+    antibiotic="(?:" + "|".join(re.escape(name) for name in ANTIBIOTICS) + ")",
+    batch_num=r"\d+"
 
 # -----------------------
 # Auxiliary snakefiles

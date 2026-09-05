@@ -211,6 +211,7 @@ def batched_bubble_features(wildcards) -> list[Path]:
 
 rule batch_bubble_features:
     input:
+        script                = SCRIPTS_DIR / "bubble_features.py",
         panpa_graph_folder    = rules.panpa_build_gfa.output,
         bubblegun_folder      = rules.batched_bubblegun_runner.output,
         batch_graphs          = batched_bubble_features,
@@ -220,8 +221,6 @@ rule batch_bubble_features:
         lor_lookup = directory(PANGENOME_OUT_DIR / "bubble_features_batches" / "batch_{batch_num}" / "{antibiotic}_lor_lookup"),
     log: PANGENOME_LOGS_DIR / "batch_bubble_features" / "batch_{batch_num}_{antibiotic}.log"
     benchmark: BENCHMARKS_DIR / "batch_bubble_features_batch_{batch_num}_{antibiotic}.tsv"
-    params:
-        script = SCRIPTS_DIR / "bubble_features.py",
     conda: ENVS_DIR.format("python313")
     threads: 1
     shell:
@@ -239,7 +238,7 @@ rule batch_bubble_features:
             LOR_LOOKUP_FILE="{output.lor_lookup}/$CLUSTER.tsv"
             TEMP_LOG=$(mktemp --suffix .log)
 
-            python {params.script} \
+            python {input.script} \
                 --gfa-file $gfa_file \
                 --bubble-gun $BUBBLE_JSON \
                 --phenotype-table {input.split_phenotype_table} \
@@ -282,6 +281,22 @@ rule gather_bubble_features:
             ln -srv $batch_dir/*.tsv {output.lor_lookup} >> {log} 2>&1
         done
         """
+
+
+rule batch_bubble_features_complete:
+    input:
+        features = lambda wildcards: expand(
+            rules.batch_bubble_features.output.outdir,
+            batch_num=range((len(get_panpa_graphs(wildcards)) - 1) // JOB_BATCH_SIZE + 1),
+            **wildcards,
+        ),
+        lor_lookup = lambda wildcards: expand(
+            rules.batch_bubble_features.output.lor_lookup,
+            batch_num=range((len(get_panpa_graphs(wildcards)) - 1) // JOB_BATCH_SIZE + 1),
+            **wildcards,
+        ),
+    output: touch(TEMP_DIR / "flags" / "bubble_features_train_{antibiotic}.done")
+
 
 # -----------------------
 # Bubble Features: Test
@@ -356,6 +371,70 @@ rule batch_panpa_align:
         done
         """
 
+rule batch_gaf_lor_features:
+    input:
+        gaf_dir = rules.batch_panpa_align.output,
+        lor_lookup_dir = rules.batch_bubble_features.output.lor_lookup,
+    output: directory(PANGENOME_OUT_DIR / "bubble_features_test_batches" / "batch_{batch_num}" / "{antibiotic}"),
+    log: PANGENOME_LOGS_DIR / "batch_gaf_lor_features" / "{antibiotic}_batch_{batch_num}.log",
+    benchmark: BENCHMARKS_DIR / "batch_gaf_lor_features_{antibiotic}_{batch_num}.tsv",
+    conda: ENVS_DIR.format("python313")
+    params:
+        script = SCRIPTS_DIR / "gaf_lor_features.py"
+    threads: 1
+    shell:
+        r"""
+        mkdir -p "{output}" "$(dirname {log})"
+        : > "{log}"
+
+        for gaf_file in "{input.gaf_dir}"/*.gaf; do
+            [ -f "$gaf_file" ] || continue
+
+            CLUSTER=$(basename "${{gaf_file%.gaf}}")
+            LOOKUP_FILE="{input.lor_lookup_dir}/${{CLUSTER}}.tsv"
+            OUTPUT_FILE="{output}/${{CLUSTER}}.tsv"
+
+            echo ">> Mapping $CLUSTER" >> "{log}"
+            if [ ! -f "$LOOKUP_FILE" ]; then
+                echo "Missing LOR lookup: $LOOKUP_FILE" >> "{log}"
+                exit 1
+            fi
+
+            TEMP_LOG=$(mktemp --suffix=.log)
+
+            if python "{params.script}" \
+                --gaf-file "$gaf_file" \
+                --lor-lookup-file "$LOOKUP_FILE" \
+                --output-file "$OUTPUT_FILE" \
+                --log-file "$TEMP_LOG" \
+                >> "{log}" 2>&1
+            then
+                STATUS=0
+            else
+                STATUS=$?
+            fi
+
+            cat "$TEMP_LOG" >> "{log}"
+            rm "$TEMP_LOG"
+
+            if [ "$STATUS" -ne 0 ]; then
+                echo "GAF-to-LOR mapping failed for $CLUSTER." >> "{log}"
+                exit "$STATUS"
+            fi
+        done
+        """
+
+
+rule batch_gaf_lor_features_complete:
+    input:
+        lambda wildcards: expand(
+            rules.batch_gaf_lor_features.output,
+            batch_num=range((len(get_panpa_graphs(wildcards)) - 1) // JOB_BATCH_SIZE + 1),
+            **wildcards,
+        )
+    output: touch(TEMP_DIR / "flags" / "bubble_features_test_{antibiotic}.done")
+
+
 rule gather_panpa_alignments:
     input:
         lambda wildcards: expand(
@@ -388,7 +467,7 @@ rule gather_panpa_alignments:
 
 rule pangenome:
     input:
-        bubble_features = expand(rules.gather_bubble_features.output, antibiotic=ANTIBIOTICS),
+        bubble_features_train = expand(rules.batch_bubble_features_complete.output, antibiotic=ANTIBIOTICS),
         panpa_index = rules.panpa_build_index.output,
-        panpa_alignments = expand(rules.gather_panpa_alignments.output, antibiotic=ANTIBIOTICS),
+        bubble_features_test = expand(rules.batch_gaf_lor_features_complete.output, antibiotic=ANTIBIOTICS),
     output: touch(TEMP_DIR / "flags" / "pangenome.done")
