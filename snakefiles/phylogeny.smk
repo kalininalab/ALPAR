@@ -1,5 +1,8 @@
 from pathlib import Path
 
+PHYLOGENY_OUT_DIR = OUT_DIR / "phylogeny"
+PHYLOGENY_LOGS_DIR = PHYLOGENY_OUT_DIR / "logs"
+
 
 # -----------------------
 # Mashtree
@@ -7,8 +10,8 @@ from pathlib import Path
 
 rule mashtree_preprocessor:
     input: Path(rules.rename_files.output.store) / "{sample}",
-    output: TEMP_DIR / "mashtree_preprocessor" / "{sample}.fasta",
-    log: LOGS_DIR / "mashtree_preprocessor" / "{sample}.log"
+    output: PHYLOGENY_OUT_DIR / "mashtree_preprocessor" / "{sample}.fasta",
+    log: PHYLOGENY_LOGS_DIR / "mashtree_preprocessor" / "{sample}.log"
     threads: 1
     shell:
         r"""
@@ -21,9 +24,9 @@ rule mashtree_runner:
             rules.mashtree_preprocessor.output[0],
             sample = get_sample_names(wc)
         ),
-    output: OUT_DIR / "phylogenetic_tree.dnd",
+    output: PHYLOGENY_OUT_DIR / "phylogenetic_tree.dnd",
     benchmark: BENCHMARKS_DIR / "mashtree_runner.tsv",
-    log: LOGS_DIR / "mashtree_runner.log"
+    log: PHYLOGENY_LOGS_DIR / "mashtree_runner.log"
     conda: ENVS_DIR.format("mashtree")
     threads: workflow.cores
     shell:
@@ -37,4 +40,4 @@ rule mashtree_runner:
 
 rule phylogeny:
     input: rules.mashtree_runner.output
-    output: touch(TEMP_DIR / "flags" / "phylogeny.done")
+    output: touch(OUT_DIR / "flags" / "phylogeny.done")

@@ -1,10 +1,13 @@
 from pathlib import Path
 
+GWAS_OUT_DIR = OUT_DIR / "gwas"
+GWAS_LOGS_DIR = GWAS_OUT_DIR / "logs"
+
 rule pyseer_genotype_matrix_creator:
     input: rules.binary_mutation_table.output # GWAS only on SNP
-    output: TEMP_DIR/ "gwas" / "genotype_matrix.tsv"
+    output: GWAS_OUT_DIR / "genotype_matrix.tsv"
     benchmark: BENCHMARKS_DIR / "pyseer_genotype_matrix_creator.tsv"
-    log: LOGS_DIR / "gwas" / "pyseer_genotype_matrix_creator.log"
+    log: GWAS_LOGS_DIR / "pyseer_genotype_matrix_creator.log"
     conda: ENVS_DIR.format("miller")
     threads: workflow.cores
     shell:
@@ -18,9 +21,9 @@ rule pyseer_genotype_matrix_creator:
 
 rule pyseer_phenotype_file_creator:
     input: rules.phenotype_dataframe_creator.output
-    output: TEMP_DIR / "gwas" / "pyseer_phenotype_file_{antibiotic}.tsv"
+    output: GWAS_OUT_DIR / "pyseer_phenotype_file_{antibiotic}.tsv"
     benchmark: BENCHMARKS_DIR / "pyseer_phenotype_file_creator_{antibiotic}.tsv"
-    log: LOGS_DIR / "gwas" / "pyseer_phenotype_file_creator_{antibiotic}.log"
+    log: GWAS_LOGS_DIR / "pyseer_phenotype_file_creator_{antibiotic}.log"
     conda: ENVS_DIR.format("miller")
     threads: 1
     shell:
@@ -36,13 +39,13 @@ rule pyseer_phenotype_file_creator:
 rule pyseer_similarity_matrix_creator:
     input:
         phylogeny = rules.mashtree_runner.output[0],
-    output: TEMP_DIR / "gwas" / "similarity_matrix.tsv"
+    output: GWAS_OUT_DIR / "similarity_matrix.tsv"
     params:
         output_format = "newick",
         midpoint = False,
         method = "lmm", # topology
     benchmark: BENCHMARKS_DIR / "pyseer_similarity_matrix_creator.tsv"
-    log: LOGS_DIR / "gwas" / "pyseer_similarity_matrix_creator.log"
+    log: GWAS_LOGS_DIR / "pyseer_similarity_matrix_creator.log"
     conda: ENVS_DIR.format("gwas")
     threads: 1
     script:
@@ -53,9 +56,9 @@ rule pyseer_runner:
         phenotype = rules.pyseer_phenotype_file_creator.output,
         genotype = rules.pyseer_genotype_matrix_creator.output,
         similarity_matrix = rules.pyseer_similarity_matrix_creator.output,
-    output: TEMP_DIR / "gwas" / "pyseer_results" / "{antibiotic}.tsv"
+    output: GWAS_OUT_DIR / "pyseer_results" / "{antibiotic}.tsv"
     benchmark: BENCHMARKS_DIR / "pyseer_runner_{antibiotic}.tsv"
-    log: LOGS_DIR / "gwas" / "pyseer_runner_{antibiotic}.log"
+    log: GWAS_LOGS_DIR / "pyseer_runner_{antibiotic}.log"
     conda: ENVS_DIR.format("pyseer")
     threads: workflow.cores
     shell:
@@ -71,9 +74,9 @@ rule pyseer_runner:
 
 rule pyseer_post_processor_sort:
     input: rules.pyseer_runner.output,
-    output: TEMP_DIR / "gwas" / "pyseer_results_sorted" / "{antibiotic}.tsv"
+    output: GWAS_OUT_DIR / "pyseer_results_sorted" / "{antibiotic}.tsv"
     benchmark: BENCHMARKS_DIR / "pyseer_post_processor_{antibiotic}.tsv"
-    log: LOGS_DIR / "gwas" / "pyseer_post_processor_{antibiotic}.log"
+    log: GWAS_LOGS_DIR / "pyseer_post_processor_{antibiotic}.log"
     conda: ENVS_DIR.format("miller")
     threads: 1
     shell:
@@ -85,9 +88,9 @@ rule pyseer_post_processor_sort:
 
 rule pyseer_post_processor_clean:
     input: rules.pyseer_post_processor_sort.output,
-    output: TEMP_DIR / "gwas" / "pyseer_results_sorted_cleaned" / "{antibiotic}.tsv"
+    output: GWAS_OUT_DIR / "pyseer_results_sorted_cleaned" / "{antibiotic}.tsv"
     benchmark: BENCHMARKS_DIR / "pyseer_post_processor_clean_{antibiotic}.tsv"
-    log: LOGS_DIR / "gwas" / "pyseer_post_processor_clean_{antibiotic}.log"
+    log: GWAS_LOGS_DIR / "pyseer_post_processor_clean_{antibiotic}.log"
     params:
         mock = lookup(dpath="mock", within=config, default=False),
     conda: ENVS_DIR.format("miller")
@@ -113,8 +116,8 @@ rule pyseer_gwas_graph_creator:
     input:
         gwas_results = rules.pyseer_post_processor_clean.output[0],
         gwas_postprocessed = rules.pyseer_post_processor_sort.output[0],
-    output: TEMP_DIR / "gwas" / "graphs" / "{antibiotic}.jpg"
-    log: LOGS_DIR / "gwas" / "pyseer_gwas_graph_creator_{antibiotic}.log"
+    output: GWAS_OUT_DIR / "graphs" / "{antibiotic}.jpg"
+    log: GWAS_LOGS_DIR / "pyseer_gwas_graph_creator_{antibiotic}.log"
     conda: ENVS_DIR.format("gwas")
     threads: 1
     script:
@@ -127,12 +130,12 @@ rule decision_tree_input_creator:
         pyseer_output_raw = rules.pyseer_post_processor_clean.output[0],
         pyseer_output_sorted_cleaned = rules.pyseer_post_processor_clean.output[0],
     output:
-        tree_result = TEMP_DIR / "gwas" / "decision_tree" / "{antibiotic}_result.txt",
-        tree_model = TEMP_DIR / "gwas" / "decision_tree" / "{antibiotic}_model.pkl",
+        tree_result = GWAS_OUT_DIR / "decision_tree" / "{antibiotic}_result.txt",
+        tree_model = GWAS_OUT_DIR / "decision_tree" / "{antibiotic}_model.pkl",
     params:
         antibiotic = lambda wildcards: wildcards.antibiotic,
     benchmark: BENCHMARKS_DIR / "decision_tree_input_creator_{antibiotic}.tsv"
-    log: LOGS_DIR / "gwas" / "decision_tree_input_creator_{antibiotic}.log"
+    log: GWAS_LOGS_DIR / "decision_tree_input_creator_{antibiotic}.log"
     conda: ENVS_DIR.format("gwas")
     threads: 1
     script:
@@ -143,4 +146,4 @@ rule gwas:
         expand(rules.pyseer_gwas_graph_creator.output, antibiotic=ANTIBIOTICS),
         expand(rules.decision_tree_input_creator.output.tree_result, antibiotic=ANTIBIOTICS),
         expand(rules.decision_tree_input_creator.output.tree_model, antibiotic=ANTIBIOTICS),
-    output: touch(TEMP_DIR / "flags" / "gwas.done")
+    output: touch(OUT_DIR / "flags" / "gwas.done")

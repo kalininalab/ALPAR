@@ -16,7 +16,6 @@ configfile: WORKFLOW_DIR / "snakefiles" / "config" / "config.yaml"
 
 IN_DIR = Path(config.get("input_dir"))
 OUT_DIR = Path(config.get("output_dir"))
-TEMP_DIR = Path(config.get("temp_dir"))
 GBFF_FILE = Path(config.get("gbff_file"))
 FASTA_FILE = Path(config.get("fasta_file"))
 
@@ -72,7 +71,7 @@ rule automatix:
         rules.prps.output,
         rules.gwas.output,
         rules.ml.output,
-    output: touch(TEMP_DIR / "flags" / "automatix.done")
+    output: touch(OUT_DIR / "flags" / "automatix.done")
     default_target: True
 
 # -----------------------

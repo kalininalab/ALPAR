@@ -295,7 +295,7 @@ rule batch_bubble_features_complete:
             batch_num=range((len(get_panpa_graphs(wildcards)) - 1) // JOB_BATCH_SIZE + 1),
             **wildcards,
         ),
-    output: touch(TEMP_DIR / "flags" / "bubble_features_train_{antibiotic}.done")
+    output: touch(PANGENOME_OUT_DIR / "bubble_features_train_{antibiotic}.done")
 
 
 # -----------------------
@@ -432,7 +432,7 @@ rule batch_gaf_lor_features_complete:
             batch_num=range((len(get_panpa_graphs(wildcards)) - 1) // JOB_BATCH_SIZE + 1),
             **wildcards,
         )
-    output: touch(TEMP_DIR / "flags" / "bubble_features_test_{antibiotic}.done")
+    output: touch(PANGENOME_OUT_DIR / "bubble_features_test_{antibiotic}.done")
 
 
 rule gather_panpa_alignments:
@@ -470,4 +470,4 @@ rule pangenome:
         bubble_features_train = expand(rules.batch_bubble_features_complete.output, antibiotic=ANTIBIOTICS),
         panpa_index = rules.panpa_build_index.output,
         bubble_features_test = expand(rules.batch_gaf_lor_features_complete.output, antibiotic=ANTIBIOTICS),
-    output: touch(TEMP_DIR / "flags" / "pangenome.done")
+    output: touch(OUT_DIR / "flags" / "pangenome.done")

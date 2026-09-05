@@ -1,5 +1,8 @@
 from pathlib import Path
 
+DATASAIL_OUT_DIR = OUT_DIR / "datasail"
+DATASAIL_LOGS_DIR = DATASAIL_OUT_DIR / "logs"
+
 
 rule mash_sketch:
     input:
@@ -8,8 +11,8 @@ rule mash_sketch:
             Path(rules.rename_files.output.store) / "{sample}",
             sample = get_sample_names(wildcards)
         ),
-    output: TEMP_DIR / "datasail" / "mash_sketch.msh",
-    log: LOGS_DIR / "mash_sketch.log",
+    output: DATASAIL_OUT_DIR / "mash_sketch.msh",
+    log: DATASAIL_LOGS_DIR / "mash_sketch.log",
     benchmark: BENCHMARKS_DIR / "mash_sketch.tsv",
     conda: ENVS_DIR.format("datasail"),
     threads: 8,
@@ -25,8 +28,8 @@ rule mash_sketch:
 
 rule mash_dist:
     input: rules.mash_sketch.output,
-    output: TEMP_DIR / "datasail" / "distance_matrix.tsv",
-    log: LOGS_DIR / "mash_dist.log",
+    output: DATASAIL_OUT_DIR / "distance_matrix.tsv",
+    log: DATASAIL_LOGS_DIR / "mash_dist.log",
     benchmark: BENCHMARKS_DIR / "mash_dist.tsv",
     conda: ENVS_DIR.format("datasail"),
     threads: 8,
@@ -44,8 +47,8 @@ rule mash_dist:
 
 rule datasail_pre_processor:
     input: rules.mash_dist.output,
-    output: TEMP_DIR / "datasail" / "distance_matrix_preprocessed.tsv",
-    log: LOGS_DIR / "datasail_preprocessor.log",
+    output: DATASAIL_OUT_DIR / "distance_matrix_preprocessed.tsv",
+    log: DATASAIL_LOGS_DIR / "datasail_preprocessor.log",
     benchmark: BENCHMARKS_DIR / "datasail_preprocessor.tsv",
     conda: ENVS_DIR.format("miller"),
     threads: 1,
@@ -61,8 +64,8 @@ rule datasail_runner:
     input:
         distance_matrix = rules.datasail_pre_processor.output[0],
         phenotype_dataframe = rules.phenotype_dataframe_creator.output[0],
-    output: TEMP_DIR / "datasail" / "{antibiotic}" / "splits.tsv",
-    log: LOGS_DIR / "datasail_runner_{antibiotic}.log",
+    output: DATASAIL_OUT_DIR / "{antibiotic}" / "splits.tsv",
+    log: DATASAIL_LOGS_DIR / "datasail_runner_{antibiotic}.log",
     benchmark: BENCHMARKS_DIR / "datasail_runner_{antibiotic}.tsv",
     conda: ENVS_DIR.format("datasail"),
     params:
@@ -85,8 +88,8 @@ rule datasail_runner:
 
 rule split_train_test:
     input: rules.datasail_runner.output,
-    output: TEMP_DIR / "datasail" / "{antibiotic}" / "{split_category}.txt",
-    log: LOGS_DIR / "split_train_test_{antibiotic}_{split_category}.log",
+    output: DATASAIL_OUT_DIR / "{antibiotic}" / "{split_category}.txt",
+    log: DATASAIL_LOGS_DIR / "split_train_test_{antibiotic}_{split_category}.log",
     benchmark: BENCHMARKS_DIR / "split_train_test_{antibiotic}_{split_category}.tsv",
     threads: 1,
     shell:
@@ -98,8 +101,8 @@ rule split_phenotype_dataframe:
     input:
         phenotype_dataframe = rules.phenotype_dataframe_creator.output,
         split_category = rules.split_train_test.output,
-    output: TEMP_DIR / "datasail" / "{antibiotic}" / "{split_category}_phenotype_dataframe.tsv",
-    log: LOGS_DIR / "split_phenotype_dataframe_{antibiotic}_{split_category}.log",
+    output: DATASAIL_OUT_DIR / "{antibiotic}" / "{split_category}_phenotype_dataframe.tsv",
+    log: DATASAIL_LOGS_DIR / "split_phenotype_dataframe_{antibiotic}_{split_category}.log",
     benchmark: BENCHMARKS_DIR / "split_phenotype_dataframe_{antibiotic}_{split_category}.tsv",
     conda: ENVS_DIR.format("miller"),
     threads: 1,
@@ -122,4 +125,4 @@ rule datasail:
             rules.datasail_runner.output,
             antibiotic = ANTIBIOTICS
         )
-    output: touch(TEMP_DIR / "flags" / "datasail.done")
+    output: touch(OUT_DIR / "flags" / "datasail.done")

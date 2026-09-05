@@ -1,10 +1,13 @@
 from pathlib import Path
 
+ML_OUT_DIR = OUT_DIR / "ml"
+ML_LOGS_DIR = ML_OUT_DIR / "logs"
+
 rule merge_features:
     input:
         rules.merge_binary_features.output,
         rules.gather_bubble_features.output,
-    output: OUT_DIR / "merged_table_{antibiotic}.tsv",
+    output: ML_OUT_DIR / "merged_table_{antibiotic}.tsv",
     threads: 1,
     shell:
         r"""
@@ -13,8 +16,8 @@ rule merge_features:
 
 rule pivot_merged_features_miller:
     input: rules.merge_features.output,
-    output: OUT_DIR / "merged_table_pivot_{antibiotic}.tsv",
-    log: LOGS_DIR / "pivot_merged_features_miller_{antibiotic}.log",
+    output: ML_OUT_DIR / "merged_table_pivot_{antibiotic}.tsv",
+    log: ML_LOGS_DIR / "pivot_merged_features_miller_{antibiotic}.log",
     benchmark: BENCHMARKS_DIR / "pivot_merged_features_miller_{antibiotic}.tsv",
     conda: ENVS_DIR.format("miller"),
     threads: workflow.cores,
@@ -31,9 +34,9 @@ rule prps_ml_preprocessor:
     input:
         binary_mutation_table = rules.pivot_merged_features_miller.output[0],
         prps_score_file = rules.prps_runner.output[0],
-    output: TEMP_DIR / "prps_filtered_table.tsv",
+    output: ML_OUT_DIR / "prps_filtered_table.tsv",
     benchmark: BENCHMARKS_DIR / "prps_ml_preprocessor.tsv",
-    log: LOGS_DIR / "ml" / "prps_ml_preprocessor.log",
+    log: ML_LOGS_DIR / "prps_ml_preprocessor.log",
     params:
         prps_percentage = 30
     conda: ENVS_DIR.format("python313")
@@ -43,9 +46,9 @@ rule prps_ml_preprocessor:
 
 rule copy_and_zip_file:
     input: rules.pivot_merged_features_miller.output[0] #TODO:prps_ml_preprocessor
-    output: TEMP_DIR / "ml" / "model_binary_mutation_table.tar.gz"
+    output: ML_OUT_DIR / "model_binary_mutation_table.tar.gz"
     benchmark: BENCHMARKS_DIR / "copy_and_zip_file.tsv"
-    log: LOGS_DIR / "ml" / "copy_and_zip_file.log"
+    log: ML_LOGS_DIR / "copy_and_zip_file.log"
     threads: 1
     shell:
         """
@@ -59,12 +62,12 @@ rule combined_ml:
         train = lambda wildcards: expand(rules.split_train_test.output, split_category=["train"], **wildcards),
         test = lambda wildcards: expand(rules.split_train_test.output, split_category=["test"], **wildcards),
     output:
-        best_params = TEMP_DIR / "ml" / "{antibiotic}" / "seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type}_FIA_{feature_importance_analysis_strategy}_best_params.txt",
-        model_file  = TEMP_DIR / "ml" / "{antibiotic}" / "seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type}_FIA_{feature_importance_analysis_strategy}_model.sav",
-        result      = TEMP_DIR / "ml" / "{antibiotic}" / "seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type}_FIA_{feature_importance_analysis_strategy}_Result.txt",
-        fia         = TEMP_DIR / "ml" / "{antibiotic}" / "seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type}_FIA_{feature_importance_analysis_strategy}.txt",
+        best_params = ML_OUT_DIR / "{antibiotic}" / "seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type}_FIA_{feature_importance_analysis_strategy}_best_params.txt",
+        model_file  = ML_OUT_DIR / "{antibiotic}" / "seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type}_FIA_{feature_importance_analysis_strategy}_model.sav",
+        result      = ML_OUT_DIR / "{antibiotic}" / "seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type}_FIA_{feature_importance_analysis_strategy}_Result.txt",
+        fia         = ML_OUT_DIR / "{antibiotic}" / "seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type}_FIA_{feature_importance_analysis_strategy}.txt",
     benchmark: BENCHMARKS_DIR / "combined_ml_{antibiotic}_seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type}_FIA_{feature_importance_analysis_strategy}.tsv"
-    log: LOGS_DIR / "ml" / "{antibiotic}" / "seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type}_FIA_{feature_importance_analysis_strategy}.log"
+    log: ML_LOGS_DIR / "{antibiotic}" / "seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type}_FIA_{feature_importance_analysis_strategy}.log"
     params:
         feature_importance_analysis = True,
         save_model = True,
@@ -86,4 +89,4 @@ rule ml:
             model_type=["xgb"],
             feature_importance_analysis_strategy=["gini"]
         )
-    output: touch(TEMP_DIR / "flags" / "ml_runner.done")
+    output: touch(OUT_DIR / "flags" / "ml_runner.done")

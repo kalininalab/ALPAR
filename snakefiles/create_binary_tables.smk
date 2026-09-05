@@ -1,5 +1,8 @@
 from pathlib import Path
 
+CREATE_BINARY_TABLES_OUT_DIR = OUT_DIR / "create_binary_tables"
+CREATE_BINARY_TABLES_LOGS_DIR = CREATE_BINARY_TABLES_OUT_DIR / "logs"
+
 
 # -----------------------
 # Create link to files in singleton directory
@@ -8,10 +11,10 @@ from pathlib import Path
 checkpoint rename_files:
     input: IN_DIR
     output:
-        store = directory(TEMP_DIR / "data_checksum"),
-        mapping = OUT_DIR / "all_files.tsv",
+        store = directory(CREATE_BINARY_TABLES_OUT_DIR / "data_checksum"),
+        mapping = CREATE_BINARY_TABLES_OUT_DIR / "all_files.tsv",
     benchmark: BENCHMARKS_DIR / "rename_files.tsv"
-    log: LOGS_DIR / "rename_files.log"
+    log: CREATE_BINARY_TABLES_LOGS_DIR / "rename_files.log"
     threads: 1
     shell:
         r"""
@@ -53,9 +56,9 @@ def get_sample_names(wildcards) -> list[str]:
 
 rule phenotype_dataframe_creator:
     input: rules.rename_files.output.mapping
-    output: OUT_DIR / "phenotype_table.tsv"
-    benchmark: TEMP_DIR / "benchmarks" / "phenotype_dataframe_creator.tsv"
-    log: LOGS_DIR / "phenotype_dataframe_creator.log"
+    output: CREATE_BINARY_TABLES_OUT_DIR / "phenotype_table.tsv"
+    benchmark: BENCHMARKS_DIR / "phenotype_dataframe_creator.tsv"
+    log: CREATE_BINARY_TABLES_LOGS_DIR / "phenotype_dataframe_creator.log"
     conda: ENVS_DIR.format("python313")
     params:
         resistance_status_mapping = RESISTANCE_STATUS_MAPPING,
@@ -71,8 +74,8 @@ rule phenotype_dataframe_creator:
 
 rule cd_hit_create_db:
     input: FASTA_FILE
-    output: TEMP_DIR / GENUS / GENUS
-    log: LOGS_DIR / "cd_hit_create_db.log"
+    output: CREATE_BINARY_TABLES_OUT_DIR / GENUS / GENUS
+    log: CREATE_BINARY_TABLES_LOGS_DIR / "cd_hit_create_db.log"
     benchmark: BENCHMARKS_DIR / "cdhit_create_db.tsv"
     conda: ENVS_DIR.format("cd-hit")
     threads: workflow.cores
@@ -96,8 +99,8 @@ rule cd_hit_create_db:
 
 rule makeblastdb:
     input: rules.cd_hit_create_db.output
-    output: touch(TEMP_DIR / "flags" / "makeblastdb.done")
-    log: LOGS_DIR / "makeblastdb.log"
+    output: touch(CREATE_BINARY_TABLES_OUT_DIR / "makeblastdb.done")
+    log: CREATE_BINARY_TABLES_LOGS_DIR / "makeblastdb.log"
     benchmark: BENCHMARKS_DIR / "makeblastdb.tsv"
     conda: ENVS_DIR.format("makeblastdb")
     shell:
@@ -114,8 +117,8 @@ rule prokka_listdb:
     input:
         rules.makeblastdb.output,
         db_dir = rules.cd_hit_create_db.output
-    output: touch(TEMP_DIR / "flags" / "prokka_listdb.done"),
-    log: LOGS_DIR / "prokka_listdb.log"
+    output: touch(CREATE_BINARY_TABLES_OUT_DIR / "prokka_listdb.done"),
+    log: CREATE_BINARY_TABLES_LOGS_DIR / "prokka_listdb.log"
     benchmark: BENCHMARKS_DIR / "prokka_listdb.tsv"
     conda: ENVS_DIR.format("prokka")
     shell:
@@ -137,10 +140,10 @@ rule prokka_runner:
         sample = Path(rules.rename_files.output.store) / "{sample}",
         reference = GBFF_FILE,
     output:
-        gff = TEMP_DIR / "prokka" / "{sample}" / "{sample}.gff",
-        faa = TEMP_DIR / "prokka" / "{sample}" / "{sample}.faa",
-        gbk = TEMP_DIR / "prokka" / "{sample}" / "{sample}.gbk",
-    log: LOGS_DIR / "prokka_runner" / "{sample}.log"
+        gff = CREATE_BINARY_TABLES_OUT_DIR / "prokka" / "{sample}" / "{sample}.gff",
+        faa = CREATE_BINARY_TABLES_OUT_DIR / "prokka" / "{sample}" / "{sample}.faa",
+        gbk = CREATE_BINARY_TABLES_OUT_DIR / "prokka" / "{sample}" / "{sample}.gbk",
+    log: CREATE_BINARY_TABLES_LOGS_DIR / "prokka_runner" / "{sample}.log"
     benchmark: BENCHMARKS_DIR / "prokka_{sample}.tsv"
     params:
         genus = GENUS,
@@ -176,9 +179,9 @@ rule panaroo_runner:
             sample = get_sample_names(wc)
         ),
     output:
-        gpa = TEMP_DIR / "panaroo" / "gene_presence_absence.csv",
-        gene_data = TEMP_DIR / "panaroo" / "gene_data.csv",
-    log: LOGS_DIR / "panaroo_runner.log"
+        gpa = CREATE_BINARY_TABLES_OUT_DIR / "panaroo" / "gene_presence_absence.csv",
+        gene_data = CREATE_BINARY_TABLES_OUT_DIR / "panaroo" / "gene_data.csv",
+    log: CREATE_BINARY_TABLES_LOGS_DIR / "panaroo_runner.log"
     benchmark: BENCHMARKS_DIR / "panaroo.tsv"
     params:
         outdir = subpath(output.gpa, parent=True),
@@ -202,7 +205,7 @@ rule panaroo_runner:
 
 rule binary_gpa_panaroo:
     input: rules.panaroo_runner.output.gpa,
-    output: TEMP_DIR / "binary_gpa_panaroo.tsv"
+    output: CREATE_BINARY_TABLES_OUT_DIR / "binary_gpa_panaroo.tsv"
     benchmark: BENCHMARKS_DIR / "binary_gpa_panaroo.py.tsv"
     conda: ENVS_DIR.format("python313")
     threads: 1
@@ -216,7 +219,7 @@ rule binary_gpa_panaroo:
 
 rule cdhit_protein_name_corrector:
     input: rules.prokka_runner.output.faa,
-    output: TEMP_DIR / "cd-hit" / "{sample}.faa",
+    output: CREATE_BINARY_TABLES_OUT_DIR / "cd-hit" / "{sample}.faa",
     shell:
         r"""
         awk 'BEGIN {{OFS=""}} \
@@ -236,7 +239,7 @@ rule combine_faa_files:
             rules.cdhit_protein_name_corrector.output,
             sample = get_sample_names(wc)
         )
-    output: TEMP_DIR / "cd-hit" / "combined_proteins.faa",
+    output: CREATE_BINARY_TABLES_OUT_DIR / "cd-hit" / "combined_proteins.faa",
     shell:
         r"""
         cat {input} > {output}
@@ -249,7 +252,7 @@ rule cdhit_protein_positions:
             rules.prokka_runner.output.gbk,
             sample = get_sample_names(wc)
         )
-    output: OUT_DIR / "cd-hit" / "protein_positions.csv",
+    output: CREATE_BINARY_TABLES_OUT_DIR / "cd-hit" / "protein_positions.csv",
     benchmark: BENCHMARKS_DIR / "cdhit_protein_positions.py.tsv"
     conda: ENVS_DIR.format("python313")
     threads: 1
@@ -260,9 +263,9 @@ rule cdhit_protein_positions:
 rule cdhit_runner:
     input: rules.combine_faa_files.output
     output: 
-        faa = TEMP_DIR / "cd-hit" / "cdhit_output.faa",
-        clstr = TEMP_DIR / "cd-hit" / "cdhit_output.faa.clstr",
-    log: LOGS_DIR / "cdhit_runner.log"
+        faa = CREATE_BINARY_TABLES_OUT_DIR / "cd-hit" / "cdhit_output.faa",
+        clstr = CREATE_BINARY_TABLES_OUT_DIR / "cd-hit" / "cdhit_output.faa.clstr",
+    log: CREATE_BINARY_TABLES_LOGS_DIR / "cdhit_runner.log"
     benchmark: BENCHMARKS_DIR / "cdhit.tsv"
     params:
         seq_identity_threshold = 0.7,
@@ -295,9 +298,9 @@ rule cdhit_runner:
 rule binary_gpa_cdhit:
     input:
         rules.cdhit_runner.output.clstr,
-    output: TEMP_DIR / "binary_gpa_cdhit.tsv"
+    output: CREATE_BINARY_TABLES_OUT_DIR / "binary_gpa_cdhit.tsv"
     benchmark: BENCHMARKS_DIR / "binary_gpa_cdhit.tsv"
-    log: LOGS_DIR / "binary_gpa_cdhit.log"
+    log: CREATE_BINARY_TABLES_LOGS_DIR / "binary_gpa_cdhit.log"
     conda: ENVS_DIR.format("python313")
     threads: 1
     script:
@@ -313,9 +316,9 @@ rule snippy_runner:
         sample = Path(rules.rename_files.output.store) / "{sample}",
         reference = GBFF_FILE,
     output:
-        vcf = TEMP_DIR / "snippy" / "{sample}" / "snps.vcf",
-        tab = TEMP_DIR / "snippy" / "{sample}" / "snps.tab",
-    log: LOGS_DIR / "snippy_runner" / "{sample}.log"
+        vcf = CREATE_BINARY_TABLES_OUT_DIR / "snippy" / "{sample}" / "snps.vcf",
+        tab = CREATE_BINARY_TABLES_OUT_DIR / "snippy" / "{sample}" / "snps.tab",
+    log: CREATE_BINARY_TABLES_LOGS_DIR / "snippy_runner" / "{sample}.log"
     benchmark: BENCHMARKS_DIR / "snippy_{sample}.tsv"
     params:
         out_dir = subpath(output.vcf, parent=True)
@@ -346,9 +349,9 @@ rule annotation_file_from_snippy:
             rules.snippy_runner.output.tab,
             sample = get_sample_names(wc)
         )
-    output: TEMP_DIR / "mutations_annotations.tsv"
+    output: CREATE_BINARY_TABLES_OUT_DIR / "mutations_annotations.tsv"
     benchmark: BENCHMARKS_DIR / "annotation_file_from_snippy.tsv"
-    log: LOGS_DIR / "annotation_file_from_snippy.log"
+    log: CREATE_BINARY_TABLES_LOGS_DIR / "annotation_file_from_snippy.log"
     conda: ENVS_DIR.format("python313")
     threads: MAX_PYTHON_THREADS
     script:
@@ -368,8 +371,8 @@ rule binary_gpa:
                 "panaroo": rules.binary_gpa_panaroo.output,
             }
         )
-    output: TEMP_DIR / "binary_gpa.tsv"
-    log: LOGS_DIR / "binary_gpa.log"
+    output: CREATE_BINARY_TABLES_OUT_DIR / "binary_gpa.tsv"
+    log: CREATE_BINARY_TABLES_LOGS_DIR / "binary_gpa.log"
     shell:
         r"""
         ln -srv {input} {output} >> {log} 2>&1
@@ -381,9 +384,9 @@ rule binary_mutation_table:
             rules.snippy_runner.output.vcf,
             sample = get_sample_names(wc)
         )
-    output: TEMP_DIR / "binary_mutation_table.tsv"
+    output: CREATE_BINARY_TABLES_OUT_DIR / "binary_mutation_table.tsv"
     benchmark: BENCHMARKS_DIR / "binary_mutation_table.tsv"
-    log: LOGS_DIR / "binary_mutation_table.log"
+    log: CREATE_BINARY_TABLES_LOGS_DIR / "binary_mutation_table.log"
     conda: ENVS_DIR.format("python313")
     threads: 1
     script:
@@ -397,7 +400,7 @@ rule merge_binary_features:
     input:
         rules.binary_mutation_table.output,
         rules.binary_gpa.output,
-    output: OUT_DIR / "merged_binary_table.tsv"
+    output: CREATE_BINARY_TABLES_OUT_DIR / "merged_binary_table.tsv"
     threads: 1
     shell:
         r"""
@@ -409,4 +412,4 @@ rule create_binary_tables:
         rules.merge_binary_features.output,
         rules.annotation_file_from_snippy.output,
         rules.cdhit_protein_positions.output,
-    output: touch(TEMP_DIR / "flags" / "create_binary_tables.done")
+    output: touch(OUT_DIR / "flags" / "create_binary_tables.done")
