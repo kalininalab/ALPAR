@@ -6,15 +6,15 @@ PRPS_LOGS_DIR = PRPS_OUT_DIR / "logs"
 rule prps_runner:
     input:
         phylogeny_tree = rules.mashtree_runner.output[0],
-        feature_matrix = rules.merge_binary_features.output[0],
-    output: PRPS_OUT_DIR / "prps_scores.tsv",
-    benchmark: BENCHMARKS_DIR / "prps_runner.tsv",
-    log: PRPS_LOGS_DIR / "prps_runner.log",
+        feature_matrix = rules.pivot_merged_features_miller.output[0],
+    output: PRPS_OUT_DIR / "prps_scores_{antibiotic}.tsv",
+    benchmark: BENCHMARKS_DIR / "prps_runner_{antibiotic}.tsv",
+    log: PRPS_LOGS_DIR / "prps_runner_{antibiotic}.log",
     conda: ENVS_DIR.format("prps"),
     threads: 1
     script:
         SCRIPTS_DIR / "prps.py"
 
 rule prps:
-    input: rules.prps_runner.output
+    input: lambda wc: expand(rules.prps_runner.output, sample = get_sample_names(wc), antibiotic = ANTIBIOTICS)
     output: touch(OUT_DIR / "flags" / "prps.done")

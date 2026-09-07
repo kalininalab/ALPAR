@@ -53,10 +53,19 @@ wildcard_constraints:
 # Auxiliary snakefiles
 # -----------------------
 
-include: SNAKEFILES_DIR / "create_binary_tables.smk"
-include: SNAKEFILES_DIR / "datasail.smk"
-include: SNAKEFILES_DIR / "pangenome.smk"
+# Preprocessing
+include: SNAKEFILES_DIR / "data_preprocessing.smk"
+include: SNAKEFILES_DIR / "genome_annotation.smk"
 include: SNAKEFILES_DIR / "phylogeny.smk"
+include: SNAKEFILES_DIR / "datasail.smk"
+
+# Feature extraction
+include: SNAKEFILES_DIR / "snp.smk"
+include: SNAKEFILES_DIR / "gene_presence_absence.smk"
+include: SNAKEFILES_DIR / "pangenome.smk"
+include: SNAKEFILES_DIR / "feature_table.smk"
+
+# Analysis
 include: SNAKEFILES_DIR / "prps.smk"
 include: SNAKEFILES_DIR / "gwas.smk"
 include: SNAKEFILES_DIR / "ml.smk"
@@ -64,10 +73,17 @@ include: SNAKEFILES_DIR / "ml.smk"
 
 rule automatix:
     input:
-        rules.create_binary_tables.output,
-        rules.datasail.output,
-        rules.pangenome.output,
+        # Preprocessing
+        rules.data_preprocessing.output,
+        rules.genome_annotation.output,
         rules.phylogeny.output,
+        rules.datasail.output,
+        # Feature extraction
+        rules.snp.output,
+        rules.gene_presence_absence.output,
+        rules.pangenome.output,
+        rules.feature_table.output,
+        # Analysis
         rules.prps.output,
         rules.gwas.output,
         rules.ml.output,

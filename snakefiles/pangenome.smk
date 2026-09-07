@@ -435,6 +435,26 @@ rule batch_gaf_lor_features_complete:
     output: touch(PANGENOME_OUT_DIR / "bubble_features_test_{antibiotic}.done")
 
 
+rule gather_bubble_features_test:
+    input:
+        lambda wildcards: expand(
+            rules.batch_gaf_lor_features.output,
+            batch_num=range((len(get_panpa_graphs(wildcards)) - 1) // JOB_BATCH_SIZE + 1),
+            **wildcards,
+        )
+    output: PANGENOME_OUT_DIR / "bubble_features_test_{antibiotic}.tsv"
+    shell:
+        r"""
+        : > "{output}"
+        for batch_dir in {input}; do
+            for tsv in "$batch_dir"/*.tsv; do
+                [ -f "$tsv" ] || continue
+                cat "$tsv" >> "{output}"
+            done
+        done
+        """
+
+
 rule gather_panpa_alignments:
     input:
         lambda wildcards: expand(
