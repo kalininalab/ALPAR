@@ -10,6 +10,6 @@ dependencies:
   - mash=2.3
   - pandas=2.3.3
   - pydantic=2.12.5
-  - snakemake=9.16.2
+  - snakemake=9.26.1
   - pip:
       - loguru==0.7.3

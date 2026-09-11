@@ -11,6 +11,6 @@ dependencies:
   - pip=26.0.1
   - pydantic=2.12.5
   - python=3.13
-  - snakemake=9.16.2
+  - snakemake=9.26.1
   - pip:
       - loguru==0.7.3

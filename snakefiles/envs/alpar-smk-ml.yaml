@@ -11,7 +11,7 @@ dependencies:
   - pydantic=2.12.5
   - python=3.13
   - scikit-learn=1.9.0
-  - snakemake=9.16.2
+  - snakemake=9.26.1
   - xgboost=3.3.0
   - pip:
       - aiofiles==25.1.0
