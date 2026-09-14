@@ -31,6 +31,14 @@ else:
     # Download environments from files at snakefiles/envs
     ENVS_DIR = str(SNAKEFILES_DIR / "envs" / "alpar-smk-{0}.yaml")
 
+# These images were built independently from the corresponding Conda YAMLs.
+# Select just one method: --sdm conda or --sdm apptainer.
+# The template supplies the registry/image prefix; each rule supplies its own tag.
+CONTAINERS = config.get("container_format", "docker://docker.io/cambouu/alpar-smk-{0}")
+
+# Shell-only and completion rules inherit the general-purpose image.
+container: CONTAINERS.format("python313:1.0.0")
+
 # -----------------------
 # Global Variables
 # -----------------------

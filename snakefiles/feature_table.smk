@@ -28,6 +28,7 @@ rule pivot_merged_features_miller:
     log: FEATURE_TABLES_LOGS_DIR / "pivot_merged_features_miller_{antibiotic}.log",
     benchmark: BENCHMARKS_DIR / "pivot_merged_features_miller_{antibiotic}.tsv",
     conda: ENVS_DIR.format("miller"),
+    container: CONTAINERS.format("miller:1.0.0")
     threads: workflow.cores,
     shell:
         r"""

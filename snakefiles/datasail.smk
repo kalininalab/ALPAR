@@ -15,6 +15,7 @@ rule mash_sketch:
     log: DATASAIL_LOGS_DIR / "mash_sketch.log",
     benchmark: BENCHMARKS_DIR / "mash_sketch.tsv",
     conda: ENVS_DIR.format("datasail"),
+    container: CONTAINERS.format("datasail:1.0.0")
     threads: 8,
     shell:
         r"""
@@ -32,6 +33,7 @@ rule mash_dist:
     log: DATASAIL_LOGS_DIR / "mash_dist.log",
     benchmark: BENCHMARKS_DIR / "mash_dist.tsv",
     conda: ENVS_DIR.format("datasail"),
+    container: CONTAINERS.format("datasail:1.0.0")
     threads: 8,
     shell:
         r"""
@@ -51,6 +53,7 @@ rule datasail_pre_processor:
     log: DATASAIL_LOGS_DIR / "datasail_preprocessor.log",
     benchmark: BENCHMARKS_DIR / "datasail_preprocessor.tsv",
     conda: ENVS_DIR.format("miller"),
+    container: CONTAINERS.format("miller:1.0.0")
     threads: 1,
     shell:
         r"""
@@ -68,6 +71,7 @@ rule datasail_runner:
     log: DATASAIL_LOGS_DIR / "datasail_runner_{antibiotic}.log",
     benchmark: BENCHMARKS_DIR / "datasail_runner_{antibiotic}.tsv",
     conda: ENVS_DIR.format("datasail"),
+    container: CONTAINERS.format("datasail:1.0.0")
     params:
         techniques = "C1e",
         splits = [0.8, 0.2],
@@ -105,6 +109,7 @@ rule split_phenotype_dataframe:
     log: DATASAIL_LOGS_DIR / "split_phenotype_dataframe_{antibiotic}_{split_category}.log",
     benchmark: BENCHMARKS_DIR / "split_phenotype_dataframe_{antibiotic}_{split_category}.tsv",
     conda: ENVS_DIR.format("miller"),
+    container: CONTAINERS.format("miller:1.0.0")
     threads: 1,
     shell:
         r"""

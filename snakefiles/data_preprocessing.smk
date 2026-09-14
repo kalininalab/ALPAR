@@ -60,6 +60,7 @@ rule phenotype_dataframe_creator:
     benchmark: BENCHMARKS_DIR / "phenotype_dataframe_creator.tsv"
     log: DATA_PREPROCESSING_LOGS_DIR / "phenotype_dataframe_creator.log"
     conda: ENVS_DIR.format("python313")
+    container: CONTAINERS.format("python313:1.0.0")
     params:
         resistance_status_mapping = RESISTANCE_STATUS_MAPPING,
         antibiotics = ANTIBIOTICS,

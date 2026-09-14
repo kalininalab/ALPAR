@@ -24,6 +24,7 @@ rule panaroo_runner:
         seq_identity_threshold = 0.8,
         seq_len_diff_cutoff = 0.8,
     conda: ENVS_DIR.format("panaroo")
+    container: CONTAINERS.format("panaroo:1.0.0")
     threads: 30
     shell:
         r"""
@@ -44,6 +45,7 @@ rule binary_gpa_panaroo:
     output: GENE_PRESENCE_ABSENCE_OUT_DIR / "binary_gpa_panaroo.tsv"
     benchmark: BENCHMARKS_DIR / "binary_gpa_panaroo.py.tsv"
     conda: ENVS_DIR.format("python313")
+    container: CONTAINERS.format("python313:1.0.0")
     threads: 1
     script:
         SCRIPTS_DIR / "binary_gpa_panaroo.py"
@@ -91,6 +93,7 @@ rule cdhit_protein_positions:
     output: GENE_PRESENCE_ABSENCE_OUT_DIR / "cd-hit" / "protein_positions.csv",
     benchmark: BENCHMARKS_DIR / "cdhit_protein_positions.py.tsv"
     conda: ENVS_DIR.format("python313")
+    container: CONTAINERS.format("python313:1.0.0")
     threads: 1
     script:
         SCRIPTS_DIR / "cdhit_protein_positions.py"
@@ -113,6 +116,7 @@ rule cdhit_runner:
         unlimited_memory = 0, # memory limit (in MB) for the program; 0 for unlimited;
     threads: workflow.cores
     conda: ENVS_DIR.format("cd-hit")
+    container: CONTAINERS.format("cd-hit:1.0.0")
     shell:
         r"""
         cd-hit \
@@ -138,6 +142,7 @@ rule binary_gpa_cdhit:
     benchmark: BENCHMARKS_DIR / "binary_gpa_cdhit.tsv"
     log: GENE_PRESENCE_ABSENCE_LOGS_DIR / "binary_gpa_cdhit.log"
     conda: ENVS_DIR.format("python313")
+    container: CONTAINERS.format("python313:1.0.0")
     threads: 1
     script:
         SCRIPTS_DIR / "binary_gpa_cdhit.py"

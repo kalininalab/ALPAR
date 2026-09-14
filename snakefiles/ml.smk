@@ -14,6 +14,7 @@ rule prps_ml_preprocessor:
     params:
         prps_percentage = 30
     conda: ENVS_DIR.format("python313")
+    container: CONTAINERS.format("python313:1.0.0")
     threads: 1
     script:
         SCRIPTS_DIR / "prps_ml_preprocessor.py"
@@ -46,6 +47,7 @@ rule combined_ml:
         feature_importance_analysis = True,
         save_model = True,
     conda: ENVS_DIR.format("ml")
+    container: CONTAINERS.format("ml:1.0.0")
     threads: lambda wildcards: workflow.cores // len(ANTIBIOTICS)
     resources:
         mem_gb = lambda wildcards: workflow.global_resources.get("mem_gb", 4) // len(ANTIBIOTICS),

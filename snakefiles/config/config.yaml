@@ -9,6 +9,9 @@ gbff_file: "/scratch/SCRATCH_SAS/alper/jose/Escherichia_coli.gbff"
 fasta_file: "/scratch/SCRATCH_SAS/alper/jose/Escherichia_coli.fasta"
 env_dir: "/home/ayu21/miniconda3/envs"
 
+# Each rule supplies its own image name and version to this format string.
+container_format: "docker://docker.io/cambouu/alpar-smk-{0}"
+
 # ----------------
 # Parameters
 # ----------------

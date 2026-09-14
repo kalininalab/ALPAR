@@ -11,6 +11,7 @@ rule prps_runner:
     benchmark: BENCHMARKS_DIR / "prps_runner_{antibiotic}.tsv",
     log: PRPS_LOGS_DIR / "prps_runner_{antibiotic}.log",
     conda: ENVS_DIR.format("prps"),
+    container: CONTAINERS.format("prps:1.0.0")
     threads: 1
     script:
         SCRIPTS_DIR / "prps.py"

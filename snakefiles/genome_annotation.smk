@@ -14,6 +14,7 @@ rule cd_hit_create_db:
     log: GENOME_ANNOTATION_LOGS_DIR / "cd_hit_create_db.log"
     benchmark: BENCHMARKS_DIR / "cdhit_create_db.tsv"
     conda: ENVS_DIR.format("cd-hit")
+    container: CONTAINERS.format("cd-hit:1.0.0")
     threads: workflow.cores
     shell:
         r"""
@@ -39,6 +40,7 @@ rule makeblastdb:
     log: GENOME_ANNOTATION_LOGS_DIR / "makeblastdb.log"
     benchmark: BENCHMARKS_DIR / "makeblastdb.tsv"
     conda: ENVS_DIR.format("makeblastdb")
+    container: CONTAINERS.format("makeblastdb:1.0.0")
     shell:
         r"""
         makeblastdb \
@@ -57,6 +59,7 @@ rule prokka_listdb:
     log: GENOME_ANNOTATION_LOGS_DIR / "prokka_listdb.log"
     benchmark: BENCHMARKS_DIR / "prokka_listdb.tsv"
     conda: ENVS_DIR.format("prokka")
+    container: CONTAINERS.format("prokka:1.0.0")
     shell:
         r"""
         DB_DIR=$(dirname {input.db_dir})
@@ -88,6 +91,7 @@ rule prokka_runner:
     resources:
         mem_mb = 600
     conda: ENVS_DIR.format("prokka")
+    container: CONTAINERS.format("prokka:1.0.0")
     shell:
         r"""
         input_file=$(readlink -f {input.sample})

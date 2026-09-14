@@ -9,6 +9,7 @@ rule pyseer_genotype_matrix_creator:
     benchmark: BENCHMARKS_DIR / "pyseer_genotype_matrix_creator.tsv"
     log: GWAS_LOGS_DIR / "pyseer_genotype_matrix_creator.log"
     conda: ENVS_DIR.format("miller")
+    container: CONTAINERS.format("miller:1.0.0")
     threads: workflow.cores
     shell:
         r"""
@@ -25,6 +26,7 @@ rule pyseer_phenotype_file_creator:
     benchmark: BENCHMARKS_DIR / "pyseer_phenotype_file_creator_{antibiotic}.tsv"
     log: GWAS_LOGS_DIR / "pyseer_phenotype_file_creator_{antibiotic}.log"
     conda: ENVS_DIR.format("miller")
+    container: CONTAINERS.format("miller:1.0.0")
     threads: 1
     shell:
         r"""
@@ -47,6 +49,7 @@ rule pyseer_similarity_matrix_creator:
     benchmark: BENCHMARKS_DIR / "pyseer_similarity_matrix_creator.tsv"
     log: GWAS_LOGS_DIR / "pyseer_similarity_matrix_creator.log"
     conda: ENVS_DIR.format("gwas")
+    container: CONTAINERS.format("gwas:1.0.0")
     threads: 1
     script:
         SCRIPTS_DIR / "phylogeny_distance.py"
@@ -60,6 +63,7 @@ rule pyseer_runner:
     benchmark: BENCHMARKS_DIR / "pyseer_runner_{antibiotic}.tsv"
     log: GWAS_LOGS_DIR / "pyseer_runner_{antibiotic}.log"
     conda: ENVS_DIR.format("pyseer")
+    container: CONTAINERS.format("pyseer:1.0.0")
     threads: workflow.cores
     shell:
         r"""
@@ -78,6 +82,7 @@ rule pyseer_post_processor_sort:
     benchmark: BENCHMARKS_DIR / "pyseer_post_processor_{antibiotic}.tsv"
     log: GWAS_LOGS_DIR / "pyseer_post_processor_{antibiotic}.log"
     conda: ENVS_DIR.format("miller")
+    container: CONTAINERS.format("miller:1.0.0")
     threads: 1
     shell:
         r"""
@@ -94,6 +99,7 @@ rule pyseer_post_processor_clean:
     params:
         mock = lookup(dpath="mock", within=config, default=False),
     conda: ENVS_DIR.format("miller")
+    container: CONTAINERS.format("miller:1.0.0")
     threads: 1
     shell:
         r"""
@@ -119,6 +125,7 @@ rule pyseer_gwas_graph_creator:
     output: GWAS_OUT_DIR / "graphs" / "{antibiotic}.jpg"
     log: GWAS_LOGS_DIR / "pyseer_gwas_graph_creator_{antibiotic}.log"
     conda: ENVS_DIR.format("gwas")
+    container: CONTAINERS.format("gwas:1.0.0")
     threads: 1
     script:
         SCRIPTS_DIR / "pyseer_gwas_graph_creator.py"
@@ -137,6 +144,7 @@ rule decision_tree_input_creator:
     benchmark: BENCHMARKS_DIR / "decision_tree_input_creator_{antibiotic}.tsv"
     log: GWAS_LOGS_DIR / "decision_tree_input_creator_{antibiotic}.log"
     conda: ENVS_DIR.format("gwas")
+    container: CONTAINERS.format("gwas:1.0.0")
     threads: 1
     script:
         SCRIPTS_DIR / "decision_tree_input_creator.py"

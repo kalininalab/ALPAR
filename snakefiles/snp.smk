@@ -21,6 +21,7 @@ rule snippy_runner:
     params:
         out_dir = subpath(output.vcf, parent=True)
     conda: ENVS_DIR.format("snippy")
+    container: CONTAINERS.format("snippy:1.0.0")
     threads: 1
     resources:
         mem_gb = 1
@@ -51,6 +52,7 @@ rule annotation_file_from_snippy:
     benchmark: BENCHMARKS_DIR / "annotation_file_from_snippy.tsv"
     log: SNP_LOGS_DIR / "annotation_file_from_snippy.log"
     conda: ENVS_DIR.format("python313")
+    container: CONTAINERS.format("python313:1.0.0")
     threads: MAX_PYTHON_THREADS
     script:
         SCRIPTS_DIR / "annotation_file_from_snippy.py"
@@ -66,6 +68,7 @@ rule binary_mutation_table:
     benchmark: BENCHMARKS_DIR / "binary_mutation_table.tsv"
     log: SNP_LOGS_DIR / "binary_mutation_table.log"
     conda: ENVS_DIR.format("python313")
+    container: CONTAINERS.format("python313:1.0.0")
     threads: 1
     script:
         SCRIPTS_DIR / "binary_mutation_table.py"

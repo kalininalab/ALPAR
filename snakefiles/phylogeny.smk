@@ -28,6 +28,7 @@ rule mashtree_runner:
     benchmark: BENCHMARKS_DIR / "mashtree_runner.tsv",
     log: PHYLOGENY_LOGS_DIR / "mashtree_runner.log"
     conda: ENVS_DIR.format("mashtree")
+    container: CONTAINERS.format("mashtree:1.0.0")
     threads: workflow.cores
     shell:
         r"""

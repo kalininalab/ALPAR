@@ -17,6 +17,7 @@ checkpoint split_cluster_fasta:
     params:
         file_ext = ".fasta"
     conda: ENVS_DIR.format("python313"),
+    container: CONTAINERS.format("python313:1.0.0")
     threads: 1,
     script:
         SCRIPTS_DIR / "split_cluster_fasta.py"
@@ -31,6 +32,7 @@ rule cluster_fasta_splits:
     wildcard_constraints:
         split_category = "train|test",
     conda: ENVS_DIR.format("python313")
+    container: CONTAINERS.format("python313:1.0.0")
     threads: 1
     script:
         SCRIPTS_DIR / "cluster_fasta_splits.py"
@@ -60,6 +62,7 @@ rule batch_align_clusters:
     log: PANGENOME_LOGS_DIR / "batch_align_clusters" / "batch_{batch_num}.log"
     benchmark: BENCHMARKS_DIR / "batch_align_clusters_batch_{batch_num}.tsv"
     conda: ENVS_DIR.format("mafft")
+    container: CONTAINERS.format("mafft:1.0.0")
     threads: 1
     shell:
         r"""
@@ -113,6 +116,7 @@ rule panpa_build_index:
         window_size = 15,
         seed_limit = 0,
     conda: ENVS_DIR.format("panpa-vcf")
+    container: CONTAINERS.format("panpa-vcf:1.0.0")
     threads: 1
     shell:
         r"""
@@ -133,6 +137,7 @@ checkpoint panpa_build_gfa:
     log: PANGENOME_LOGS_DIR / "panpa_build_gfa.log"
     benchmark: BENCHMARKS_DIR / "panpa_build_gfa.tsv"
     conda: ENVS_DIR.format("panpa-vcf")
+    container: CONTAINERS.format("panpa-vcf:1.0.0")
     threads: workflow.cores
     shell:
         r"""
@@ -169,6 +174,7 @@ rule batched_bubblegun_runner:
     log: PANGENOME_LOGS_DIR / "batched_bubblegun_runner" / "batch_{batch_num}.log"
     benchmark: BENCHMARKS_DIR / "batched_bubblegun_runner_batch_{batch_num}.tsv"
     conda: ENVS_DIR.format("bubblegun")
+    container: CONTAINERS.format("bubblegun:1.0.0")
     threads: 1
     shell:
         r"""
@@ -222,6 +228,7 @@ rule batch_bubble_features:
     log: PANGENOME_LOGS_DIR / "batch_bubble_features" / "batch_{batch_num}_{antibiotic}.log"
     benchmark: BENCHMARKS_DIR / "batch_bubble_features_batch_{batch_num}_{antibiotic}.tsv"
     conda: ENVS_DIR.format("python313")
+    container: CONTAINERS.format("python313:1.0.0")
     threads: 1
     shell:
         r"""
@@ -321,6 +328,7 @@ rule batch_panpa_align:
     log: PANGENOME_LOGS_DIR / "batch_panpa_align" / "{antibiotic}_batch_{batch_num}.log",
     benchmark: BENCHMARKS_DIR / "batch_panpa_align_{antibiotic}_{batch_num}.tsv",
     conda: ENVS_DIR.format("panpa-vcf")
+    container: CONTAINERS.format("panpa-vcf:1.0.0")
     threads: 1
     shell:
         r"""
@@ -379,6 +387,7 @@ rule batch_gaf_lor_features:
     log: PANGENOME_LOGS_DIR / "batch_gaf_lor_features" / "{antibiotic}_batch_{batch_num}.log",
     benchmark: BENCHMARKS_DIR / "batch_gaf_lor_features_{antibiotic}_{batch_num}.tsv",
     conda: ENVS_DIR.format("python313")
+    container: CONTAINERS.format("python313:1.0.0")
     params:
         script = SCRIPTS_DIR / "gaf_lor_features.py"
     threads: 1
