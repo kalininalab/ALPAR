@@ -11,7 +11,7 @@ import sklearn.model_selection
 import sklearn.metrics
 import xgboost as xgb
 from loguru import logger
-from pydantic import BaseModel, FilePath, NewPath, BeforeValidator, PositiveInt, Field
+from pydantic import BaseModel, FilePath, NewPath, BeforeValidator, PositiveInt, Field, computed_field
 from sklearn.inspection import permutation_importance
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
@@ -42,7 +42,7 @@ class SnakemakeHandler(BaseModel):
 
     # Resource allocation
     threads: PositiveInt = 1
-    mem_gb: PositiveInt = 1
+    mem_mb: PositiveInt = 1000
 
     # Parameters
     antibiotic: str
@@ -70,6 +70,12 @@ class SnakemakeHandler(BaseModel):
     device: Literal["cpu", "gpu", "cuda"] = "cpu"
     parameter_search_strategy: Literal["grid_search", "random_search"] = "grid_search"
     parameter_search_n_iter: PositiveInt = 20
+
+    @computed_field
+    @property
+    def mem_gb(self) -> float:
+        """Expose the MB allocation in GB for the existing ML memory checks."""
+        return self.mem_mb / 1000
 
 def output_file_writer(outfile, y_test, y_hat, cls=None, best_c=None):
     import sklearn.metrics
@@ -1005,7 +1011,7 @@ if __name__ == "__main__":
         log_file=snakemake.log[0],
         # Resource allocation
         threads=snakemake.threads,
-        mem_gb=snakemake.resources['mem_gb'],
+        mem_mb=snakemake.resources['mem_mb'],
         # Wildcards
         antibiotic=snakemake.wildcards['antibiotic'],
         random_seed=snakemake.wildcards['random_seed'],

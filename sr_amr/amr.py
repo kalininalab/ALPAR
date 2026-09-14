@@ -478,7 +478,7 @@ def binary_table_pipeline(args):
     # Add defaults
     snakemake_cmd += [
         '--jobs', str(args.threads),
-        '--resources', f'mem_gb={args.ram}'
+        '--resources', f'mem_mb={args.ram * 1000}'
     ]
 
     # Add nullable parameters

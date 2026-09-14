@@ -50,10 +50,10 @@ rule combined_ml:
     container: CONTAINERS.format("ml:1.0.0")
     threads: lambda wildcards: workflow.cores // len(ANTIBIOTICS)
     resources:
-        mem_gb = lambda wildcards: (
-            workflow.global_resources["mem_gb"].value
-            if "mem_gb" in workflow.global_resources
-            else 4
+        mem_mb = lambda wildcards: (
+            workflow.global_resources["mem_mb"].value
+            if "mem_mb" in workflow.global_resources
+            else 4000
         ) // len(ANTIBIOTICS),
     script:
         SCRIPTS_DIR / "combined_ml.py"

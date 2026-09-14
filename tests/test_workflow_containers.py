@@ -178,7 +178,7 @@ class WorkflowContainersTest(unittest.TestCase):
 
     def test_htcondor_profile_images_match_every_rule(self):
         profile = yaml.safe_load(
-            (REPO / "snakefiles" / "profiles" / "htcondor-containers" / "profile.yaml").read_text()
+            (REPO / "snakefiles" / "profiles" / "htcondor-containers" / "profile.v9+.yaml").read_text()
         )
         self.assertNotIn("software-deployment-method", profile)
         self.assertNotIn("use-conda", profile)

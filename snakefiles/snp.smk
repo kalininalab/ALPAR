@@ -19,12 +19,13 @@ rule snippy_runner:
     log: SNP_LOGS_DIR / "snippy_runner" / "{sample}.log"
     benchmark: BENCHMARKS_DIR / "snippy_{sample}.tsv"
     params:
-        out_dir = subpath(output.vcf, parent=True)
+        out_dir = subpath(output.vcf, parent=True),
+        ram_gb = lambda wildcards, resources: resources.mem_mb // 1000
     conda: ENVS_DIR.format("snippy")
     container: CONTAINERS.format("snippy:1.0.0")
     threads: 1
     resources:
-        mem_gb = 1
+        mem_mb = 1000
     shell:
         r"""
         snippy \
@@ -32,7 +33,7 @@ rule snippy_runner:
             --outdir {params.out_dir} \
             --reference {input.reference} \
             --cpus {threads} \
-            --ram {resources.mem_gb} \
+            --ram {params.ram_gb} \
             --force \
             >> {log} 2>&1
         """
