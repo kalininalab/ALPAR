@@ -2,7 +2,15 @@
 # Requires shared filesystem bind mounts and a worker with script dependencies.
 # Read ../../containers/README.md before submitting jobs.
 executor: htcondor
+cores: 16
 jobs: 100
+# Aggregate scheduling budget; rule allocations remain integer MB.
+resources:
+  mem_mb: 32000
+set-resource-scopes:
+  mem_mb: global
+# Resolved relative to this profile directory.
+configfile: ../../config/config.yaml
 # Omit --sdm: its default is no deployment; an empty YAML list is not valid CLI syntax.
 htcondor-jobdir: .snakemake/htcondor
 default-resources:
