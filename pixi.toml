@@ -1,0 +1,22 @@
+[workspace]
+name = "alpar"
+version = "0.1.0"
+description = "Automated Learning Pipeline for Antimicrobial Resistance"
+channels = ["conda-forge", "bioconda"]
+platforms = ["win-64", "linux-64", "osx-64", "osx-arm64"]
+
+[dependencies]
+python = ">=3.12"
+pandas = "*"
+numpy = "*"
+psutil = "*"
+biopython = "*"
+joblib = "*"
+tqdm = "*"
+pip = "*"
+
+[pypi-dependencies]
+alpar = { path = ".", editable = true }
+
+[tasks]
+alpar = "alpar"
