@@ -1,3 +1,4 @@
+#after intalling WSL
 from setuptools import setup, find_packages
 import re
 
