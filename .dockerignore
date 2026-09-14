@@ -1,0 +1,6 @@
+**
+!snakefiles/
+!snakefiles/envs/
+!snakefiles/envs/alpar-smk-*.yaml
+!snakefiles/containers/
+!snakefiles/containers/conda-env.Dockerfile
