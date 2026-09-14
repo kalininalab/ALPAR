@@ -168,13 +168,20 @@ class WorkflowContainersTest(unittest.TestCase):
             executable.chmod(0o755)
             environment = os.environ.copy()
             environment["PATH"] = str(root) + os.pathsep + environment["PATH"]
-            result = subprocess.run(
-                [str(REPO / "snakefiles" / "containers" / "htcondor-wrapper.sh"),
-                 "--config", "some_path=path with spaces"],
-                cwd=root, env=environment, capture_output=True, text=True, timeout=10,
-            )
-            self.assertEqual(result.returncode, 7)
-            self.assertEqual(result.stdout.splitlines(), ["--config", "some_path=path with spaces"])
+            for prefix in (
+                [],
+                ["python", "-m", "snakemake"],
+                ["/home/joca00004/.venvs/snakemake-htcondor/bin/python", "-m", "snakemake"],
+                ["-m", "snakemake"],
+            ):
+                with self.subTest(prefix=prefix):
+                    result = subprocess.run(
+                        [str(REPO / "snakefiles" / "containers" / "htcondor-wrapper.sh"),
+                         *prefix, "--config", "some_path=path with spaces"],
+                        cwd=root, env=environment, capture_output=True, text=True, timeout=10,
+                    )
+                    self.assertEqual(result.returncode, 7)
+                    self.assertEqual(result.stdout.splitlines(), ["--config", "some_path=path with spaces"])
 
     def test_htcondor_profile_images_match_every_rule(self):
         profile = yaml.safe_load(
@@ -183,14 +190,19 @@ class WorkflowContainersTest(unittest.TestCase):
         self.assertNotIn("software-deployment-method", profile)
         self.assertNotIn("use-conda", profile)
         self.assertNotIn("use-apptainer", profile)
-        self.assertEqual(profile["default-resources"]["universe"], "container")
+        self.assertEqual(profile["default-resources"]["universe"], "docker")
+        self.assertEqual(
+            profile["default-resources"]["requirements"],
+            'UidDomain == "cs.uni-saarland.de"',
+        )
+        self.assertTrue(profile["default-resources"]["classad_WantGPUHomeMounted"])
         self.assertEqual(set(profile["set-resources"]), set(EXPECTED_ENVIRONMENTS))
         with self.workflow() as workflow:
             for rule in workflow.rules:
                 image = profile["set-resources"].get(rule.name, {}).get(
                     "container_image", profile["default-resources"]["container_image"]
                 )
-                self.assertEqual(image, rule.container_img)
+                self.assertEqual(image, rule.container_img.removeprefix("docker://"))
         wrapper = REPO / profile["default-resources"]["job_wrapper"]
         self.assertTrue(wrapper.stat().st_mode & 0o111)
 

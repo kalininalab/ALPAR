@@ -66,4 +66,33 @@ docker buildx imagetools inspect \
 ```
 
 Use `docker://docker.io/DOCKERHUB_USERNAME/alpar-smk-bubblegun@sha256:...`
-in production HTCondor configuration rather than a mutable tag.
+in the source profile to pin an immutable image rather than a mutable tag.
+
+
+## HTCondor clusters requiring local SIF images
+
+Some clusters reject registry URLs in `container_image` and require a full path
+to a local `.sif` file. The checked-in `htcondor-containers` profile is the source
+inventory of registry images. Prepare a local profile before submitting on these
+clusters:
+
+```bash
+cd ~/ALPAR
+# Use the Python environment containing Snakemake and PyYAML.
+# Apptainer or Singularity must also be on PATH for image pulls.
+python snakefiles/containers/prepare-htcondor-sif.py --image-dir "$HOME/alpar-images"
+snakemake pangenome --profile .snakemake/htcondor-sif-profile/
+```
+
+Choose an image directory allowed by your cluster and accessible to the scheduler
+(for example, your group's scratch directory). Apptainer's `pull` converts each
+Docker image to SIF. The preparation command downloads each distinct image once,
+reuses existing nonempty files, and writes the profile only after all pulls succeed.
+It preserves scheduling settings, sets absolute image and wrapper paths, and
+resolves the configfile relative to the source profile. Rerun preparation after
+changing image references or other settings in the source profile.
+
+Use `--dry-run` to preview pulls without downloading or writing files, or
+`--profile-dir PATH` to choose where to write the generated profile. The default
+output is ignored by Git under `.snakemake/`. HTCondor still owns container
+execution; keep Snakemake's Conda/Apptainer deployment disabled with this profile.
