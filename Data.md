@@ -293,3 +293,16 @@ If you pass new FASTA via `-i`, the same variant-calling / annotation tools as `
 | Saved model | `prediction --model` |
 
 For install and WSL notes, see [README.md](README.md). For every flag, run `alpar <subcommand> -h`.
+
+---
+
+## Public data sources
+
+These are the main public genotype–phenotype resources used in CAMDA AMR work (including the BIOTIA-DX RESISTANCE 2026 preprint) and mirrored as result tables under `tool_results/`. They are **not** ALPAR runtime inputs; download genomes and labels from the sites below, then arrange them as described above.
+
+| Source | What it is | Links |
+|---|---|---|
+| CAMDA | Annual AMR prediction challenge: assembled genomes plus sequestered test labels. 2026 used 800 train / 250 test isolates per species–drug pair. | [CAMDA 2026](https://bipress.boku.ac.at/camda2026/) · [CAMDA 2025](https://bipress.boku.ac.at/camda2025/) · [CAMDA 2024](https://bipress.boku.ac.at/camda-play/the-camda-contest-challenges) |
+| BV-BRC | Bacterial and Viral Bioinformatics Resource Center (successor to PATRIC). Public isolate genomes with AMR phenotypes. | [BV-BRC](https://www.bv-brc.org/) · [Olson et al. 2023, *NAR*](https://doi.org/10.1093/nar/gkac1003) |
+| CARD | Comprehensive Antibiotic Resistance Database: curated AMR genes, mutations, and ontology (ARO). | [CARD](https://card.mcmaster.ca/) · [Alcock et al. 2023, *NAR*](https://doi.org/10.1093/nar/gkac920) |
+| CABBAGE | Comprehensive Assessment of Bacterial-Based AMR prediction from Genotypes. Unified genotype–phenotype database (~170k isolates, ~1.7M pairs) served through EMBL-EBI. | [EMBL-EBI AMR Portal](https://www.ebi.ac.uk/amr/) · [Downloads](https://www.ebi.ac.uk/amr/developers/) · [Kovaka et al., *NAR*](https://doi.org/10.1093/nar/gkag780) · [Preprint](https://doi.org/10.1101/2025.11.12.688105) |
