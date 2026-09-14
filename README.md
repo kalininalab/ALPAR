@@ -28,6 +28,24 @@ The authors conclude that ALPAR can help scientists more quickly discover resist
 
 In simple terms, ALPAR is like a smart assistant that reads bacterial DNA and helps researchers predict which antibiotics are likely to fail, potentially supporting better treatment decisions and the fight against antibiotic-resistant infections
 
+## Folder Strucutre
+
+ALPAR/
+├── sr_amr/                 # The actual program (Python package)
+│   ├── amr.py              # CLI entry point → `alpar` command
+│   ├── full_automatix.py   # End-to-end pipeline
+│   ├── binary_tables.py    # FASTA → mutation/phenotype tables
+│   ├── gwas.py, ml.py, prps.py, panacota.py, ...
+│   ├── envs/               # One conda env per tool (snippy, prokka, ml, …)
+│   └── card_data/          # CARD antibiotic/pathogen lookup tables
+├── docs/                   # Sphinx docs (install + subcommands)
+├── recipe/                 # Conda package recipe
+├── tests/
+├── tool_results/           # Precomputed phenotype TSVs (CAMDA, CABBAGE, BV-BRC)
+├── flowcharts/
+├── setup.py                # pip install → creates `alpar` command
+├── environment.yml         # Lightweight Python deps
+└── pixi.toml               # Local-dev env (Python only; not the Linux tools)
 
 ## Installation
 
