@@ -2,12 +2,12 @@
 # Files and folders
 # ----------------
 
-input_dir: "/scratch/SCRATCH_SAS/alper/jose/Ecoli"
-output_dir: "/scratch/SCRATCH_SAS/alper/jose/out"
-temp_dir: "/scratch/SCRATCH_SAS/alper/jose/temp"
-gbff_file: "/scratch/SCRATCH_SAS/alper/jose/Escherichia_coli.gbff"
-fasta_file: "/scratch/SCRATCH_SAS/alper/jose/Escherichia_coli.fasta"
-env_dir: "/home/ayu21/miniconda3/envs"
+input_dir: "/home/joca00004/data/ecoli_real"
+output_dir: "/home/joca00004/out"
+temp_dir: "/home/joca00004/temp"
+gbff_file: "/home/joca00004/data/db/Escherichia_coli.gbff"
+fasta_file: "/home/joca00004/data/reference/Escherichia_coli.fasta"
+env_dir: ""
 
 # Each rule supplies its own image name and version to this format string.
 container_format: "docker://docker.io/cambouu/alpar-smk-{0}"
@@ -19,4 +19,3 @@ container_format: "docker://docker.io/cambouu/alpar-smk-{0}"
 genus: "ecoli"
 gpa_method: "cd-hit"
 mock: False
-
