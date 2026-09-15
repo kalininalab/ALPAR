@@ -1,4 +1,6 @@
 .vscode
+.venv/
+/EDA/output/
 /example/example_output
 /example_output
 /sr_amr/__pycache__

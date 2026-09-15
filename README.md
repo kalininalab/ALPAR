@@ -584,3 +584,46 @@ Yurtseven et al (2025). ALPAR: Automated Learning Pipeline for Antimicrobial Res
   note    = {Preprint. Not peer reviewed.}
 }
 ```
+
+## JupyterLab / Cursor notebooks (EDA)
+
+CABBAGE exploratory analysis lives in [EDA/cabbage.ipynb](EDA/cabbage.ipynb). Jupyter only **opens** a notebook without a kernel. To run cells you must select a Python kernel that has `pandas`, `pyarrow`, and `matplotlib`.
+
+### Windows Cursor does not show pixi / ALPAR
+
+The pixi environment used for the ALPAR pipeline is built in **WSL (Linux)** (`.pixi/envs/default` is a Linux prefix, e.g. `x86_64-conda-linux-gnu`). Cursor running on Windows cannot use that as a kernel. That is why the kernel picker shows **Python 3.14.7** and **+ Create Python Environment**, not pixi / ALPAR.
+
+**Python 3.14.7** in that list is usually the Windows / Microsoft Store interpreter. It will fail on `import pandas` unless you have installed packages into it. Prefer a project virtual environment.
+
+### Use the Windows `.venv` (recommended for this notebook)
+
+A Windows virtual environment is in `.venv/` (gitignored) with `pandas`, `pyarrow`, `matplotlib`, and `ipykernel`. It is registered as a Jupyter kernel named **Python (.venv ALPAR EDA)**.
+
+If you need to recreate it:
+
+```powershell
+py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install pandas pyarrow matplotlib ipykernel
+.\.venv\Scripts\python.exe -m ipykernel install --user --name alpar-eda --display-name "Python (.venv ALPAR EDA)"
+```
+
+In the notebook kernel picker (top right, or **Select Kernel**):
+
+1. Choose **Python (.venv ALPAR EDA)** if it appears.
+2. If not: **Select Another Kernel…** / **Python Environments…** and pick `.venv\Scripts\python.exe`.
+3. Or use **+ Create Python Environment** → **Venv** and, if Cursor offers it, the existing `.venv`.
+
+Then run the first cell. It should print the `data\cabbage` path. Do not use bare **Python 3.14.7** unless that path is `.venv\Scripts\python.exe`.
+
+### Optional: Jupyter inside Ubuntu / pixi
+
+To run notebooks in WSL instead (same Linux env as `pixi run alpar`):
+
+```bash
+cd ~/ALPAR
+pixi add matplotlib jupyter ipykernel
+pixi run python -m ipykernel install --user --name alpar --display-name "Python (ALPAR pixi)"
+pixi run jupyter lab EDA/cabbage.ipynb
+```
+
+Then select **Python (ALPAR pixi)**. The CABBAGE files must be visible from that working directory (`data/cabbage/` on the copy you are using).
