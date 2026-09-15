@@ -14,6 +14,7 @@ biopython = "*"
 joblib = "*"
 tqdm = "*"
 pip = "*"
+pyarrow = ">=25.0.0,<26"
 
 [pypi-dependencies]
 alpar = { path = ".", editable = true }

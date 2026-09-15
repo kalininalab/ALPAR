@@ -1,0 +1,17 @@
+Accession	Name	Description
+0000050	part_of	A relationship ontology term in which the subject is but part of the object.
+0000051	has_part	A core relation that holds between a whole and its part. The subject has_part object.
+0000056	participates_in	A relation between a continuant and a process, in which the continuant is somehow involved in the process, e.g., this input material (or this output material) participates in this process.
+0000208	catalyzes	A relation between a process and an enzyme where a target is catalyzed by the enzyme in a catalytic reaction.
+0000374	relationship type	Connectedness between entities and/or interactions representing their relatedness or influence (paraphrased from Systems Biology Ontology).
+0001000	derives_from	A relationship ontology term in which the subject has its origins from the object.
+0002211	regulates	A relationship ontology term in which the subject regulates expression of the object.
+0002212	negatively_regulates	A direct interaction that decreases the activity, expression, or function of a target gene, protein, or pathway. This typically involves mechanisms such as repression, inhibition, or suppression.
+0002213	positively_regulates	A direct interaction that increases the activity, expression, or function of a target gene, protein, or pathway. This often involves activation, stimulation, or enhancement.
+0002312	evolutionary_variant_of	Gene or protein is an evolutionary variant of a parent.
+0002407	indirectly_positively_regulates	An indirect interaction that results in an increase in the activity, expression, or function of a target gene, protein, or pathway. This regulation occurs through intermediaries or cascades rather than direct interaction.
+0002409	indirectly_negatively_regulates	An indirect interaction that results in a decrease in the activity, expression, or function of a target gene, protein, or pathway. This regulation occurs through intermediaries or cascades rather than direct interaction.
+0003002	represses_expression_of	A relationship between a transcriptional regulator and a gene or gene product, in which the regulator is plays a negative role in the transcriptional process.
+0012006	is_small_molecule_inhibitor_of	A relation between a continuant and a process, in which the continuant is a small molecule that inhibits the process.
+0012012	indirectly_regulates	An interaction that broadly affects multiple genes, proteins, or pathways, through intermediaries or cascades rather than direct interaction. Global regulators typically have widespread or systemic impacts on cellular processes, i.e. p indirectly regulates q if p is indirectly causally upstream of q and p regulates q.
+is_a	is_a	An axiomatic relationship ontology term in which the subject is placed into a higher order classification.

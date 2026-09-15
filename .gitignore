@@ -10,3 +10,6 @@
 .pytest_cache
 .__pycache__
 ALPAR.egg-info/
+
+*/.DS_Store
+zip_source_files/
