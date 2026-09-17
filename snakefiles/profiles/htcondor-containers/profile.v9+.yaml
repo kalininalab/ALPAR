@@ -8,6 +8,10 @@ cores: 16
 # Cap shell-only jobs on the Snakemake host.
 local-cores: 2
 jobs: 100
+# The per-sample rules define these groups; batch up to 100 samples per HTCondor job.
+group-components:
+  snippy_batch: 100
+  prokka_batch: 100
 # Aggregate scheduling budget; rule allocations remain integer MB.
 resources:
   mem_mb: 32000

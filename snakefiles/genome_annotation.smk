@@ -73,6 +73,7 @@ rule prokka_listdb:
 
 #TODO Implement branching logic if no reference is given
 rule prokka_runner:
+    group: "prokka_batch"
     input:
         rules.prokka_listdb.output,
         sample_store = rules.rename_files.output.store,

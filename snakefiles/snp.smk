@@ -9,6 +9,7 @@ SNP_LOGS_DIR = SNP_OUT_DIR / "logs"
 # -----------------------
 
 rule snippy_runner:
+    group: "snippy_batch"
     input:
         sample_store = rules.rename_files.output.store,
         sample = Path(rules.rename_files.output.store) / "{sample}",
