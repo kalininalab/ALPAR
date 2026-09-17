@@ -76,6 +76,7 @@ rule binary_mutation_table:
 
 
 rule snp:
+    localrule: True
     input:
         rules.annotation_file_from_snippy.output,
         rules.binary_mutation_table.output

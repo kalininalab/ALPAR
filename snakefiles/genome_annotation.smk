@@ -108,6 +108,7 @@ rule prokka_runner:
         """
 
 rule genome_annotation:
+    localrule: True
     input:
         lambda wc: expand(rules.prokka_runner.output, sample = get_sample_names(wc))
     output: touch(OUT_DIR / "flags" / "genome_annotation.done")

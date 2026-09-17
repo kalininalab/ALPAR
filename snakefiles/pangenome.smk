@@ -83,6 +83,7 @@ rule batch_align_clusters:
         """
 
 rule gather_align_clusters:
+    localrule: True
     input:
         lambda wc: expand(
             rules.batch_align_clusters.output,
@@ -262,6 +263,7 @@ rule batch_bubble_features:
 
 
 rule gather_bubble_features:
+    localrule: True
     input:
         features = lambda wildcards: expand(
             rules.batch_bubble_features.output.outdir,
@@ -291,6 +293,7 @@ rule gather_bubble_features:
 
 
 rule batch_bubble_features_complete:
+    localrule: True
     input:
         features = lambda wildcards: expand(
             rules.batch_bubble_features.output.outdir,
@@ -435,6 +438,7 @@ rule batch_gaf_lor_features:
 
 
 rule batch_gaf_lor_features_complete:
+    localrule: True
     input:
         lambda wildcards: expand(
             rules.batch_gaf_lor_features.output,
@@ -445,6 +449,7 @@ rule batch_gaf_lor_features_complete:
 
 
 rule gather_bubble_features_test:
+    localrule: True
     input:
         lambda wildcards: expand(
             rules.batch_gaf_lor_features.output,
@@ -465,6 +470,7 @@ rule gather_bubble_features_test:
 
 
 rule gather_panpa_alignments:
+    localrule: True
     input:
         lambda wildcards: expand(
             rules.batch_panpa_align.output,
@@ -495,6 +501,7 @@ rule gather_panpa_alignments:
 # -----------------------
 
 rule pangenome:
+    localrule: True
     input:
         bubble_features_train = expand(rules.batch_bubble_features_complete.output, antibiotic=ANTIBIOTICS),
         panpa_index = rules.panpa_build_index.output,

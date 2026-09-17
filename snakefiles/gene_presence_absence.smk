@@ -56,6 +56,7 @@ rule binary_gpa_panaroo:
 # -----------------------
 
 rule cdhit_protein_name_corrector:
+    localrule: True
     input: rules.prokka_runner.output.faa,
     output: GENE_PRESENCE_ABSENCE_OUT_DIR / "cd-hit" / "{sample}.faa",
     shell:
@@ -72,6 +73,7 @@ rule cdhit_protein_name_corrector:
 
 
 rule combine_faa_files:
+    localrule: True
     input: 
         lambda wc: expand(
             rules.cdhit_protein_name_corrector.output,
@@ -153,6 +155,7 @@ rule binary_gpa_cdhit:
 # -----------------------
 
 rule binary_gpa:
+    localrule: True
     input:
         branch(
             condition=lookup(dpath="gpa_method", within=config, default="cd-hit"),
@@ -169,6 +172,7 @@ rule binary_gpa:
         """
 
 rule gene_presence_absence:
+    localrule: True
     input:
         rules.binary_gpa.output
     output: touch(OUT_DIR / "flags" / "gene_presence_absence.done")

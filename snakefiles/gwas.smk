@@ -150,6 +150,7 @@ rule decision_tree_input_creator:
         SCRIPTS_DIR / "decision_tree_input_creator.py"
 
 rule gwas:
+    localrule: True
     input:
         expand(rules.pyseer_gwas_graph_creator.output, antibiotic=ANTIBIOTICS),
         expand(rules.decision_tree_input_creator.output.tree_result, antibiotic=ANTIBIOTICS),

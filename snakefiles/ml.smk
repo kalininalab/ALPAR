@@ -20,6 +20,7 @@ rule prps_ml_preprocessor:
         SCRIPTS_DIR / "prps_ml_preprocessor.py"
 
 rule copy_and_zip_file:
+    localrule: True
     input: rules.pivot_merged_features_miller.output[0] #TODO:prps_ml_preprocessor
     output: ML_OUT_DIR / "model_binary_mutation_table.tar.gz"
     benchmark: BENCHMARKS_DIR / "copy_and_zip_file.tsv"
@@ -65,6 +66,7 @@ rule combined_ml:
         SCRIPTS_DIR / "combined_ml.py"
 
 rule ml:
+    localrule: True
     input:
         expand(
             rules.combined_ml.output,

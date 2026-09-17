@@ -17,5 +17,6 @@ rule prps_runner:
         SCRIPTS_DIR / "prps.py"
 
 rule prps:
+    localrule: True
     input: lambda wc: expand(rules.prps_runner.output, sample = get_sample_names(wc), antibiotic = ANTIBIOTICS)
     output: touch(OUT_DIR / "flags" / "prps.done")

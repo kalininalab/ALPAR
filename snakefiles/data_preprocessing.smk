@@ -9,6 +9,7 @@ DATA_PREPROCESSING_LOGS_DIR = DATA_PREPROCESSING_OUT_DIR / "logs"
 # -----------------------
 
 checkpoint rename_files:
+    localrule: True
     input: IN_DIR
     output:
         store = directory(DATA_PREPROCESSING_OUT_DIR / "data_checksum"),
@@ -69,6 +70,7 @@ rule phenotype_dataframe_creator:
         SCRIPTS_DIR / "phenotype_dataframe_creator.py"
 
 rule data_preprocessing:
+    localrule: True
     input:
         rules.phenotype_dataframe_creator.output
     output: touch(OUT_DIR / "flags" / "data_preprocessing.done")

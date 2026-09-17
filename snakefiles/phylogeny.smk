@@ -9,6 +9,7 @@ PHYLOGENY_LOGS_DIR = PHYLOGENY_OUT_DIR / "logs"
 # -----------------------
 
 rule mashtree_preprocessor:
+    localrule: True
     input: Path(rules.rename_files.output.store) / "{sample}",
     output: PHYLOGENY_OUT_DIR / "mashtree_preprocessor" / "{sample}.fasta",
     log: PHYLOGENY_LOGS_DIR / "mashtree_preprocessor" / "{sample}.log"
@@ -40,5 +41,6 @@ rule mashtree_runner:
         """
 
 rule phylogeny:
+    localrule: True
     input: rules.mashtree_runner.output
     output: touch(OUT_DIR / "flags" / "phylogeny.done")

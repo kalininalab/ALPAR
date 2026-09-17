@@ -5,6 +5,7 @@ FEATURE_TABLES_LOGS_DIR = FEATURE_TABLE_OUT_DIR / "logs"
 
 
 rule merge_features:
+    localrule: True
     input:
         snp = rules.binary_mutation_table.output,
         gpa = rules.binary_gpa.output,
@@ -40,6 +41,7 @@ rule pivot_merged_features_miller:
         """
 
 rule feature_table:
+    localrule: True
     input:
         expand(rules.pivot_merged_features_miller.output, antibiotic = ANTIBIOTICS)
     output: touch(OUT_DIR / "flags" / "feature_table.done")

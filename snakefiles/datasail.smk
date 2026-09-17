@@ -91,6 +91,7 @@ rule datasail_runner:
         SCRIPTS_DIR / "datasail_runner.py"
 
 rule split_train_test:
+    localrule: True
     input: rules.datasail_runner.output,
     output: DATASAIL_OUT_DIR / "{antibiotic}" / "{split_category}.txt",
     log: DATASAIL_LOGS_DIR / "split_train_test_{antibiotic}_{split_category}.log",
@@ -125,6 +126,7 @@ rule split_phenotype_dataframe:
 	"""
 
 rule datasail:
+    localrule: True
     input:
         lambda wildcards: expand(
             rules.datasail_runner.output,
