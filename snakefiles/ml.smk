@@ -50,7 +50,13 @@ rule combined_ml:
     container: CONTAINERS.format("ml:1.0.0")
     threads: lambda wildcards: workflow.cores // len(ANTIBIOTICS)
     resources:
+        # Keep HTCondor's reservation aligned with this rule's dynamic budget.
         mem_mb = lambda wildcards: (
+            workflow.global_resources["mem_mb"].value
+            if "mem_mb" in workflow.global_resources
+            else 4000
+        ) // len(ANTIBIOTICS),
+        htcondor_request_mem_mb = lambda wildcards: (
             workflow.global_resources["mem_mb"].value
             if "mem_mb" in workflow.global_resources
             else 4000
