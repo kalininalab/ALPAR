@@ -3,34 +3,37 @@
 # Read ../../containers/README.md before submitting jobs.
 # SIC Cluster Docker-universe settings from the local HTCondor introduction.
 executor: htcondor
-# Cluster-wide CPU scheduling budget; rules without threads: use Snakemake's one-thread default.
-cores: 16
-# Cap shell-only jobs on the Snakemake host.
+cores: 32
 local-cores: 2
-jobs: 100
-# The per-sample rules define these groups; batch up to 100 samples per HTCondor job.
+# Remote execution requires a positive job limit; one group at a time.
+jobs: 10
+
 group-components:
-  snippy_batch: 100
-  prokka_batch: 100
-# Aggregate scheduling budget; rule allocations remain integer MB.
+  snippy_batch: 2000
+  prokka_batch: 2000
+
 resources:
   mem_mb: 32000
+
 set-resource-scopes:
   mem_mb: global
-# Resolved relative to this profile directory.
+
 configfile: ../../config/config.yaml
-# Omit --sdm: its default is no deployment; an empty YAML list is not valid CLI syntax.
+
 htcondor-jobdir: .snakemake/htcondor
+
 default-resources:
   universe: docker
   container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
   job_wrapper: snakefiles/containers/htcondor-wrapper.sh
-  # Per-job defaults. Numeric memory can be summed for parallel group jobs.
-  mem_mb: 8192
-  htcondor_request_mem_mb: 8192
+  # Snakemake mem_mb is decimal MB; HTCondor's MB suffix means MiB.
+  # The plugin's htcondor_request_mem_mb uses HTCondor's binary units.
+  mem_mb: 8000
+  htcondor_request_mem_mb: 7630
   request_disk: 128GB
   requirements: 'UidDomain == "cs.uni-saarland.de"'
   classad_WantGPUHomeMounted: true
+
 set-resources:
   phenotype_dataframe_creator:
     mem_mb: 1024
@@ -176,8 +179,6 @@ set-resources:
   combined_ml:
     container_image: docker.io/cambouu/alpar-smk-ml:1.0.0
 
-# Pin measured multithreaded jobs to the tested CPU count instead of
-# inheriting the 16-core workflow scheduling budget.
 set-threads:
   annotation_file_from_snippy: 8
   cd_hit_create_db: 8
