@@ -36,8 +36,8 @@ default-resources:
 
 set-resources:
   phenotype_dataframe_creator:
-    mem_mb: 1000
-    htcondor_request_mem_mb: 954
+    mem_mb: 4000
+    htcondor_request_mem_mb: 3815
     container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
   cd_hit_create_db:
     mem_mb: 2000
@@ -84,34 +84,38 @@ set-resources:
     htcondor_request_mem_mb: 954
     container_image: docker.io/cambouu/alpar-smk-snippy:1.0.0
   annotation_file_from_snippy:
-    mem_mb: 2000
-    htcondor_request_mem_mb: 1908
+    mem_mb: 4000
+    htcondor_request_mem_mb: 3815
     container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
   binary_mutation_table:
-    mem_mb: 2000
-    htcondor_request_mem_mb: 1908
+    mem_mb: 4000
+    htcondor_request_mem_mb: 3815
     container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
   panaroo_runner:
     container_image: docker.io/cambouu/alpar-smk-panaroo:1.0.0
   binary_gpa_panaroo:
+    mem_mb: 4000
+    htcondor_request_mem_mb: 3815
     container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
   cdhit_protein_positions:
+    mem_mb: 4000
+    htcondor_request_mem_mb: 3815
     container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
   cdhit_runner:
     mem_mb: 2000
     htcondor_request_mem_mb: 1908
     container_image: docker.io/cambouu/alpar-smk-cd-hit:1.0.0
   binary_gpa_cdhit:
-    mem_mb: 1000
-    htcondor_request_mem_mb: 954
+    mem_mb: 4000
+    htcondor_request_mem_mb: 3815
     container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
   split_cluster_fasta:
-    mem_mb: 2000
-    htcondor_request_mem_mb: 1908
+    mem_mb: 4000
+    htcondor_request_mem_mb: 3815
     container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
   cluster_fasta_splits:
-    mem_mb: 1000
-    htcondor_request_mem_mb: 954
+    mem_mb: 4000
+    htcondor_request_mem_mb: 3815
     container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
   batch_align_clusters:
     mem_mb: 2000
@@ -130,16 +134,16 @@ set-resources:
     htcondor_request_mem_mb: 954
     container_image: docker.io/cambouu/alpar-smk-bubblegun:1.0.0
   batch_bubble_features:
-    mem_mb: 1000
-    htcondor_request_mem_mb: 954
+    mem_mb: 4000
+    htcondor_request_mem_mb: 3815
     container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
   batch_panpa_align:
     mem_mb: 2000
     htcondor_request_mem_mb: 1908
     container_image: docker.io/cambouu/alpar-smk-panpa-vcf:1.0.0
   batch_gaf_lor_features:
-    mem_mb: 1000
-    htcondor_request_mem_mb: 954
+    mem_mb: 4000
+    htcondor_request_mem_mb: 3815
     container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
   pivot_merged_features_miller:
     container_image: docker.io/cambouu/alpar-smk-miller:1.0.0
@@ -176,6 +180,8 @@ set-resources:
     htcondor_request_mem_mb: 954
     container_image: docker.io/cambouu/alpar-smk-gwas:1.0.0
   prps_ml_preprocessor:
+    mem_mb: 4000
+    htcondor_request_mem_mb: 3815
     container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
   combined_ml:
     container_image: docker.io/cambouu/alpar-smk-ml:1.0.0
