@@ -4,6 +4,9 @@ set -euo pipefail
 # Keep worker source caches in job-owned storage, not a shared /tmp/.cache.
 export XDG_CACHE_HOME="${_CONDOR_SCRATCH_DIR:-$PWD}/.cache"
 
+export USER="${USER:-joca00004}"
+export LOGNAME="${LOGNAME:-joca00004}"
+
 # The executor may retain the Python launcher before the Snakemake arguments.
 if [[ "${2:-}" == "-m" && "${3:-}" == "snakemake" ]]; then
     shift 3
