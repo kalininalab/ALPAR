@@ -10,7 +10,8 @@ GENOME_ANNOTATION_LOGS_DIR = GENOME_ANNOTATION_OUT_DIR / "logs"
 
 rule cd_hit_create_db:
     input: FASTA_FILE
-    output: GENOME_ANNOTATION_OUT_DIR / GENUS / GENUS
+    # Prokka normalizes --genus with ucfirst(lc(...)) before looking up the DB.
+    output: GENOME_ANNOTATION_OUT_DIR / "prokka_db" / "genus" / GENUS.lower().capitalize()
     log: GENOME_ANNOTATION_LOGS_DIR / "cd_hit_create_db.log"
     benchmark: BENCHMARKS_DIR / "cdhit_create_db.tsv"
     conda: ENVS_DIR.format("cd-hit")
@@ -36,7 +37,7 @@ rule cd_hit_create_db:
 
 rule makeblastdb:
     input: rules.cd_hit_create_db.output
-    output: touch(GENOME_ANNOTATION_OUT_DIR / "makeblastdb.done")
+    output: touch(GENOME_ANNOTATION_OUT_DIR / "prokka_db" / "makeblastdb.done")
     log: GENOME_ANNOTATION_LOGS_DIR / "makeblastdb.log"
     benchmark: BENCHMARKS_DIR / "makeblastdb.tsv"
     conda: ENVS_DIR.format("makeblastdb")
@@ -51,31 +52,12 @@ rule makeblastdb:
         """
 
 
-rule prokka_listdb:
-    input:
-        rules.makeblastdb.output,
-        db_dir = rules.cd_hit_create_db.output
-    output: touch(GENOME_ANNOTATION_OUT_DIR / "prokka_listdb.done"),
-    log: GENOME_ANNOTATION_LOGS_DIR / "prokka_listdb.log"
-    benchmark: BENCHMARKS_DIR / "prokka_listdb.tsv"
-    conda: ENVS_DIR.format("prokka")
-    container: CONTAINERS.format("prokka:1.0.0")
-    shell:
-        r"""
-        DB_DIR=$(dirname {input.db_dir})
-        PROKKA_DB_DIR="$(dirname $(dirname $(which prokka)))/db/genus"
-        cp -a "$DB_DIR/." $PROKKA_DB_DIR
-
-        echo $PROKKA_DB_DIR > {log}
-        prokka --listdb >> {log} 2>&1
-        """
-
-
 #TODO Implement branching logic if no reference is given
 rule prokka_runner:
     group: "prokka_batch"
     input:
-        rules.prokka_listdb.output,
+        database = rules.makeblastdb.output,
+        genus_database = rules.cd_hit_create_db.output,
         sample_store = rules.rename_files.output.store,
         sample = Path(rules.rename_files.output.store) / "{sample}",
         reference = GBFF_FILE,
@@ -86,7 +68,8 @@ rule prokka_runner:
     log: GENOME_ANNOTATION_LOGS_DIR / "prokka_runner" / "{sample}.log"
     benchmark: BENCHMARKS_DIR / "prokka_{sample}.tsv"
     params:
-        genus = GENUS,
+        genus = GENUS.lower().capitalize(),
+        genus_db_dir = GENOME_ANNOTATION_OUT_DIR / "prokka_db" / "genus",
         outdir = subpath(output.gff, parent=True),
     threads: 1
     resources:
@@ -96,7 +79,22 @@ rule prokka_runner:
     shell:
         r"""
         input_file=$(readlink -f {input.sample})
-        prokka $input_file \
+
+        # --dbdir replaces Prokka's complete database root. Build a writable,
+        # job-local view containing the bundled DBs and our shared genus DB.
+        bundled_db_dir="$(dirname "$(dirname "$(command -v prokka)")")/db"
+        job_db_dir="$(mktemp -d)"
+        trap 'rm -rf "$job_db_dir"' EXIT
+
+        for bundled_db in "$bundled_db_dir"/*; do
+            if [[ "$(basename "$bundled_db")" != "genus" ]]; then
+                ln -s "$bundled_db" "$job_db_dir/$(basename "$bundled_db")"
+            fi
+        done
+        ln -s {params.genus_db_dir:q} "$job_db_dir/genus"
+
+        prokka "$input_file" \
+            --dbdir "$job_db_dir" \
             --outdir {params.outdir} \
             --prefix {wildcards.sample} \
             --proteins {input.reference} \
