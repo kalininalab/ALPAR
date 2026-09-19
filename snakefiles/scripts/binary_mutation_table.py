@@ -1,11 +1,9 @@
 """Scripts required for the generation of binary tables."""
 
-import asyncio
 from contextlib import suppress
 from pathlib import Path
 from typing import Annotated
 
-import aiofiles
 from pydantic import BaseModel, Field, FilePath, NewPath, BeforeValidator
 from loguru import logger
 
@@ -29,8 +27,8 @@ class Snakemakehandler(BaseModel):
     )
 
 
-@logger.catch
-async def binary_mutation(handler: Snakemakehandler) -> None:
+@logger.catch(reraise=True)
+def binary_mutation(handler: Snakemakehandler) -> None:
     """Create binary tables from VCF files.
     
     Format of the output table:
@@ -39,19 +37,16 @@ async def binary_mutation(handler: Snakemakehandler) -> None:
     ...
     """
 
-    async with aiofiles.open(handler.output, 'w', encoding='utf-8', newline='') as f:
-        tasks = [
-            asyncio.create_task(read_vcf_and_return_snp_class_list(input_file))
-            for input_file in handler.input
-        ]
-
-        async for task in asyncio.as_completed(tasks):
-            strain, mutation_set = await task
-            for mutation in mutation_set:
-                await f.write(f'{strain}\t{mutation}\t1\n')
+    with handler.output.open('w', encoding='utf-8', newline='') as output_file:
+        for input_file in handler.input:
+            strain, mutation_set = read_vcf_and_return_snp_class_list(input_file)
+            output_file.writelines(
+                f'{strain}\t{mutation}\t1\n'
+                for mutation in mutation_set
+            )
 
 
-async def read_vcf_and_return_snp_class_list(
+def read_vcf_and_return_snp_class_list(
     vcf_path: Path,
     ) -> tuple[str, Annotated[set[str], 'pos,REF:ALT,type']]:
     """Read a VCF file and extract mutation information.
@@ -77,8 +72,8 @@ async def read_vcf_and_return_snp_class_list(
     """
     snp_list = set[str]()
 
-    async with aiofiles.open(vcf_path, 'r', encoding='utf-8') as infile:
-        async for line in infile:
+    with vcf_path.open('r', encoding='utf-8') as infile:
+        for line in infile:
             if line.startswith('#'):
                 continue
 
@@ -111,4 +106,4 @@ if __name__ == '__main__':
     )
     logger.remove()
     logger.add(handler.log_file, backtrace=True, diagnose=True, enqueue=True)
-    asyncio.run(binary_mutation(handler))
+    binary_mutation(handler)
