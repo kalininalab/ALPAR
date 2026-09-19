@@ -45,19 +45,42 @@ rule snippy_runner:
 # -----------------------
 
 rule annotation_file_from_snippy:
+    group: "annotation_file_from_snippy_batch"
+    input: rules.snippy_runner.output.tab
+    output: SNP_OUT_DIR / "annotation_file_from_snippy" / "{sample}.tsv"
+    benchmark: BENCHMARKS_DIR / "annotation_file_from_snippy_{sample}.tsv"
+    log: SNP_LOGS_DIR / "annotation_file_from_snippy" / "{sample}.log"
+    conda: ENVS_DIR.format("miller")
+    container: CONTAINERS.format("miller:1.0.0")
+    threads: 1
+    shell:
+        r"""
+        mlr --tsv \
+            put '$Mutation = $POS . "," . $REF . ":" . $ALT . "," . $TYPE' \
+            then cut -o -f Mutation,EFFECT,GENE,PRODUCT \
+            {input} > {output} 2> {log}
+        """
+
+
+rule gather_annotation_file_from_snippy:
     input:
         lambda wc: expand(
-            rules.snippy_runner.output.tab,
+            rules.annotation_file_from_snippy.output,
             sample = get_sample_names(wc)
         )
     output: SNP_OUT_DIR / "mutations_annotations.tsv"
-    benchmark: BENCHMARKS_DIR / "annotation_file_from_snippy.tsv"
-    log: SNP_LOGS_DIR / "annotation_file_from_snippy.log"
-    conda: ENVS_DIR.format("python313")
-    container: CONTAINERS.format("python313:1.0.0")
-    threads: MAX_PYTHON_THREADS
-    script:
-        SCRIPTS_DIR / "annotation_file_from_snippy.py"
+    benchmark: BENCHMARKS_DIR / "gather_annotation_file_from_snippy.tsv"
+    log: SNP_LOGS_DIR / "gather_annotation_file_from_snippy.log"
+    conda: ENVS_DIR.format("miller")
+    container: CONTAINERS.format("miller:1.0.0")
+    threads: 1
+    shell:
+        r"""
+        mlr --tsv \
+            cat \
+            then head -n 1 -g Mutation \
+            {input} > {output} 2> {log}
+        """
 
 
 rule binary_mutation_table:
@@ -79,6 +102,6 @@ rule binary_mutation_table:
 rule snp:
     localrule: True
     input:
-        rules.annotation_file_from_snippy.output,
+        rules.gather_annotation_file_from_snippy.output,
         rules.binary_mutation_table.output
     output: touch(OUT_DIR / "flags" / "snp.done")

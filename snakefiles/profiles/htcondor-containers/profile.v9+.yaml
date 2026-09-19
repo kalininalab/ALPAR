@@ -10,6 +10,7 @@ jobs: 10
 
 group-components:
   snippy_batch: 2000
+  annotation_file_from_snippy_batch: 2000
   prokka_batch: 2000
 
 resources:
@@ -84,9 +85,13 @@ set-resources:
     htcondor_request_mem_mb: 954
     container_image: docker.io/cambouu/alpar-smk-snippy:1.0.0
   annotation_file_from_snippy:
+    mem_mb: 1000
+    htcondor_request_mem_mb: 954
+    container_image: docker.io/cambouu/alpar-smk-miller:1.0.0
+  gather_annotation_file_from_snippy:
     mem_mb: 8000
     htcondor_request_mem_mb: 7630
-    container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
+    container_image: docker.io/cambouu/alpar-smk-miller:1.0.0
   binary_mutation_table:
     mem_mb: 8000
     htcondor_request_mem_mb: 7630
@@ -187,7 +192,6 @@ set-resources:
     container_image: docker.io/cambouu/alpar-smk-ml:1.0.0
 
 set-threads:
-  annotation_file_from_snippy: 8
   cd_hit_create_db: 8
   cdhit_runner: 8
   mashtree_runner: 8
