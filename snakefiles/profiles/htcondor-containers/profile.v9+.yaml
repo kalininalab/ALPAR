@@ -174,8 +174,8 @@ set-resources:
   prps_runner:
     container_image: docker.io/cambouu/alpar-smk-prps:1.0.0
   pyseer_genotype_matrix_creator:
-    mem_mb: 8000
-    htcondor_request_mem_mb: 7630
+    mem_mb: 16000
+    htcondor_request_mem_mb: 15259
     container_image: docker.io/cambouu/alpar-smk-miller:1.0.0
   pyseer_phenotype_file_creator:
     mem_mb: 1000
