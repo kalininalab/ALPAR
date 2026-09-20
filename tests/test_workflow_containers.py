@@ -18,7 +18,6 @@ EXPECTED_ENVIRONMENTS = {
     "phenotype_dataframe_creator": "python313",
     "cd_hit_create_db": "cd-hit",
     "makeblastdb": "makeblastdb",
-    "prokka_listdb": "prokka",
     "prokka_runner": "prokka",
     "mashtree_runner": "mashtree",
     "mash_sketch": "datasail",
@@ -27,7 +26,8 @@ EXPECTED_ENVIRONMENTS = {
     "datasail_runner": "datasail",
     "split_phenotype_dataframe": "miller",
     "snippy_runner": "snippy",
-    "annotation_file_from_snippy": "python313",
+    "annotation_file_from_snippy": "miller",
+    "gather_annotation_file_from_snippy": "miller",
     "binary_mutation_table": "python313",
     "panaroo_runner": "panaroo",
     "binary_gpa_panaroo": "python313",
@@ -36,13 +36,13 @@ EXPECTED_ENVIRONMENTS = {
     "binary_gpa_cdhit": "python313",
     "split_cluster_fasta": "python313",
     "cluster_fasta_splits": "python313",
-    "batch_align_clusters": "mafft",
+    "align_clusters": "mafft",
     "panpa_build_index": "panpa-vcf",
     "panpa_build_gfa": "panpa-vcf",
-    "batched_bubblegun_runner": "bubblegun",
-    "batch_bubble_features": "python313",
-    "batch_panpa_align": "panpa-vcf",
-    "batch_gaf_lor_features": "python313",
+    "bubblegun_runner": "bubblegun",
+    "bubble_features": "python313",
+    "panpa_align": "panpa-vcf",
+    "gaf_lor_features": "python313",
     "pivot_merged_features_miller": "miller",
     "prps_runner": "prps",
     "pyseer_genotype_matrix_creator": "miller",
@@ -109,7 +109,7 @@ class WorkflowContainersTest(unittest.TestCase):
 
     def test_general_purpose_container_is_inherited(self):
         with self.workflow() as workflow:
-            self.assertEqual(len(workflow.rules), 66)
+            self.assertEqual(len(workflow.rules), 65)
             for rule in workflow.rules:
                 if not rule.conda_env:
                     self.assertEqual(

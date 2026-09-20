@@ -5,13 +5,19 @@
 executor: htcondor
 cores: 32
 local-cores: 2
-# Remote execution requires a positive job limit; one group at a time.
+# Remote execution requires a positive submission limit.
 jobs: 10
 
 group-components:
   snippy_batch: 2000
   annotation_file_from_snippy_batch: 2000
   prokka_batch: 2000
+  align_clusters: 2000
+  panpa_build_gfa: 2000
+  bubblegun_runner: 2000
+  bubble_features: 2000
+  panpa_align: 2000
+  gaf_lor_features: 2000
 
 resources:
   mem_mb: 32000
@@ -48,10 +54,6 @@ set-resources:
     mem_mb: 1000
     htcondor_request_mem_mb: 954
     container_image: docker.io/cambouu/alpar-smk-makeblastdb:1.0.0
-  prokka_listdb:
-    mem_mb: 1000
-    htcondor_request_mem_mb: 954
-    container_image: docker.io/cambouu/alpar-smk-prokka:1.0.0
   prokka_runner:
     mem_mb: 8000
     htcondor_request_mem_mb: 7630
@@ -122,7 +124,7 @@ set-resources:
     mem_mb: 8000
     htcondor_request_mem_mb: 7630
     container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
-  batch_align_clusters:
+  align_clusters:
     mem_mb: 2000
     htcondor_request_mem_mb: 1908
     container_image: docker.io/cambouu/alpar-smk-mafft:1.0.0
@@ -134,19 +136,19 @@ set-resources:
     mem_mb: 4000
     htcondor_request_mem_mb: 3815
     container_image: docker.io/cambouu/alpar-smk-panpa-vcf:1.0.0
-  batched_bubblegun_runner:
+  bubblegun_runner:
     mem_mb: 1000
     htcondor_request_mem_mb: 954
     container_image: docker.io/cambouu/alpar-smk-bubblegun:1.0.0
-  batch_bubble_features:
+  bubble_features:
     mem_mb: 8000
     htcondor_request_mem_mb: 7630
     container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
-  batch_panpa_align:
+  panpa_align:
     mem_mb: 2000
     htcondor_request_mem_mb: 1908
     container_image: docker.io/cambouu/alpar-smk-panpa-vcf:1.0.0
-  batch_gaf_lor_features:
+  gaf_lor_features:
     mem_mb: 8000
     htcondor_request_mem_mb: 7630
     container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
@@ -195,6 +197,5 @@ set-threads:
   cd_hit_create_db: 8
   cdhit_runner: 8
   mashtree_runner: 8
-  panpa_build_gfa: 12
   pyseer_genotype_matrix_creator: 8
   pyseer_runner: 8

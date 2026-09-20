@@ -44,7 +44,6 @@ container: CONTAINERS.format("python313:1.0.0")
 # -----------------------
 
 MAX_PYTHON_THREADS = min(workflow.cores, 32)
-JOB_BATCH_SIZE = 100
 
 GENUS = config.get("genus")
 RESISTANCE_STATUS_MAPPING = {
@@ -54,8 +53,7 @@ RESISTANCE_STATUS_MAPPING = {
 ANTIBIOTICS = tuple(antibiotic.name for antibiotic in IN_DIR.iterdir())
 
 wildcard_constraints:
-    antibiotic="(?:" + "|".join(re.escape(name) for name in ANTIBIOTICS) + ")",
-    batch_num=r"\d+"
+    antibiotic="(?:" + "|".join(re.escape(name) for name in ANTIBIOTICS) + ")"
 
 # -----------------------
 # Auxiliary snakefiles

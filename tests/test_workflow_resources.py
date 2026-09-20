@@ -85,7 +85,7 @@ class WorkflowResourcesTest(unittest.TestCase):
         parser = get_argument_parser(profiles=[str(PROFILE_DIR)])
         args = parser.parse_args([])
         self.assertEqual(args.executor, "htcondor")
-        self.assertEqual(args.cores, 16)
+        self.assertEqual(args.cores, 32)
         self.assertEqual(args.resources["mem_mb"].value, 32000)
         self.assertTrue(ResourceScopes(args.set_resource_scopes).is_global("mem_mb"))
         self.assertEqual(

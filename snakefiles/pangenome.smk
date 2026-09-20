@@ -1,3 +1,4 @@
+from functools import lru_cache
 from pathlib import Path
 
 PANGENOME_OUT_DIR = OUT_DIR / "pangenome"
@@ -37,69 +38,50 @@ rule cluster_fasta_splits:
     script:
         SCRIPTS_DIR / "cluster_fasta_splits.py"
 
+# Cluster wildcards retain the FASTA filename (e.g. Cluster_0.fasta).
+# PanPA appends .gfa to that filename; retaining it also preserves feature IDs.
+wildcard_constraints:
+    cluster = r"[^/]+\.fasta"
+
+
+@lru_cache(maxsize=8)
+def _pangenome_cluster_names(folder, directory_mtime_ns):
+    """Scan each completed checkpoint directory once per generation."""
+    return tuple(sorted(path.name for path in folder.glob("*.fasta")))
+
+
+def get_pangenome_clusters(wildcards):
+    # Always consult the checkpoint before the cache so Snakemake can defer DAG
+    # expansion. A rebuilt directory invalidates the cached names.
+    cluster_checkpoint = checkpoints.split_cluster_fasta.get()
+    folder = Path(cluster_checkpoint.output[0])
+    return _pangenome_cluster_names(folder, folder.stat().st_mtime_ns)
+
+
 # -----------------------
 # Multiple Sequence Alignment: MAFFT
 # -----------------------
 
-def get_cluster_files(wildcards) -> list[Path]:
-    cluster_checkpoint = checkpoints.split_cluster_fasta.get(**wildcards)
-    cluster_folder = Path(cluster_checkpoint.output[0])
-    file_ext = rules.split_cluster_fasta.params.file_ext
-    return sorted(cluster_folder.glob(f"*{file_ext}"))
-
-def batched_clusters(wildcards) -> list[Path]:
-    cluster_files = get_cluster_files(wildcards)
-    batch_num = int(wildcards.batch_num)
-    start = batch_num * JOB_BATCH_SIZE
-    end = min(start + JOB_BATCH_SIZE, len(cluster_files))
-    return cluster_files[start:end]
-
-rule batch_align_clusters:
+rule align_clusters:
+    group: "align_clusters"
     input:
-        cluster_store = rules.split_cluster_fasta.output,
-        batched_clusters = batched_clusters
-    output: directory(PANGENOME_OUT_DIR / "batch_align_clusters" / "batch_{batch_num}")
-    log: PANGENOME_LOGS_DIR / "batch_align_clusters" / "batch_{batch_num}.log"
-    benchmark: BENCHMARKS_DIR / "batch_align_clusters_batch_{batch_num}.tsv"
+        cluster_store = rules.split_cluster_fasta.output[0],
+        fasta = PANGENOME_OUT_DIR / "cluster_sequences" / "{cluster}",
+    output: PANGENOME_OUT_DIR / "cluster_alignments" / "{cluster}"
+    log: PANGENOME_LOGS_DIR / "align_clusters" / "{cluster}.log"
+    benchmark: BENCHMARKS_DIR / "align_clusters_{cluster}.tsv"
     conda: ENVS_DIR.format("mafft")
     container: CONTAINERS.format("mafft:1.0.0")
     threads: 1
     shell:
         r"""
-        mkdir -p {output}
-
-        for i in {input.batched_clusters}; do
-            OUT_FILE="{output}/$(basename $i)"
-            FASTA_COUNT=$(grep -c "^>" $i)
-
-            if [ $FASTA_COUNT -eq 1 ]; then
-                echo ">>$i with $FASTA_COUNT sequence, skipping alignment" >> {log}
-                ln -sr $i $OUT_FILE
-            else
-                echo ">>$i with $FASTA_COUNT sequences" >> {log}
-                mafft --auto --thread {threads} $i > $OUT_FILE 2>> {log}
-            fi
-        done
-        """
-
-rule gather_align_clusters:
-    localrule: True
-    input:
-        lambda wc: expand(
-            rules.batch_align_clusters.output,
-            batch_num = range((len(get_cluster_files(wc)) - 1) // JOB_BATCH_SIZE + 1)
-        )
-    output: directory(PANGENOME_OUT_DIR / "cluster_alignments")
-    log: PANGENOME_LOGS_DIR / "gather_align_clusters.log"
-    shell:
-        r"""
-        mkdir -p {output}
-        for batch_dir in {input}; do
-            for aln_file in $batch_dir/*.fasta; do
-                [ -f "$aln_file" ] || continue
-                ln -srv $aln_file {output}/$(basename $aln_file) >> {log} 2>&1
-            done
-        done
+        FASTA_COUNT=$(grep -c "^>" {input.fasta:q})
+        if [ "$FASTA_COUNT" -eq 1 ]; then
+            echo "Single sequence; skipping alignment." > {log:q}
+            cp {input.fasta:q} {output:q}
+        else
+            mafft --auto --thread {threads} {input.fasta:q} > {output:q} 2> {log:q}
+        fi
         """
 
 
@@ -107,8 +89,19 @@ rule gather_align_clusters:
 # Panproteome Graph: PanPA
 # -----------------------
 
+rule panpa_alignment_list:
+    localrule: True
+    input:
+        lambda wc: expand(rules.align_clusters.output, cluster=get_pangenome_clusters(wc))
+    output: PANGENOME_OUT_DIR / "panpa" / "alignments.txt"
+    script:
+        SCRIPTS_DIR / "write_input_paths.py"
+
+
 rule panpa_build_index:
-    input: rules.gather_align_clusters.output
+    input:
+        alignment_list = rules.panpa_alignment_list.output,
+        alignments = lambda wc: expand(rules.align_clusters.output, cluster=get_pangenome_clusters(wc)),
     output: PANGENOME_OUT_DIR / "panpa" / "index.pickle"
     log: PANGENOME_LOGS_DIR / "panpa_build_index.log"
     benchmark: BENCHMARKS_DIR / "panpa_build_index.tsv"
@@ -122,31 +115,35 @@ rule panpa_build_index:
     shell:
         r"""
         PanPA \
-            --log_file {log} \
+            --log_file {log:q} \
             build_index \
-            --in_dir {input} \
-            --out_index {output} \
+            --fasta_list {input.alignment_list:q} \
+            --out_index {output:q} \
             --seeding_alg wk_min \
             --kmer_size {params.kmer_size} \
             --window {params.window_size} \
             --seed_limit {params.seed_limit}
         """
 
-checkpoint panpa_build_gfa:
-    input: rules.gather_align_clusters.output
-    output: directory(PANGENOME_OUT_DIR / "panpa" / "gfa")
-    log: PANGENOME_LOGS_DIR / "panpa_build_gfa.log"
-    benchmark: BENCHMARKS_DIR / "panpa_build_gfa.tsv"
+
+rule panpa_build_gfa:
+    group: "panpa_build_gfa"
+    input: rules.align_clusters.output
+    output: PANGENOME_OUT_DIR / "panpa" / "gfa" / "{cluster}.gfa"
+    log: PANGENOME_LOGS_DIR / "panpa_build_gfa" / "{cluster}.log"
+    benchmark: BENCHMARKS_DIR / "panpa_build_gfa_{cluster}.tsv"
+    params:
+        out_dir = subpath(output[0], parent=True),
     conda: ENVS_DIR.format("panpa-vcf")
     container: CONTAINERS.format("panpa-vcf:1.0.0")
-    threads: workflow.cores
+    threads: 1
     shell:
         r"""
         PanPA \
-            --log_file {log} \
+            --log_file {log:q} \
             build_gfa \
-            --in_dir {input} \
-            --out_dir {output} \
+            --fasta_files {input:q} \
+            --out_dir {params.out_dir:q} \
             --cores {threads}
         """
 
@@ -155,53 +152,28 @@ checkpoint panpa_build_gfa:
 # Bubble Annotation
 # -----------------------
 
-def get_panpa_graphs(wildcards) -> list[Path]:
-    panpa_checkpoint = checkpoints.panpa_build_gfa.get(**wildcards)
-    panpa_folder = Path(panpa_checkpoint.output[0])
-    return sorted(panpa_folder.glob(f"*.gfa"))
-
-def batched_bubblegun(wildcards) -> list[Path]:
-    panpa_graphs = get_panpa_graphs(wildcards)
-    batch_num = int(wildcards.batch_num)
-    start = batch_num * JOB_BATCH_SIZE
-    end = min(start + JOB_BATCH_SIZE, len(panpa_graphs))
-    return panpa_graphs[start:end]
-
-rule batched_bubblegun_runner:
-    input:
-        panpa_graph_folder = rules.panpa_build_gfa.output[0],
-        batch_graphs = batched_bubblegun
-    output: directory(PANGENOME_OUT_DIR / "bubblegun_batches" / "batch_{batch_num}")
-    log: PANGENOME_LOGS_DIR / "batched_bubblegun_runner" / "batch_{batch_num}.log"
-    benchmark: BENCHMARKS_DIR / "batched_bubblegun_runner_batch_{batch_num}.tsv"
+rule bubblegun_runner:
+    group: "bubblegun_runner"
+    input: rules.panpa_build_gfa.output
+    output: PANGENOME_OUT_DIR / "bubblegun" / "{cluster}.json"
+    log: PANGENOME_LOGS_DIR / "bubblegun_runner" / "{cluster}.log"
+    benchmark: BENCHMARKS_DIR / "bubblegun_runner_{cluster}.tsv"
     conda: ENVS_DIR.format("bubblegun")
     container: CONTAINERS.format("bubblegun:1.0.0")
     threads: 1
     shell:
         r"""
-        mkdir -p {output}
-        mkdir -p $(dirname {log})
+        BubbleGun \
+            --log_file {log:q} \
+            --in_graph {input:q} \
+            bchains \
+            --bubble_json {output:q} \
+            >> {log:q} 2>&1
 
-        for i in {input.batch_graphs}; do
-            OUT_FILE="{output}/$(basename ${{i%.gfa}}).json"
-            TEMP_LOG=$(mktemp --suffix .log)
-            echo ">> Processing $i" >> $TEMP_LOG
-
-            BubbleGun \
-                --log_file $TEMP_LOG \
-                --in_graph $i \
-                bchains \
-                --bubble_json $OUT_FILE \
-                >> $TEMP_LOG 2>&1
-
-            if [ ! -f "$OUT_FILE" ]; then
-                echo "No bubbles found in $i." >> $TEMP_LOG
-                echo '{{}}' > "$OUT_FILE"
-            fi
-
-            cat $TEMP_LOG >> {log}
-            rm $TEMP_LOG
-        done
+        if [ ! -f {output:q} ]; then
+            echo "No bubbles found." >> {log:q}
+            echo '{{}}' > {output:q}
+        fi
         """
 
 
@@ -209,102 +181,45 @@ rule batched_bubblegun_runner:
 # Bubble Features: Train
 # -----------------------
 
-def batched_bubble_features(wildcards) -> list[Path]:
-    panpa_graphs = get_panpa_graphs(wildcards)
-    batch_num = int(wildcards.batch_num)
-    start = batch_num * JOB_BATCH_SIZE
-    end = min(start + JOB_BATCH_SIZE, len(panpa_graphs))
-    return panpa_graphs[start:end]
-
-rule batch_bubble_features:
+rule bubble_features:
+    group: "bubble_features"
     input:
-        script                = SCRIPTS_DIR / "bubble_features.py",
-        panpa_graph_folder    = rules.panpa_build_gfa.output,
-        bubblegun_folder      = rules.batched_bubblegun_runner.output,
-        batch_graphs          = batched_bubble_features,
-        split_phenotype_table = lambda wildcards: rules.split_phenotype_dataframe.output[0].format(split_category="train", **wildcards),
+        gfa_file = rules.panpa_build_gfa.output[0],
+        bubble_gun = rules.bubblegun_runner.output[0],
+        phenotype_table = lambda wc: rules.split_phenotype_dataframe.output[0].format(
+            antibiotic=wc.antibiotic, split_category="train"
+        ),
     output:
-        outdir     = directory(PANGENOME_OUT_DIR / "bubble_features_batches" / "batch_{batch_num}" / "{antibiotic}"),
-        lor_lookup = directory(PANGENOME_OUT_DIR / "bubble_features_batches" / "batch_{batch_num}" / "{antibiotic}_lor_lookup"),
-    log: PANGENOME_LOGS_DIR / "batch_bubble_features" / "batch_{batch_num}_{antibiotic}.log"
-    benchmark: BENCHMARKS_DIR / "batch_bubble_features_batch_{batch_num}_{antibiotic}.tsv"
+        output_file = PANGENOME_OUT_DIR / "bubble_features" / "train" / "{antibiotic}" / "{cluster}.tsv",
+        lor_lookup_file = PANGENOME_OUT_DIR / "bubble_features_{antibiotic}_lor_lookup" / "{cluster}.tsv",
+    log: PANGENOME_LOGS_DIR / "bubble_features" / "{antibiotic}" / "{cluster}.log"
+    benchmark: BENCHMARKS_DIR / "bubble_features_{antibiotic}_{cluster}.tsv"
     conda: ENVS_DIR.format("python313")
     container: CONTAINERS.format("python313:1.0.0")
     threads: 1
-    shell:
-        r"""
-        mkdir -p {output.outdir}
-        mkdir -p {output.lor_lookup}
-        mkdir -p $(dirname {log})
-
-        for gfa_file in {input.batch_graphs}; do
-            CLUSTER=$(basename "${{gfa_file%.gfa}}")
-            echo ">> Processing cluster $CLUSTER" >> {log}
-
-            BUBBLE_JSON={input.bubblegun_folder}/$CLUSTER.json
-            OUTPUT_FILE="{output.outdir}/${{CLUSTER}}.tsv"
-            LOR_LOOKUP_FILE="{output.lor_lookup}/$CLUSTER.tsv"
-            TEMP_LOG=$(mktemp --suffix .log)
-
-            python {input.script} \
-                --gfa-file $gfa_file \
-                --bubble-gun $BUBBLE_JSON \
-                --phenotype-table {input.split_phenotype_table} \
-                --log-file $TEMP_LOG \
-                --antibiotic {wildcards.antibiotic} \
-                --output-file $OUTPUT_FILE \
-                --lor-lookup-file $LOR_LOOKUP_FILE \
-                >> {log} 2>&1
-
-            cat $TEMP_LOG >> {log}
-            rm $TEMP_LOG
-        done
-        """
+    script:
+        SCRIPTS_DIR / "bubble_features.py"
 
 
-rule gather_bubble_features:
+rule merge_bubble_features:
     localrule: True
     input:
-        features = lambda wildcards: expand(
-            rules.batch_bubble_features.output.outdir,
-            batch_num = range((len(get_panpa_graphs(wildcards)) - 1) // JOB_BATCH_SIZE + 1),
-            **wildcards
-        ),
-        lor_lookup = lambda wildcards: expand(
-            rules.batch_bubble_features.output.lor_lookup,
-            batch_num = range((len(get_panpa_graphs(wildcards)) - 1) // JOB_BATCH_SIZE + 1),
-            **wildcards
+        lambda wc: expand(
+            rules.bubble_features.output.output_file,
+            cluster=get_pangenome_clusters(wc), antibiotic=wc.antibiotic,
         )
-    output:
-        features = PANGENOME_OUT_DIR / "bubble_features_{antibiotic}.tsv",
-        lor_lookup = directory(PANGENOME_OUT_DIR / "bubble_features_{antibiotic}_lor_lookup"),
-    log: PANGENOME_LOGS_DIR / "gather_bubble_features_{antibiotic}.log"
-    shell:
-        r"""
-        for batch_dir in {input.features}; do
-            cat $batch_dir/*.tsv >> {output.features}
-        done
-
-        mkdir -p {output.lor_lookup}
-        for batch_dir in {input.lor_lookup}; do
-            ln -srv $batch_dir/*.tsv {output.lor_lookup} >> {log} 2>&1
-        done
-        """
+    output: PANGENOME_OUT_DIR / "bubble_features_{antibiotic}.tsv"
+    script:
+        SCRIPTS_DIR / "concatenate_files.py"
 
 
-rule batch_bubble_features_complete:
+rule bubble_features_complete:
     localrule: True
     input:
-        features = lambda wildcards: expand(
-            rules.batch_bubble_features.output.outdir,
-            batch_num=range((len(get_panpa_graphs(wildcards)) - 1) // JOB_BATCH_SIZE + 1),
-            **wildcards,
-        ),
-        lor_lookup = lambda wildcards: expand(
-            rules.batch_bubble_features.output.lor_lookup,
-            batch_num=range((len(get_panpa_graphs(wildcards)) - 1) // JOB_BATCH_SIZE + 1),
-            **wildcards,
-        ),
+        lambda wc: expand(
+            rules.bubble_features.output,
+            cluster=get_pangenome_clusters(wc), antibiotic=wc.antibiotic,
+        )
     output: touch(PANGENOME_OUT_DIR / "bubble_features_train_{antibiotic}.done")
 
 
@@ -312,189 +227,85 @@ rule batch_bubble_features_complete:
 # Bubble Features: Test
 # -----------------------
 
-def batched_panpa_graphs(wildcards) -> list[Path]:
-    panpa_graphs = get_panpa_graphs(wildcards)
-    batch_num = int(wildcards.batch_num)
-    start = batch_num * JOB_BATCH_SIZE
-    end = min(start + JOB_BATCH_SIZE, len(panpa_graphs))
-    return panpa_graphs[start:end]
-
-rule batch_panpa_align:
+rule panpa_align:
+    group: "panpa_align"
     input:
-        panpa_graph_folder = rules.panpa_build_gfa.output,
-        test_sequence_folder = lambda wildcards: rules.cluster_fasta_splits.output[0].format(
-                split_category="test",
-                **wildcards,
-            ),
-        batch_graphs = batched_panpa_graphs,
-    output: directory(PANGENOME_OUT_DIR / "panpa_alignment_batches" / "{antibiotic}" / "batch_{batch_num}"),
-    log: PANGENOME_LOGS_DIR / "batch_panpa_align" / "{antibiotic}_batch_{batch_num}.log",
-    benchmark: BENCHMARKS_DIR / "batch_panpa_align_{antibiotic}_{batch_num}.tsv",
+        gfa_file = rules.panpa_build_gfa.output[0],
+        test_sequence_folder = lambda wc: rules.cluster_fasta_splits.output[0].format(
+            antibiotic=wc.antibiotic, split_category="test",
+        ),
+    output: PANGENOME_OUT_DIR / "panpa" / "alignments" / "{antibiotic}" / "{cluster}.gaf"
+    log: PANGENOME_LOGS_DIR / "panpa_align" / "{antibiotic}" / "{cluster}.log"
+    benchmark: BENCHMARKS_DIR / "panpa_align_{antibiotic}_{cluster}.tsv"
+    params:
+        query_fasta = lambda wc, input: Path(input.test_sequence_folder) / wc.cluster,
     conda: ENVS_DIR.format("panpa-vcf")
     container: CONTAINERS.format("panpa-vcf:1.0.0")
     threads: 1
     shell:
         r"""
-        mkdir -p "{output}" "$(dirname {log})"
-        : > "{log}"
-
-        for gfa_file in {input.batch_graphs}; do
-            CLUSTER=$(basename "${{gfa_file%.gfa}}")
-            QUERY_FASTA="{input.test_sequence_folder}/${{CLUSTER}}"
-            OUTPUT_GAF="{output}/${{CLUSTER}}.gaf"
-
-            echo ">> Processing $CLUSTER" >> "{log}"
-
-            if [ ! -s "$QUERY_FASTA" ]; then
-                echo "No test sequences; creating an empty GAF." >> "{log}"
-                : > "$OUTPUT_GAF"
-                continue
-            fi
-
-            TEMP_LOG=$(mktemp --suffix=.log)
-
-            if PanPA \
-                --log_file "$TEMP_LOG" \
+        if [ ! -f {params.query_fasta:q} ]; then
+            printf 'Missing test FASTA: %s\n' {params.query_fasta:q} > {log:q}
+            exit 1
+        fi
+        if [ ! -s {params.query_fasta:q} ]; then
+            echo "No test sequences; creating an empty GAF." > {log:q}
+            : > {output:q}
+        else
+            PanPA \
+                --log_file {log:q} \
                 align_single \
-                --gfa_files "$gfa_file" \
-                --seqs "$QUERY_FASTA" \
+                --gfa_files {input.gfa_file:q} \
+                --seqs {params.query_fasta:q} \
                 --cores {threads} \
-                --out_gaf "$OUTPUT_GAF" \
-                >> "$TEMP_LOG" 2>&1
-            then
-                STATUS=0
-            else
-                STATUS=$?
-            fi
+                --out_gaf {output:q} \
+                >> {log:q} 2>&1
 
-            cat "$TEMP_LOG" >> "{log}"
-            rm "$TEMP_LOG"
-
-            if [ "$STATUS" -ne 0 ]; then
-                echo "PanPA failed for $CLUSTER." >> "{log}"
-                exit "$STATUS"
+            # PanPA can finish successfully without emitting any alignments.
+            if [ ! -f {output:q} ]; then
+                : > {output:q}
             fi
-
-            # Ensure that every cluster has a GAF, even if PanPA emitted none.
-            if [ ! -f "$OUTPUT_GAF" ]; then
-                : > "$OUTPUT_GAF"
-            fi
-        done
+        fi
         """
 
-rule batch_gaf_lor_features:
+
+rule gaf_lor_features:
+    group: "gaf_lor_features"
     input:
-        gaf_dir = rules.batch_panpa_align.output,
-        lor_lookup_dir = rules.batch_bubble_features.output.lor_lookup,
-    output: directory(PANGENOME_OUT_DIR / "bubble_features_test_batches" / "batch_{batch_num}" / "{antibiotic}"),
-    log: PANGENOME_LOGS_DIR / "batch_gaf_lor_features" / "{antibiotic}_batch_{batch_num}.log",
-    benchmark: BENCHMARKS_DIR / "batch_gaf_lor_features_{antibiotic}_{batch_num}.tsv",
+        gaf_file = rules.panpa_align.output[0],
+        lor_lookup_file = rules.bubble_features.output.lor_lookup_file,
+    output:
+        output_file = PANGENOME_OUT_DIR / "bubble_features" / "test" / "{antibiotic}" / "{cluster}.tsv",
+    log: PANGENOME_LOGS_DIR / "gaf_lor_features" / "{antibiotic}" / "{cluster}.log"
+    benchmark: BENCHMARKS_DIR / "gaf_lor_features_{antibiotic}_{cluster}.tsv"
     conda: ENVS_DIR.format("python313")
     container: CONTAINERS.format("python313:1.0.0")
-    params:
-        script = SCRIPTS_DIR / "gaf_lor_features.py"
     threads: 1
-    shell:
-        r"""
-        mkdir -p "{output}" "$(dirname {log})"
-        : > "{log}"
-
-        for gaf_file in "{input.gaf_dir}"/*.gaf; do
-            [ -f "$gaf_file" ] || continue
-
-            CLUSTER=$(basename "${{gaf_file%.gaf}}")
-            LOOKUP_FILE="{input.lor_lookup_dir}/${{CLUSTER}}.tsv"
-            OUTPUT_FILE="{output}/${{CLUSTER}}.tsv"
-
-            echo ">> Mapping $CLUSTER" >> "{log}"
-            if [ ! -f "$LOOKUP_FILE" ]; then
-                echo "Missing LOR lookup: $LOOKUP_FILE" >> "{log}"
-                exit 1
-            fi
-
-            TEMP_LOG=$(mktemp --suffix=.log)
-
-            if python "{params.script}" \
-                --gaf-file "$gaf_file" \
-                --lor-lookup-file "$LOOKUP_FILE" \
-                --output-file "$OUTPUT_FILE" \
-                --log-file "$TEMP_LOG" \
-                >> "{log}" 2>&1
-            then
-                STATUS=0
-            else
-                STATUS=$?
-            fi
-
-            cat "$TEMP_LOG" >> "{log}"
-            rm "$TEMP_LOG"
-
-            if [ "$STATUS" -ne 0 ]; then
-                echo "GAF-to-LOR mapping failed for $CLUSTER." >> "{log}"
-                exit "$STATUS"
-            fi
-        done
-        """
+    script:
+        SCRIPTS_DIR / "gaf_lor_features.py"
 
 
-rule batch_gaf_lor_features_complete:
+rule gaf_lor_features_complete:
     localrule: True
     input:
-        lambda wildcards: expand(
-            rules.batch_gaf_lor_features.output,
-            batch_num=range((len(get_panpa_graphs(wildcards)) - 1) // JOB_BATCH_SIZE + 1),
-            **wildcards,
+        lambda wc: expand(
+            rules.gaf_lor_features.output,
+            cluster=get_pangenome_clusters(wc), antibiotic=wc.antibiotic,
         )
     output: touch(PANGENOME_OUT_DIR / "bubble_features_test_{antibiotic}.done")
 
 
-rule gather_bubble_features_test:
+rule merge_bubble_features_test:
     localrule: True
     input:
-        lambda wildcards: expand(
-            rules.batch_gaf_lor_features.output,
-            batch_num=range((len(get_panpa_graphs(wildcards)) - 1) // JOB_BATCH_SIZE + 1),
-            **wildcards,
+        lambda wc: expand(
+            rules.gaf_lor_features.output,
+            cluster=get_pangenome_clusters(wc), antibiotic=wc.antibiotic,
         )
     output: PANGENOME_OUT_DIR / "bubble_features_test_{antibiotic}.tsv"
-    shell:
-        r"""
-        : > "{output}"
-        for batch_dir in {input}; do
-            for tsv in "$batch_dir"/*.tsv; do
-                [ -f "$tsv" ] || continue
-                cat "$tsv" >> "{output}"
-            done
-        done
-        """
+    script:
+        SCRIPTS_DIR / "concatenate_files.py"
 
-
-rule gather_panpa_alignments:
-    localrule: True
-    input:
-        lambda wildcards: expand(
-            rules.batch_panpa_align.output,
-            batch_num=range((len(get_panpa_graphs(wildcards)) - 1) // JOB_BATCH_SIZE + 1),
-            **wildcards,
-        )
-    output: directory(PANGENOME_OUT_DIR / "panpa" / "alignments" / "{antibiotic}"),
-    log: PANGENOME_LOGS_DIR / "gather_panpa_alignments_{antibiotic}.log",
-    shell:
-        r"""
-        mkdir -p "{output}"
-        : > "{log}"
-
-        for batch_dir in {input}; do
-            for gaf_file in "$batch_dir"/*.gaf; do
-                [ -f "$gaf_file" ] || continue
-
-                ln -srv \
-                    "$gaf_file" \
-                    "{output}/$(basename "$gaf_file")" \
-                    >> "{log}" 2>&1
-            done
-        done
-        """
 
 # -----------------------
 # Snakefile Target
@@ -503,7 +314,7 @@ rule gather_panpa_alignments:
 rule pangenome:
     localrule: True
     input:
-        bubble_features_train = expand(rules.batch_bubble_features_complete.output, antibiotic=ANTIBIOTICS),
+        bubble_features_train = expand(rules.bubble_features_complete.output, antibiotic=ANTIBIOTICS),
         panpa_index = rules.panpa_build_index.output,
-        bubble_features_test = expand(rules.batch_gaf_lor_features_complete.output, antibiotic=ANTIBIOTICS),
+        bubble_features_test = expand(rules.gaf_lor_features_complete.output, antibiotic=ANTIBIOTICS),
     output: touch(OUT_DIR / "flags" / "pangenome.done")

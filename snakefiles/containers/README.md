@@ -69,6 +69,40 @@ Use `docker://docker.io/DOCKERHUB_USERNAME/alpar-smk-bubblegun@sha256:...`
 in the source profile to pin an immutable image rather than a mutable tag.
 
 
+## Pangenome job groups
+
+Run the workflow from the repository root with the checked-in profile:
+
+```bash
+snakemake pangenome --profile snakefiles/profiles/htcondor-containers
+```
+
+Pangenome alignment, graph construction, BubbleGun, training features, test
+alignment, and test features each have their own group. The profile bundles up
+to 2000 independent jobs of each rule per submission, like SNP and Prokka.
+`cores` and `mem_mb` bound concurrency inside the group; `group-components`
+controls how many jobs share a submission. Each group uses one environment
+image. Local execution uses ordinary per-file jobs.
+
+The cluster-splitting checkpoint is the only dynamic discovery boundary.
+Cluster filenames are cached after one directory scan and refreshed if the
+checkpoint directory changes. All subsequent jobs use those filenames as
+wildcards, including PanPA graph construction. PanPA's index reads an explicit
+alignment inventory, so unrelated or stale files in the alignment folder are
+excluded.
+
+Per-cluster feature files now live under
+`pangenome/bubble_features/{train,test}/{antibiotic}/`. LOR lookups and test GAFs
+are written directly to their final locations. The merged train/test TSV paths
+and the `pangenome` completion target are unchanged. Table merging streams the
+exact declared inputs and replaces previous contents on rerun.
+
+Existing batch folders are no longer inputs and are not deleted automatically.
+A resumed run builds missing per-file outputs; old batch directories are not
+imported. Custom profiles referring to `batch_*` or `batched_*` pangenome rules
+must use the new rule names in the checked-in profile. `panpa_build_gfa` now
+uses one thread per graph instead of parallelizing a whole directory internally.
+
 ## HTCondor clusters requiring local SIF images
 
 Some clusters reject registry URLs in `container_image` and require a full path

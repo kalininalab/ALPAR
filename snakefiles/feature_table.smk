@@ -9,8 +9,8 @@ rule merge_features:
     input:
         snp = rules.binary_mutation_table.output,
         gpa = rules.binary_gpa.output,
-        pangenome_train = rules.gather_bubble_features.output.features,
-        pangenome_test = rules.gather_bubble_features_test.output,
+        pangenome_train = rules.merge_bubble_features.output,
+        pangenome_test = rules.merge_bubble_features_test.output,
     output: FEATURE_TABLE_OUT_DIR / "merged_table_{antibiotic}.tsv",
     threads: 1,
     shell:
