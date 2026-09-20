@@ -4,7 +4,10 @@ import os
 import random
 import sys
 import warnings
+from collections import Counter
 from contextlib import contextmanager, suppress
+from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import Annotated, Literal
 
 import cvxpy
@@ -50,8 +53,8 @@ class SnakemakeHandler(BaseModel):
     e_type: str = "P"
     max_sec: int = 600
     verbose: str = "I"
-    delta: float = 0.1
-    epsilon: float = 0.1
+    delta: float = Field(default=0.2, ge=0, le=1)
+    epsilon: float = Field(default=0.2, ge=0, le=1)
     runs: int = 1
     solver: str = "SCIP"
     linkage: Literal['average', 'single', 'complete'] = "average"
@@ -90,21 +93,56 @@ def split_by_proportions(handler: SnakemakeHandler, shuffle: bool = False, seed:
         start = end
     return chunks
 
-@logger.catch
+def validate_assignments(assignments, sample_ids, names):
+    """Reject absent, partial, or invalid results before publishing an output."""
+    if not isinstance(assignments, dict) or not assignments:
+        raise RuntimeError("DataSAIL returned no assignments; inspect the solver status above.")
+    if set(assignments) != set(sample_ids):
+        raise RuntimeError("DataSAIL assignments do not cover exactly the labeled samples.")
+    if set(assignments.values()) != set(names):
+        raise RuntimeError("DataSAIL returned unknown split names or an empty requested split.")
+
+
+@logger.catch(reraise=True)
 def main(handler: SnakemakeHandler):
-    
-    phenotype_df = pd.read_csv(f'{handler.phenotype_dataframe}', sep='\t', index_col=0)
-    phenotype_df_dict = phenotype_df.T.to_dict(orient='index')
-    
+    phenotype_df = pd.read_csv(
+        handler.phenotype_dataframe, sep='\t', index_col=0, dtype={"checksum": str}
+    )
+    if not phenotype_df.index.is_unique:
+        raise ValueError("Phenotype table contains duplicate sample IDs.")
+    labels = phenotype_df[handler.antibiotic].dropna()
+    if len(labels) < len(handler.names):
+        raise ValueError(f"Too few labeled samples for {handler.antibiotic}.")
+    if not labels.isin([0, 1]).all():
+        raise ValueError(f"Expected binary 0/1 phenotypes for {handler.antibiotic}.")
+    labels = labels.astype(int).astype(str)
+
     dm = pd.read_csv(handler.distance_matrix, sep="\t", index_col=0, header=0)
+    dm.index = dm.index.astype(str)
+    if not dm.index.is_unique or not dm.columns.is_unique or set(dm.index) != set(dm.columns):
+        raise ValueError("Distance matrix must have matching, unique row and column IDs.")
+    missing_ids = set(labels.index) - set(dm.columns)
+    if missing_ids:
+        raise ValueError(f"Distance matrix is missing {len(missing_ids)} labeled samples.")
+    # Both axes and stratification must describe the same per-antibiotic cohort.
+    sample_ids = [sample for sample in dm.columns if sample in labels.index]
+    dm = dm.loc[sample_ids, sample_ids]
+    labels = labels.loc[sample_ids]
+    logger.info(
+        "DataSAIL {}: labeled={}, excluded_missing={}, class_counts={}, "
+        "technique={}, splits={}, names={}, delta={}, epsilon={}, clusters={}, solver={}",
+        handler.antibiotic, len(labels), len(phenotype_df) - len(labels),
+        labels.value_counts().to_dict(), handler.techniques, handler.splits, handler.names,
+        handler.delta, handler.epsilon, handler.e_clusters, handler.solver,
+    )
 
     splits, _, _ = datasail.sail.datasail(
         techniques=[handler.techniques],
         splits=handler.splits,
         names=handler.names,
         e_type=handler.e_type,
-        e_data=((n, "a" * i) for i, n in enumerate(dm.columns)),
-        e_dist=handler.distance_matrix,
+        e_data=((n, "a" * (i + 1)) for i, n in enumerate(sample_ids)),
+        e_dist=(sample_ids, dm.to_numpy()),
         max_sec=handler.max_sec,
         threads=handler.threads,
         verbose=handler.verbose,
@@ -114,22 +152,41 @@ def main(handler: SnakemakeHandler):
         solver=handler.solver,
         cache=False,
         linkage=handler.linkage,
-        e_strat=phenotype_df_dict[handler.antibiotic],
+        e_strat=labels.to_dict(),
         e_clusters=handler.e_clusters
     )
 
-    with handler.output_file.open('w') as ofile:
-        try:
-            for key in splits[handler.techniques][0]:
-                ofile.write(f"{key}\t{splits[handler.techniques][0][key]}\n")
-        except:
-            if not handler.mock:
-                raise
-            logger.warning('Falling back to random splits')
-            splits = split_by_proportions(handler, shuffle=True, seed=42)
-            for group_set, name in zip(splits, handler.names):
-                for key in group_set:
-                    ofile.write(f"{key}\t{name}\n")
+    runs = splits.get(handler.techniques) if isinstance(splits, dict) else None
+    assignments = runs[0] if runs else None
+    try:
+        validate_assignments(assignments, sample_ids, handler.names)
+    except RuntimeError:
+        if not handler.mock:
+            raise
+        logger.warning('Mock mode: falling back to random splits')
+        groups = split_by_proportions(handler, shuffle=True, seed=42)
+        assignments = {
+            key: name for group, name in zip(groups, handler.names) for key in group
+        }
+        validate_assignments(assignments, sample_ids, handler.names)
+
+    logger.info("Split counts for {}: {}", handler.antibiotic, dict(Counter(assignments.values())))
+    for name in handler.names:
+        counts = Counter(labels[key] for key in sample_ids if assignments[key] == name)
+        logger.info("{} {} phenotype counts: {}", handler.antibiotic, name, dict(counts))
+
+    # Keep an interrupted/failed write from appearing as a successful Snakemake output.
+    temp_path = None
+    try:
+        with NamedTemporaryFile(mode='w', dir=handler.output_file.parent,
+                                prefix='.splits-', suffix='.tmp', delete=False) as ofile:
+            temp_path = Path(ofile.name)
+            for key in sample_ids:
+                ofile.write(f"{key}\t{assignments[key]}\n")
+        os.replace(temp_path, handler.output_file)
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
 
 class InterceptHandler(logging.Handler):
     """Forward stdlib logging records (DataSAIL, py.warnings) into loguru."""

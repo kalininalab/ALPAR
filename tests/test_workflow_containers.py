@@ -107,6 +107,16 @@ class WorkflowContainersTest(unittest.TestCase):
                         f"/site/conda/envs/alpar-smk-{EXPECTED_ENVIRONMENTS[rule.name]}",
                     )
 
+    def test_datasail_tolerances_output_check_and_job_group(self):
+        for overrides, expected in (({}, (0.2, 0.2)), (
+            {"datasail_delta": 0.3, "datasail_epsilon": 0.15}, (0.3, 0.15)
+        )):
+            with self.subTest(overrides=overrides), self.workflow(**overrides) as workflow:
+                rule = next(rule for rule in workflow.rules if rule.name == "datasail_runner")
+                self.assertEqual((rule.params.delta, rule.params.epsilon), expected)
+                self.assertTrue(rule.output[0].flags["ensure"]["non_empty"])
+                self.assertEqual(rule._group, "datasail_runner_batch")
+
     def test_general_purpose_container_is_inherited(self):
         with self.workflow() as workflow:
             self.assertEqual(len(workflow.rules), 65)

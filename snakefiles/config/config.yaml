@@ -19,3 +19,6 @@ container_format: "docker://docker.io/cambouu/alpar-smk-{0}"
 genus: "ecoli"
 gpa_method: "cd-hit"
 mock: False
+
+datasail_delta: 0.2
+datasail_epsilon: 0.2
