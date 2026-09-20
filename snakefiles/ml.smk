@@ -32,6 +32,7 @@ rule copy_and_zip_file:
         """
 
 rule combined_ml:
+    group: "combined_ml_batch"
     input:
         binary_mutation_table = rules.pivot_merged_features_miller.output[0],
         phenotype_table = rules.phenotype_dataframe_creator.output[0],

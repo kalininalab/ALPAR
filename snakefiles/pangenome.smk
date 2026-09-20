@@ -24,6 +24,7 @@ checkpoint split_cluster_fasta:
         SCRIPTS_DIR / "split_cluster_fasta.py"
 
 rule cluster_fasta_splits:
+    group: "cluster_fasta_splits_batch"
     input:
         cluster_store = rules.split_cluster_fasta.output[0],
         datasail_splits = rules.datasail_runner.output[0],

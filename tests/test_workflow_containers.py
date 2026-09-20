@@ -206,6 +206,36 @@ class WorkflowContainersTest(unittest.TestCase):
         wrapper = REPO / profile["default-resources"]["job_wrapper"]
         self.assertTrue(wrapper.stat().st_mode & 0o111)
 
+    def test_each_wildcard_environment_rule_has_its_own_profiled_group(self):
+        profile = yaml.safe_load(
+            (REPO / "snakefiles" / "profiles" / "htcondor-containers" / "profile.v9+.yaml").read_text()
+        )
+        with self.workflow() as workflow:
+            rules = {rule.name: rule for rule in workflow.rules}
+            wildcard_rules = {
+                name
+                for name in EXPECTED_ENVIRONMENTS
+                if rules[name].wildcard_names
+            }
+            groups = {
+                name: rules[name]._group
+                for name in wildcard_rules
+            }
+            self.assertNotIn(None, groups.values())
+            self.assertEqual(len(set(groups.values())), len(groups))
+            self.assertEqual(
+                set(profile["group-components"]),
+                set(groups.values()),
+            )
+            self.assertTrue(all(
+                components == 2000
+                for components in profile["group-components"].values()
+            ))
+            for rule in workflow.rules:
+                if rule.name not in wildcard_rules:
+                    with self.subTest(rule=rule.name):
+                        self.assertIsNone(rule._group)
+
     def test_each_mode_loads_without_runtime_dependencies(self):
         for mode in ("conda", "apptainer", "htcondor"):
             with self.subTest(mode=mode), TemporaryDirectory(prefix="alpar-mode-tests-") as temp:

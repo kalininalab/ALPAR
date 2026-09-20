@@ -4,6 +4,7 @@ PRPS_OUT_DIR = OUT_DIR / "prps"
 PRPS_LOGS_DIR = PRPS_OUT_DIR / "logs"
 
 rule prps_runner:
+    group: "prps_runner_batch"
     input:
         phylogeny_tree = rules.mashtree_runner.output[0],
         feature_matrix = rules.pivot_merged_features_miller.output[0],

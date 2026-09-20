@@ -21,6 +21,7 @@ rule pyseer_genotype_matrix_creator:
         """
 
 rule pyseer_phenotype_file_creator:
+    group: "pyseer_phenotype_file_creator_batch"
     input: rules.phenotype_dataframe_creator.output
     output: GWAS_OUT_DIR / "pyseer_phenotype_file_{antibiotic}.tsv"
     benchmark: BENCHMARKS_DIR / "pyseer_phenotype_file_creator_{antibiotic}.tsv"
@@ -55,6 +56,7 @@ rule pyseer_similarity_matrix_creator:
         SCRIPTS_DIR / "phylogeny_distance.py"
 
 rule pyseer_runner:
+    group: "pyseer_runner_batch"
     input:
         phenotype = rules.pyseer_phenotype_file_creator.output,
         genotype = rules.pyseer_genotype_matrix_creator.output,
@@ -77,6 +79,7 @@ rule pyseer_runner:
         """
 
 rule pyseer_post_processor_sort:
+    group: "pyseer_post_processor_sort_batch"
     input: rules.pyseer_runner.output,
     output: GWAS_OUT_DIR / "pyseer_results_sorted" / "{antibiotic}.tsv"
     benchmark: BENCHMARKS_DIR / "pyseer_post_processor_{antibiotic}.tsv"
@@ -92,6 +95,7 @@ rule pyseer_post_processor_sort:
         """
 
 rule pyseer_post_processor_clean:
+    group: "pyseer_post_processor_clean_batch"
     input: rules.pyseer_post_processor_sort.output,
     output: GWAS_OUT_DIR / "pyseer_results_sorted_cleaned" / "{antibiotic}.tsv"
     benchmark: BENCHMARKS_DIR / "pyseer_post_processor_clean_{antibiotic}.tsv"
@@ -119,6 +123,7 @@ rule pyseer_post_processor_clean:
         """
 
 rule pyseer_gwas_graph_creator:
+    group: "pyseer_gwas_graph_creator_batch"
     input:
         gwas_results = rules.pyseer_post_processor_clean.output[0],
         gwas_postprocessed = rules.pyseer_post_processor_sort.output[0],
@@ -131,6 +136,7 @@ rule pyseer_gwas_graph_creator:
         SCRIPTS_DIR / "pyseer_gwas_graph_creator.py"
 
 rule decision_tree_input_creator:
+    group: "decision_tree_input_creator_batch"
     input:
         binary_table = rules.pyseer_genotype_matrix_creator.input[0],
         phenotype_file = rules.pyseer_phenotype_file_creator.input[0],

@@ -64,6 +64,7 @@ rule datasail_pre_processor:
         """
 
 rule datasail_runner:
+    group: "datasail_runner_batch"
     input:
         distance_matrix = rules.datasail_pre_processor.output[0],
         phenotype_dataframe = rules.phenotype_dataframe_creator.output[0],
@@ -103,6 +104,7 @@ rule split_train_test:
         """
 
 rule split_phenotype_dataframe:
+    group: "split_phenotype_dataframe_batch"
     input:
         phenotype_dataframe = rules.phenotype_dataframe_creator.output,
         split_category = rules.split_train_test.output,

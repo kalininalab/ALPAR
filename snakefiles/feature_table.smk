@@ -24,6 +24,7 @@ rule merge_features:
         """
 
 rule pivot_merged_features_miller:
+    group: "pivot_merged_features_miller_batch"
     input: rules.merge_features.output,
     output: FEATURE_TABLE_OUT_DIR / "merged_table_pivot_{antibiotic}.tsv",
     log: FEATURE_TABLES_LOGS_DIR / "pivot_merged_features_miller_{antibiotic}.log",

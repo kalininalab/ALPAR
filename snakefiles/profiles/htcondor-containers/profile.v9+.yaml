@@ -12,12 +12,24 @@ group-components:
   snippy_batch: 2000
   annotation_file_from_snippy_batch: 2000
   prokka_batch: 2000
+  datasail_runner_batch: 2000
+  split_phenotype_dataframe_batch: 2000
+  cluster_fasta_splits_batch: 2000
   align_clusters: 2000
   panpa_build_gfa: 2000
   bubblegun_runner: 2000
   bubble_features: 2000
   panpa_align: 2000
   gaf_lor_features: 2000
+  pivot_merged_features_miller_batch: 2000
+  prps_runner_batch: 2000
+  pyseer_phenotype_file_creator_batch: 2000
+  pyseer_runner_batch: 2000
+  pyseer_post_processor_sort_batch: 2000
+  pyseer_post_processor_clean_batch: 2000
+  pyseer_gwas_graph_creator_batch: 2000
+  decision_tree_input_creator_batch: 2000
+  combined_ml_batch: 2000
 
 resources:
   mem_mb: 32000
