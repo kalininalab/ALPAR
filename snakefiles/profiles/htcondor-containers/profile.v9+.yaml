@@ -54,6 +54,9 @@ default-resources:
   classad_WantGPUHomeMounted: true
 
 set-resources:
+  # Keep rule-level mem_mb overrides synchronized with explicit constants in
+  # the Snakefiles. These are intentional profile overrides so that the
+  # HTCondor allocation is visible alongside htcondor_request_mem_mb.
   phenotype_dataframe_creator:
     mem_mb: 8000
     htcondor_request_mem_mb: 7630
@@ -67,8 +70,9 @@ set-resources:
     htcondor_request_mem_mb: 954
     container_image: docker.io/cambouu/alpar-smk-makeblastdb:1.0.0
   prokka_runner:
-    mem_mb: 8000
-    htcondor_request_mem_mb: 7630
+    # Mirrors genome_annotation.smk (600 decimal MB = 573 HTCondor MiB).
+    mem_mb: 600
+    htcondor_request_mem_mb: 573
     container_image: docker.io/cambouu/alpar-smk-prokka:1.0.0
   mashtree_runner:
     mem_mb: 1000
@@ -83,12 +87,12 @@ set-resources:
     htcondor_request_mem_mb: 954
     container_image: docker.io/cambouu/alpar-smk-datasail:1.0.0
   datasail_pre_processor:
-    mem_mb: 1000
-    htcondor_request_mem_mb: 954
+    mem_mb: 16000
+    htcondor_request_mem_mb: 15259
     container_image: docker.io/cambouu/alpar-smk-miller:1.0.0
   datasail_runner:
-    mem_mb: 1000
-    htcondor_request_mem_mb: 954
+    mem_mb: 16000
+    htcondor_request_mem_mb: 15259
     container_image: docker.io/cambouu/alpar-smk-datasail:1.0.0
   split_phenotype_dataframe:
     mem_mb: 1000
@@ -96,6 +100,7 @@ set-resources:
     container_image: docker.io/cambouu/alpar-smk-miller:1.0.0
   snippy_runner:
     # 32 x 1000 MB in Snakemake; 954 MiB per sample in HTCondor.
+    mem_mb: 1000
     htcondor_request_mem_mb: 954
     container_image: docker.io/cambouu/alpar-smk-snippy:1.0.0
   annotation_file_from_snippy:
@@ -203,6 +208,8 @@ set-resources:
     htcondor_request_mem_mb: 7630
     container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
   combined_ml:
+    # mem_mb and htcondor_request_mem_mb are computed dynamically in ml.smk;
+    # setting either here would override that rule-level calculation.
     container_image: docker.io/cambouu/alpar-smk-ml:1.0.0
 
 set-threads:
