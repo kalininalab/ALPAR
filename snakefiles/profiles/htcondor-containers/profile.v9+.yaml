@@ -179,7 +179,7 @@ set-resources:
   pyseer_similarity_matrix_creator:
     mem_mb: 1000
     htcondor_request_mem_mb: 954
-    container_image: docker.io/cambouu/alpar-smk-gwas:1.0.0
+    container_image: docker.io/cambouu/alpar-smk-gwas:1.0.1
   pyseer_runner:
     mem_mb: 4000
     htcondor_request_mem_mb: 3815
@@ -193,11 +193,11 @@ set-resources:
     htcondor_request_mem_mb: 954
     container_image: docker.io/cambouu/alpar-smk-miller:1.0.0
   pyseer_gwas_graph_creator:
-    container_image: docker.io/cambouu/alpar-smk-gwas:1.0.0
+    container_image: docker.io/cambouu/alpar-smk-gwas:1.0.1
   decision_tree_input_creator:
     mem_mb: 1000
     htcondor_request_mem_mb: 954
-    container_image: docker.io/cambouu/alpar-smk-gwas:1.0.0
+    container_image: docker.io/cambouu/alpar-smk-gwas:1.0.1
   prps_ml_preprocessor:
     mem_mb: 8000
     htcondor_request_mem_mb: 7630

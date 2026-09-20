@@ -50,7 +50,7 @@ rule pyseer_similarity_matrix_creator:
     benchmark: BENCHMARKS_DIR / "pyseer_similarity_matrix_creator.tsv"
     log: GWAS_LOGS_DIR / "pyseer_similarity_matrix_creator.log"
     conda: ENVS_DIR.format("gwas")
-    container: CONTAINERS.format("gwas:1.0.0")
+    container: CONTAINERS.format("gwas:1.0.1")
     threads: 1
     script:
         SCRIPTS_DIR / "phylogeny_distance.py"
@@ -130,7 +130,7 @@ rule pyseer_gwas_graph_creator:
     output: GWAS_OUT_DIR / "graphs" / "{antibiotic}.jpg"
     log: GWAS_LOGS_DIR / "pyseer_gwas_graph_creator_{antibiotic}.log"
     conda: ENVS_DIR.format("gwas")
-    container: CONTAINERS.format("gwas:1.0.0")
+    container: CONTAINERS.format("gwas:1.0.1")
     threads: 1
     script:
         SCRIPTS_DIR / "pyseer_gwas_graph_creator.py"
@@ -150,7 +150,7 @@ rule decision_tree_input_creator:
     benchmark: BENCHMARKS_DIR / "decision_tree_input_creator_{antibiotic}.tsv"
     log: GWAS_LOGS_DIR / "decision_tree_input_creator_{antibiotic}.log"
     conda: ENVS_DIR.format("gwas")
-    container: CONTAINERS.format("gwas:1.0.0")
+    container: CONTAINERS.format("gwas:1.0.1")
     threads: 1
     script:
         SCRIPTS_DIR / "decision_tree_input_creator.py"
