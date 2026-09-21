@@ -10,7 +10,6 @@ dependencies:
   - python=3.13
   - snakemake=9.26.1
   - pip:
-      - aiofiles==25.1.0
       - loguru==0.7.3
       - polars==1.40.0
       - pydantic-settings==2.14.2

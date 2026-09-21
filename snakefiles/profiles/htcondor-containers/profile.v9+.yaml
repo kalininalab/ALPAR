@@ -134,8 +134,8 @@ set-resources:
     htcondor_request_mem_mb: 7630
     container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
   split_cluster_fasta:
-    mem_mb: 8000
-    htcondor_request_mem_mb: 7630
+    mem_mb: 16000
+    htcondor_request_mem_mb: 15260
     container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
   cluster_fasta_splits:
     mem_mb: 8000
