@@ -175,7 +175,8 @@ include: {str(REPO / "snakefiles/pangenome.smk")!r}
                     len(re.findall(rf"^rule {rule}:$", dry_log, re.M)),
                     config["pangenome_shards"] * antibiotics, rule,
                 )
-                self.assertIn(f"threads: 32", dry_log)
+            # Shard jobs take every core (--cores 4 here, 32 from the profile).
+            self.assertIn("threads: 4", dry_log)
             self.assertNotIn("checkpoint", dry_log.lower())
             self.assert_success(self.run_workflow(root, "--", *self.targets()))
             out = root / "out/pangenome"
