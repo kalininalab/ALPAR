@@ -111,9 +111,9 @@ rule pyseer_post_processor_clean:
     threads: 1
     shell:
         r"""
-        mlr --tsv \
-            then filter '$[NF] != "bad-chisq"' \
-            {input} > {output} 2> {log}
+        # Drop variants whose last column (notes) is "bad-chisq". The previous
+        # miller command started with a stray 'then', failed, and left only the header.
+        awk -F '\t' 'NR == 1 || $NF != "bad-chisq"' {input} > {output} 2> {log}
         
         if [ $(wc -l < {output}) -eq 0 ]; then
             echo "No valid results after cleaning {input}" >> {log}
