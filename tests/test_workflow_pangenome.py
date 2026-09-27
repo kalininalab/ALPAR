@@ -58,8 +58,8 @@ assert Path(args.bubble_gun).read_text().strip() == "{}"
 assert Path(args.phenotype_table).is_file()
 assert not Path(args.log_file).exists() and Path(args.log_file).parent.is_dir()
 cluster = Path(args.output_file).stem
-Path(args.output_file).write_text(f"strain_a\t{cluster}_chain_1\t1.0\n")
-Path(args.lor_lookup_file).write_text(f">1>2\t{cluster}_chain_1\t1.0\n")
+Path(args.output_file).write_text(f"strain_a\\t{cluster}_chain_1\\t1.0\\n")
+Path(args.lor_lookup_file).write_text(f">1>2\\t{cluster}_chain_1\\t1.0\\n")
 ''')
             (scripts / "gaf_lor_features.py").write_text('''
 import argparse
@@ -70,7 +70,7 @@ for flag in ("gaf-file", "lor-lookup-file", "output-file", "log-file"):
 args = parser.parse_args()
 assert Path(args.lor_lookup_file).is_file()
 cluster = Path(args.output_file).stem
-row = f"strain_b\t{cluster}_chain_1\t1.0\n" if Path(args.gaf_file).stat().st_size else ""
+row = f"strain_b\\t{cluster}_chain_1\\t1.0\\n" if Path(args.gaf_file).stat().st_size else ""
 Path(args.output_file).write_text(row)
 ''')
             bindir = root / "bin"
