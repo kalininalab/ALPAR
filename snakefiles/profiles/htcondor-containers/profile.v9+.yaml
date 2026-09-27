@@ -156,8 +156,9 @@ set-resources:
     htcondor_request_mem_mb: 954
     container_image: docker.io/cambouu/alpar-smk-panpa-vcf:1.0.0
   panpa_build_gfa:
-    mem_mb: 4000
-    htcondor_request_mem_mb: 3815
+    # Observed per-shard peak on 2026-09-27: 200-240 MB.
+    mem_mb: 1000
+    htcondor_request_mem_mb: 954
     container_image: docker.io/cambouu/alpar-smk-panpa-vcf:1.0.0
   bubblegun_runner:
     mem_mb: 1000
