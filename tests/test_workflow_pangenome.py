@@ -6,9 +6,12 @@ import os
 import shutil
 import subprocess
 import importlib.util
+import math
 import sys
 from tempfile import TemporaryDirectory
 import unittest
+
+import yaml
 
 REPO = Path(__file__).resolve().parents[1]
 SHARD_GROUPS = (
@@ -174,9 +177,16 @@ include: {str(REPO / "snakefiles/pangenome.smk")!r}
             )
             self.assert_success(dry_run)
             dry_log = dry_run.stdout + dry_run.stderr
-            # Each shard rule forms its own group job; three shards fit in one.
+            # The profile loads the real config, so the dry run plans its shard
+            # count, bundled group-components shards per HTCondor group job.
+            config = yaml.safe_load((REPO / "snakefiles/config/config.yaml").read_text())
+            profile = yaml.safe_load(
+                (REPO / "snakefiles/profiles/htcondor-containers/profile.v9+.yaml").read_text()
+            )
             for group in SHARD_GROUPS:
-                self.assertEqual(dry_log.count(f"Group job {group} "), 1, group)
+                jobs_per_rule = math.ceil(config["pangenome_shards"] / profile["group-components"][group])
+                antibiotics = 1 if group in ("align_clusters", "panpa_build_gfa", "bubblegun_runner") else 2
+                self.assertEqual(dry_log.count(f"Group job {group} "), jobs_per_rule * antibiotics, group)
             self.assertNotIn("checkpoint", dry_log.lower())
             self.assert_success(self.run_workflow(root, "--", *self.targets()))
             out = root / "out/pangenome"
