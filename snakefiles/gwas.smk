@@ -11,13 +11,16 @@ rule pyseer_genotype_matrix_creator:
     conda: ENVS_DIR.format("miller")
     container: CONTAINERS.format("miller:1.0.0")
     threads: workflow.cores
+    params:
+        # Miller's in-memory reshape exceeded 15 GiB on the 7.6 GB mutation
+        # table; the script sorts externally and streams instead.
+        script = SCRIPTS_DIR / "long_to_presence_matrix.sh",
+        sort_memory = lambda wc, resources: f"{max(resources.mem_mb // 2, 500)}M",
+        # Sort spills about the input size; keep it on shared storage beside the output.
+        sort_tmp = subpath(output[0], parent=True),
     shell:
         r"""
-        mlr --tsv --implicit-tsv-header \
-            label hash,feature,value \
-            then reshape -s hash,value \
-            then unsparsify --fill-with 0 \
-            {input} > {output} 2> {log}
+        bash {params.script:q} {input:q} {output:q} {params.sort_tmp:q} {threads} {params.sort_memory} 2> {log:q}
         """
 
 rule pyseer_phenotype_file_creator:
