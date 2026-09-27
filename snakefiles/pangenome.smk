@@ -1,5 +1,8 @@
 from functools import lru_cache
 from pathlib import Path
+import resource
+import sys
+from time import perf_counter
 
 PANGENOME_OUT_DIR = OUT_DIR / "pangenome"
 PANGENOME_LOGS_DIR = PANGENOME_OUT_DIR / "logs"
@@ -45,18 +48,51 @@ wildcard_constraints:
     cluster = r"[^/]+\.fasta"
 
 
+def _pangenome_dag_log(event, **details):
+    peak_mib = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+    fields = " ".join(f"{key}={value}" for key, value in details.items())
+    print(f"[ALPAR DAG] {event} {fields} peak_rss_mib={peak_mib:.1f}", file=sys.stderr, flush=True)
+
+
 @lru_cache(maxsize=8)
 def _pangenome_cluster_names(folder, directory_mtime_ns):
     """Scan each completed checkpoint directory once per generation."""
-    return tuple(sorted(path.name for path in folder.glob("*.fasta")))
+    started = perf_counter()
+    names = tuple(sorted(path.name for path in folder.glob("*.fasta")))
+    _pangenome_dag_log("cluster-scan", count=len(names), seconds=f"{perf_counter() - started:.3f}")
+    return names
 
 
 def get_pangenome_clusters(wildcards):
     # Always consult the checkpoint before the cache so Snakemake can defer DAG
     # expansion. A rebuilt directory invalidates the cached names.
-    cluster_checkpoint = checkpoints.split_cluster_fasta.get()
-    folder = Path(cluster_checkpoint.output[0])
-    return _pangenome_cluster_names(folder, folder.stat().st_mtime_ns)
+    started = perf_counter()
+    try:
+        cluster_checkpoint = checkpoints.split_cluster_fasta.get()
+        folder = Path(cluster_checkpoint.output[0])
+        names = _pangenome_cluster_names(folder, folder.stat().st_mtime_ns)
+    except Exception as exc:
+        event = "cluster-lookup-deferred" if type(exc).__name__ == "IncompleteCheckpointException" else "cluster-lookup-error"
+        _pangenome_dag_log(event, error=type(exc).__name__, seconds=f"{perf_counter() - started:.3f}")
+        raise
+    _pangenome_dag_log("cluster-lookup", count=len(names), seconds=f"{perf_counter() - started:.3f}")
+    return names
+
+
+def pangenome_cluster_inputs(label, template, wildcards, **other_wildcards):
+    """Report checkpoint lookup and expand() separately from DAG materialization."""
+    started = perf_counter()
+    _pangenome_dag_log("input-start", rule=label)
+    try:
+        clusters = get_pangenome_clusters(wildcards)
+        _pangenome_dag_log("input-expand-start", rule=label, clusters=len(clusters))
+        files = expand(template, cluster=clusters, **other_wildcards)
+    except Exception as exc:
+        event = "input-deferred" if type(exc).__name__ == "IncompleteCheckpointException" else "input-error"
+        _pangenome_dag_log(event, rule=label, error=type(exc).__name__, seconds=f"{perf_counter() - started:.3f}")
+        raise
+    _pangenome_dag_log("input-finished", rule=label, files=len(files), seconds=f"{perf_counter() - started:.3f}")
+    return files
 
 
 # -----------------------
@@ -93,7 +129,7 @@ rule align_clusters:
 rule panpa_alignment_list:
     localrule: True
     input:
-        lambda wc: expand(rules.align_clusters.output, cluster=get_pangenome_clusters(wc))
+        lambda wc: pangenome_cluster_inputs("panpa_alignment_list", rules.align_clusters.output, wc)
     output: PANGENOME_OUT_DIR / "panpa" / "alignments.txt"
     script:
         SCRIPTS_DIR / "write_input_paths.py"
@@ -102,7 +138,7 @@ rule panpa_alignment_list:
 rule panpa_build_index:
     input:
         alignment_list = rules.panpa_alignment_list.output,
-        alignments = lambda wc: expand(rules.align_clusters.output, cluster=get_pangenome_clusters(wc)),
+        alignments = lambda wc: pangenome_cluster_inputs("panpa_build_index", rules.align_clusters.output, wc),
     output: PANGENOME_OUT_DIR / "panpa" / "index.pickle"
     log: PANGENOME_LOGS_DIR / "panpa_build_index.log"
     benchmark: BENCHMARKS_DIR / "panpa_build_index.tsv"
@@ -205,9 +241,9 @@ rule bubble_features:
 rule merge_bubble_features:
     localrule: True
     input:
-        lambda wc: expand(
-            rules.bubble_features.output.output_file,
-            cluster=get_pangenome_clusters(wc), antibiotic=wc.antibiotic,
+        lambda wc: pangenome_cluster_inputs(
+            "merge_bubble_features", rules.bubble_features.output.output_file, wc,
+            antibiotic=wc.antibiotic,
         )
     output: PANGENOME_OUT_DIR / "bubble_features_{antibiotic}.tsv"
     params:
@@ -219,9 +255,9 @@ rule merge_bubble_features:
 rule bubble_features_complete:
     localrule: True
     input:
-        lambda wc: expand(
-            rules.bubble_features.output,
-            cluster=get_pangenome_clusters(wc), antibiotic=wc.antibiotic,
+        lambda wc: pangenome_cluster_inputs(
+            "bubble_features_complete", rules.bubble_features.output, wc,
+            antibiotic=wc.antibiotic,
         )
     output: touch(PANGENOME_OUT_DIR / "bubble_features_train_{antibiotic}.done")
 
@@ -291,9 +327,9 @@ rule gaf_lor_features:
 rule gaf_lor_features_complete:
     localrule: True
     input:
-        lambda wc: expand(
-            rules.gaf_lor_features.output,
-            cluster=get_pangenome_clusters(wc), antibiotic=wc.antibiotic,
+        lambda wc: pangenome_cluster_inputs(
+            "gaf_lor_features_complete", rules.gaf_lor_features.output, wc,
+            antibiotic=wc.antibiotic,
         )
     output: touch(PANGENOME_OUT_DIR / "bubble_features_test_{antibiotic}.done")
 
@@ -301,9 +337,9 @@ rule gaf_lor_features_complete:
 rule merge_bubble_features_test:
     localrule: True
     input:
-        lambda wc: expand(
-            rules.gaf_lor_features.output,
-            cluster=get_pangenome_clusters(wc), antibiotic=wc.antibiotic,
+        lambda wc: pangenome_cluster_inputs(
+            "merge_bubble_features_test", rules.gaf_lor_features.output, wc,
+            antibiotic=wc.antibiotic,
         )
     output: PANGENOME_OUT_DIR / "bubble_features_test_{antibiotic}.tsv"
     params:

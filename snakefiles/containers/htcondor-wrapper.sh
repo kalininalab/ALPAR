@@ -1,8 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
-# Keep worker source caches in job-owned storage, not a shared /tmp/.cache.
-export XDG_CACHE_HOME="${_CONDOR_SCRATCH_DIR:-$PWD}/.cache"
+# Controller scratch variables can be forwarded to child jobs by the executor.
+# Allocate cache and temp paths inside this worker's own container instead.
+export TMPDIR=/tmp
+export XDG_CACHE_HOME="$(mktemp -d /tmp/alpar-worker-cache.XXXXXXXX)"
 
 export USER="${USER:-joca00004}"
 export LOGNAME="${LOGNAME:-joca00004}"
