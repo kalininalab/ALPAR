@@ -1,4 +1,4 @@
-"""Check the streaming long-to-wide presence matrix against a reference pivot."""
+"""Check the streaming long-to-wide pivot against a reference in both orientations."""
 
 from pathlib import Path
 import random
@@ -8,19 +8,20 @@ from tempfile import TemporaryDirectory
 import unittest
 
 REPO = Path(__file__).resolve().parents[1]
-SCRIPT = REPO / "snakefiles/scripts/long_to_presence_matrix.sh"
+SCRIPT = REPO / "snakefiles/scripts/long_to_wide.sh"
 
 
-def reference_pivot(rows):
-    """Miller reshape long-to-wide plus unsparsify: last value wins, fill 0."""
-    samples, cells = [], {}
-    for sample, feature, value in rows:
-        if sample not in samples:
-            samples.append(sample)
-        cells.setdefault(feature, {})[sample] = value
-    return samples, {
-        feature: {sample: values.get(sample, "0") for sample in samples}
-        for feature, values in cells.items()
+def reference_pivot(rows, row_field=2, column_field=1, fill="0"):
+    """Miller reshape long-to-wide plus unsparsify: last value wins, absent pairs filled."""
+    columns, cells = [], {}
+    for fields in rows:
+        row, column, value = fields[row_field - 1], fields[column_field - 1], fields[2]
+        if column not in columns:
+            columns.append(column)
+        cells.setdefault(row, {})[column] = value
+    return columns, {
+        row: {column: values.get(column, fill) for column in columns}
+        for row, values in cells.items()
     }
 
 
@@ -36,16 +37,16 @@ def read_matrix(path):
 
 
 class PresenceMatrixTest(unittest.TestCase):
-    def pivot(self, rows):
+    def pivot(self, rows, orientation=("2", "1", "feature", "0")):
         with TemporaryDirectory(prefix="alpar-presence-") as temp:
             root = Path(temp)
             source = root / "long.tsv"
             source.write_text("".join("\t".join(row) + "\n" for row in rows))
             subprocess.run(
-                ["bash", str(SCRIPT), str(source), str(root / "wide.tsv"), str(root), "2", "10M"],
+                ["bash", str(SCRIPT), str(source), str(root / "wide.tsv"), str(root), "2", "10M", *orientation],
                 check=True, capture_output=True, text=True, timeout=60,
             )
-            self.assertEqual([path.name for path in root.iterdir() if path.name.startswith("presence")], [])
+            self.assertEqual([path.name for path in root.iterdir() if path.name.startswith("long-to-wide")], [])
             return read_matrix(root / "wide.tsv")
 
     def test_matches_reference_including_duplicates_and_gaps(self):
@@ -77,6 +78,22 @@ class PresenceMatrixTest(unittest.TestCase):
         expected_samples, expected = reference_pivot(rows)
         self.assertEqual(got_samples, expected_samples)
         self.assertEqual(matrix, expected)
+
+    def test_sample_rows_with_empty_fill_match_feature_table_pivot(self):
+        rows = [
+            ("s2", "gene_a", "1"),
+            ("s1", "100,A:T,snp", "1"),
+            ("s1", "Cluster_3.fasta_chain_1", "0.42"),
+            ("s2", "100,A:T,snp", "1"),
+            ("s3", "gene_a", "1"),
+            ("s1", "Cluster_3.fasta_chain_1", "-0.1"),  # train/test overlap: last wins
+        ]
+        first, columns, matrix, order = self.pivot(rows, ("1", "2", "hash", ""))
+        expected_columns, expected = reference_pivot(rows, row_field=1, column_field=2, fill="")
+        self.assertEqual(first, "hash")
+        self.assertEqual(columns, expected_columns)
+        self.assertEqual(matrix, expected)
+        self.assertEqual(order, ["s1", "s2", "s3"])
 
     @unittest.skipUnless(shutil.which("mlr"), "miller is not installed")
     def test_same_cells_as_miller(self):

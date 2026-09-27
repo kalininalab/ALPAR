@@ -7,6 +7,8 @@ PANGENOME_LOGS_DIR = PANGENOME_OUT_DIR / "logs"
 # cluster. Tens of thousands of per-cluster jobs made Snakemake's checkpoint
 # re-evaluation and group validation take hours and many GiB in the controller.
 # A static shard count keeps the DAG known up front and needs no checkpoint.
+# Shard rules are grouped (profile group-components) so each HTCondor job runs
+# many shards in parallel, as other wildcard rules do.
 PANGENOME_SHARD_COUNT = int(config.get("pangenome_shards", 256))
 PANGENOME_SHARDS = tuple(f"{index:04d}" for index in range(PANGENOME_SHARD_COUNT))
 
@@ -67,6 +69,7 @@ SHARD_MANIFEST = PANGENOME_OUT_DIR / "cluster_shards" / "{shard}.txt"
 # -----------------------
 
 rule align_clusters:
+    group: "align_clusters"
     input:
         manifest = SHARD_MANIFEST,
         cluster_store = rules.split_cluster_fasta.output[0],
@@ -134,6 +137,7 @@ rule panpa_build_index:
 
 
 rule panpa_build_gfa:
+    group: "panpa_build_gfa"
     input:
         manifest = SHARD_MANIFEST,
         alignments = rules.align_clusters.output[0],
@@ -167,6 +171,7 @@ rule panpa_build_gfa:
 # -----------------------
 
 rule bubblegun_runner:
+    group: "bubblegun_runner"
     input:
         manifest = SHARD_MANIFEST,
         gfa_dir = rules.panpa_build_gfa.output[0],
@@ -206,6 +211,7 @@ rule bubblegun_runner:
 # -----------------------
 
 rule bubble_features:
+    group: "bubble_features"
     input:
         manifest = SHARD_MANIFEST,
         gfa_dir = rules.panpa_build_gfa.output[0],
@@ -244,6 +250,7 @@ rule bubble_features_complete:
 # -----------------------
 
 rule panpa_align:
+    group: "panpa_align"
     input:
         manifest = SHARD_MANIFEST,
         gfa_dir = rules.panpa_build_gfa.output[0],
@@ -294,6 +301,7 @@ rule panpa_align:
 
 
 rule gaf_lor_features:
+    group: "gaf_lor_features"
     input:
         manifest = SHARD_MANIFEST,
         gaf_dir = rules.panpa_align.output[0],

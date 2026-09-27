@@ -11,6 +11,10 @@ from tempfile import TemporaryDirectory
 import unittest
 
 REPO = Path(__file__).resolve().parents[1]
+SHARD_GROUPS = (
+    "align_clusters", "panpa_build_gfa", "bubblegun_runner",
+    "bubble_features", "panpa_align", "gaf_lor_features",
+)
 REAL_SCRIPTS = (
     "write_input_paths.py", "shard_clusters.py",
     "bubble_features_shard.py", "gaf_lor_features_shard.py",
@@ -170,9 +174,9 @@ include: {str(REPO / "snakefiles/pangenome.smk")!r}
             )
             self.assert_success(dry_run)
             dry_log = dry_run.stdout + dry_run.stderr
-            # Shard rules are ungrouped: each shard is one HTCondor job.
-            self.assertEqual(dry_log.count("Group job"), 1)
-            self.assertEqual(dry_log.count("Group job cluster_fasta_splits_batch"), 1)
+            # Each shard rule forms its own group job; three shards fit in one.
+            for group in SHARD_GROUPS:
+                self.assertEqual(dry_log.count(f"Group job {group} "), 1, group)
             self.assertNotIn("checkpoint", dry_log.lower())
             self.assert_success(self.run_workflow(root, "--", *self.targets()))
             out = root / "out/pangenome"
