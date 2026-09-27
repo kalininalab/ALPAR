@@ -1,10 +1,8 @@
-import asyncio
 import os
 
 from contextlib import suppress
 from typing import Annotated
 
-import aiofiles
 import polars as pl
 from loguru import logger
 from pydantic import BaseModel, Field, FilePath, NewPath, BeforeValidator
@@ -15,7 +13,6 @@ with suppress(ImportError):
 from scripts._commons import zip_header_and_concat_content, force_new_file
 
 
-SEMAPHORE = asyncio.Semaphore(1024)
 PROTEIN_RAW_REGEX = r'^\d+\t+\d+aa, (?P<protein>>\w+)\.{3} (?:\*|at \d+\.\d+%)$'
 
 
@@ -66,13 +63,14 @@ class CdhitHandler(BaseModel):
         description="File extension for the output fasta files."
     )
 
-async def write_cluster(filename: str, content: str) -> None:
-    async with SEMAPHORE:
-        async with aiofiles.open(filename, 'w', encoding='utf-8') as f:
-            await f.write(content)
 
-@logger.catch
-async def split_cluster_fasta(handler: CdhitHandler) -> None:
+def write_cluster(filename: str, content: str) -> None:
+    with open(filename, 'w', encoding='utf-8') as f:
+        f.write(content)
+
+
+@logger.catch(reraise=True)
+def split_cluster_fasta(handler: CdhitHandler) -> None:
     """Aggregate with sequence and write fasta file per cluster."""
 
     df_clusters_cdhit = pl.LazyFrame(
@@ -132,12 +130,8 @@ async def split_cluster_fasta(handler: CdhitHandler) -> None:
 
     handler.output_dir.mkdir(parents=True, exist_ok=True)
 
-    await asyncio.gather(
-        *(
-            write_cluster(filename, content)
-            for filename, content in df_to_write.collect().iter_rows()
-        )
-    )
+    for filename, content in df_to_write.collect().iter_rows():
+        write_cluster(filename, content)
 
 
 if __name__ == '__main__':
@@ -150,4 +144,4 @@ if __name__ == '__main__':
     )
     logger.remove()
     logger.add(handler.log_file, backtrace=True, diagnose=True, enqueue=True)
-    asyncio.run(split_cluster_fasta(handler))
+    split_cluster_fasta(handler)
