@@ -7,6 +7,9 @@ cores: 32
 local-cores: 2
 # Remote execution requires a positive submission limit.
 jobs: 20
+# The default ILP scheduler (PuLP) segfaulted the controller on 2026-09-27 while
+# choosing among hundreds of ready jobs; greedy selection scales without it.
+scheduler: greedy
 
 # Pangenome shard groups: 32 shards per job, so 256 shards make 8 jobs per rule
 # (16 for per-antibiotic rules). Other groups take all components in one job.
