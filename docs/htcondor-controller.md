@@ -86,6 +86,16 @@ clusters are allowed; empty shards produce empty output directories. Raise
 `--jobs` on the command line if more shards should run concurrently than the
 profile's limit allows.
 
+Snakemake keeps job metadata, including the markers for incomplete outputs, in
+`<run-directory>/src/.snakemake`, which is private to each run. A new controller
+therefore cannot tell that a killed job left a partial output behind, and will
+treat that output as complete. Before relaunching after removing a controller,
+wait until its children have left the queue. Then delete every path listed
+under `<old-run>/src/.snakemake/incomplete`; the file names are base64-encoded
+output paths (`for m in $(ls <old-run>/src/.snakemake/incomplete); do echo "$m" | base64 -d; echo; done`). When a child job itself is the only one
+still running, as `binary_mutation_table` was on 2026-09-27, it is safer to let
+it finish.
+
 The selected commit's configuration determines input, output, and temporary
 paths. The current configuration reuses `/home/joca00004/out`, so this resumes
 existing results. Use distinct output and temporary paths in a committed config
