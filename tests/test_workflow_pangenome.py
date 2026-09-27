@@ -132,13 +132,13 @@ include: {str(REPO / "snakefiles/pangenome.smk")!r}
 ''')
             yield root
 
-    def run_workflow(self, root, *args, fail_tool=None):
+    def run_workflow(self, root, *args, fail_tool=None, triggers=("mtime",)):
         env = os.environ.copy()
         env["PATH"] = str(root / "bin") + os.pathsep + str(Path(sys.executable).parent) + os.pathsep + env["PATH"]
         if fail_tool:
             env["FAIL_TOOL"] = fail_tool
         return subprocess.run(
-            [sys.executable, "-m", "snakemake", "--cores", "4", "--rerun-triggers", "mtime", *args],
+            [sys.executable, "-m", "snakemake", "--cores", "4", "--rerun-triggers", *triggers, *args],
             cwd=root, env=env, capture_output=True, text=True, timeout=60,
         )
 
@@ -205,6 +205,26 @@ include: {str(REPO / "snakefiles/pangenome.smk")!r}
             failed = self.run_workflow(root, "--", str(shard_gafs.relative_to(root)), fail_tool="PanPA")
             self.assertNotEqual(failed.returncode, 0)
             self.assertFalse(shard_gafs.exists())
+
+    def test_relaunch_from_new_export_reruns_nothing(self):
+        # Each controller run exports the workflow to a new directory. With the
+        # profile's rerun triggers, finished jobs must stay finished.
+        profile = yaml.safe_load(
+            (REPO / "snakefiles/profiles/htcondor-containers/profile.v9+.yaml").read_text()
+        )
+        triggers = profile["rerun-triggers"]
+        self.assertNotIn("code", triggers)
+        with self.fixture() as root:
+            self.assert_success(self.run_workflow(root, "--", *self.targets(), triggers=triggers))
+            moved = root / "scripts_next_run"
+            shutil.copytree(root / "scripts", moved)
+            snakefile = root / "Snakefile"
+            source = snakefile.read_text()
+            self.assertEqual(source.count(repr(str(root / "scripts"))), 1)
+            snakefile.write_text(source.replace(repr(str(root / "scripts")), repr(str(moved))))
+            dry_run = self.run_workflow(root, "--dry-run", "--", *self.targets(), triggers=triggers)
+            self.assert_success(dry_run)
+            self.assertIn("Nothing to be done", dry_run.stdout + dry_run.stderr)
 
     def test_shards_balance_cluster_sizes_deterministically(self):
         spec = importlib.util.spec_from_file_location(

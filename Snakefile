@@ -24,6 +24,11 @@ SCRIPTS_DIR = SNAKEFILES_DIR / "scripts"
 LOGS_DIR = OUT_DIR / "logs"
 BENCHMARKS_DIR = OUT_DIR / "benchmarks"
 
+# Helper scripts used from shell commands. They are globals rather than params:
+# each run exports the workflow to a new directory, so a path in params would
+# make finished jobs rerun ("params changed") after every relaunch.
+LONG_TO_WIDE = SCRIPTS_DIR / "long_to_wide.sh"
+
 if config_env := config.get("env_dir", None):
     # Use local environments from the specified path
     ENVS_DIR = str(Path(config_env) / "alpar-smk-{0}")

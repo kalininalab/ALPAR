@@ -10,6 +10,11 @@ jobs: 20
 # The default ILP scheduler (PuLP) segfaulted the controller on 2026-09-27 while
 # choosing among hundreds of ready jobs; greedy selection scales without it.
 scheduler: greedy
+# Each run exports the workflow to a new directory. Snakemake's code fingerprint
+# of script: rules includes the script's absolute path, so the default 'code'
+# trigger reran every script rule after each relaunch. Use --forcerun for a
+# rule whose code changed in a way that needs recomputation.
+rerun-triggers: [mtime, params, input, software-env]
 
 group-components:
   snippy_batch: 2000

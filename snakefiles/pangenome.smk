@@ -14,7 +14,12 @@ PANGENOME_LOGS_DIR = PANGENOME_OUT_DIR / "logs"
 # deadlocked ("Out of jobs ready to be started", snakemake issue #823).
 PANGENOME_SHARD_COUNT = int(config.get("pangenome_shards", 8))
 PANGENOME_SHARDS = tuple(f"{index:04d}" for index in range(PANGENOME_SHARD_COUNT))
+# Script paths are referenced as globals in shell commands, not params: each
+# run exports the workflow to a new directory, and a path in params would make
+# every finished job look changed ("params changed") after a relaunch.
 FOR_EACH_CLUSTER = SCRIPTS_DIR / "for_each_cluster.sh"
+BUBBLE_FEATURES_SCRIPT = SCRIPTS_DIR / "bubble_features.py"
+GAF_LOR_FEATURES_SCRIPT = SCRIPTS_DIR / "gaf_lor_features.py"
 
 wildcard_constraints:
     shard = r"\d{4}"
@@ -82,14 +87,12 @@ rule align_clusters:
     benchmark: BENCHMARKS_DIR / "align_clusters_{shard}.tsv"
     conda: ENVS_DIR.format("mafft")
     container: CONTAINERS.format("mafft:1.0.0")
-    params:
-        runner = FOR_EACH_CLUSTER,
     threads: workflow.cores
     shell:
         r"""
         mkdir -p {output:q}
         export STORE={input.cluster_store:q} OUT={output:q}
-        bash {params.runner:q} {input.manifest:q} {threads} {log:q} '
+        bash {FOR_EACH_CLUSTER:q} {input.manifest:q} {threads} {log:q} '
             if [ "$(grep -c "^>" "$STORE/$1")" -eq 1 ]; then
                 echo "Single sequence; skipping alignment."
                 cp "$STORE/$1" "$OUT/$1"
@@ -148,14 +151,12 @@ rule panpa_build_gfa:
     benchmark: BENCHMARKS_DIR / "panpa_build_gfa_{shard}.tsv"
     conda: ENVS_DIR.format("panpa-vcf")
     container: CONTAINERS.format("panpa-vcf:1.0.0")
-    params:
-        runner = FOR_EACH_CLUSTER,
     threads: workflow.cores
     shell:
         r"""
         mkdir -p {output:q}
         export ALIGNMENTS={input.alignments:q} OUT={output:q}
-        bash {params.runner:q} {input.manifest:q} {threads} {log:q} '
+        bash {FOR_EACH_CLUSTER:q} {input.manifest:q} {threads} {log:q} '
             PanPA --log_file "$2" build_gfa --fasta_files "$ALIGNMENTS/$1" --out_dir "$OUT" --cores 1'
         """
 
@@ -173,14 +174,12 @@ rule bubblegun_runner:
     benchmark: BENCHMARKS_DIR / "bubblegun_runner_{shard}.tsv"
     conda: ENVS_DIR.format("bubblegun")
     container: CONTAINERS.format("bubblegun:1.0.0")
-    params:
-        runner = FOR_EACH_CLUSTER,
     threads: workflow.cores
     shell:
         r"""
         mkdir -p {output:q}
         export GFA={input.gfa_dir:q} OUT={output:q}
-        bash {params.runner:q} {input.manifest:q} {threads} {log:q} '
+        bash {FOR_EACH_CLUSTER:q} {input.manifest:q} {threads} {log:q} '
             BubbleGun --log_file "$2" --in_graph "$GFA/$1.gfa" bchains --bubble_json "$OUT/$1.json"
             if [ ! -f "$OUT/$1.json" ]; then
                 echo "No bubbles found."
@@ -206,20 +205,17 @@ rule bubble_features:
         lor_lookup_dir = directory(PANGENOME_OUT_DIR / "bubble_features_{antibiotic}_lor_lookup" / "{shard}"),
     log: PANGENOME_LOGS_DIR / "bubble_features" / "{antibiotic}" / "{shard}.log"
     benchmark: BENCHMARKS_DIR / "bubble_features_{antibiotic}_{shard}.tsv"
-    params:
-        script = SCRIPTS_DIR / "bubble_features.py",
-        runner = FOR_EACH_CLUSTER,
     conda: ENVS_DIR.format("python313")
     container: CONTAINERS.format("python313:1.0.0")
     threads: workflow.cores
     shell:
         r"""
         mkdir -p {output.output_dir:q} {output.lor_lookup_dir:q}
-        export SCRIPT={params.script:q} GFA={input.gfa_dir:q} BUBBLES={input.bubblegun_dir:q} \
+        export SCRIPT={BUBBLE_FEATURES_SCRIPT:q} GFA={input.gfa_dir:q} BUBBLES={input.bubblegun_dir:q} \
             PHENOTYPES={input.phenotype_table:q} ANTIBIOTIC={wildcards.antibiotic:q} \
             OUT={output.output_dir:q} LOOKUP={output.lor_lookup_dir:q}
         # main() logs and swallows exceptions, so a missing output marks a failed cluster.
-        bash {params.runner:q} {input.manifest:q} {threads} {log:q} '
+        bash {FOR_EACH_CLUSTER:q} {input.manifest:q} {threads} {log:q} '
             python "$SCRIPT" \
                 --gfa-file "$GFA/$1.gfa" --bubble-gun "$BUBBLES/$1.json" \
                 --phenotype-table "$PHENOTYPES" --antibiotic "$ANTIBIOTIC" --log-file "$2" \
@@ -258,14 +254,12 @@ rule panpa_align:
     benchmark: BENCHMARKS_DIR / "panpa_align_{antibiotic}_{shard}.tsv"
     conda: ENVS_DIR.format("panpa-vcf")
     container: CONTAINERS.format("panpa-vcf:1.0.0")
-    params:
-        runner = FOR_EACH_CLUSTER,
     threads: workflow.cores
     shell:
         r"""
         mkdir -p {output:q}
         export GFA={input.gfa_dir:q} QUERIES={input.test_sequence_folder:q} OUT={output:q}
-        bash {params.runner:q} {input.manifest:q} {threads} {log:q} '
+        bash {FOR_EACH_CLUSTER:q} {input.manifest:q} {threads} {log:q} '
             query="$QUERIES/$1" gaf="$OUT/$1.gaf"
             if [ ! -f "$query" ]; then
                 echo "Missing test FASTA: $query"
@@ -294,18 +288,15 @@ rule gaf_lor_features:
         output_dir = directory(PANGENOME_OUT_DIR / "bubble_features" / "test" / "{antibiotic}" / "{shard}"),
     log: PANGENOME_LOGS_DIR / "gaf_lor_features" / "{antibiotic}" / "{shard}.log"
     benchmark: BENCHMARKS_DIR / "gaf_lor_features_{antibiotic}_{shard}.tsv"
-    params:
-        script = SCRIPTS_DIR / "gaf_lor_features.py",
-        runner = FOR_EACH_CLUSTER,
     conda: ENVS_DIR.format("python313")
     container: CONTAINERS.format("python313:1.0.0")
     threads: workflow.cores
     shell:
         r"""
         mkdir -p {output.output_dir:q}
-        export SCRIPT={params.script:q} GAF={input.gaf_dir:q} LOOKUP={input.lor_lookup_dir:q} \
+        export SCRIPT={GAF_LOR_FEATURES_SCRIPT:q} GAF={input.gaf_dir:q} LOOKUP={input.lor_lookup_dir:q} \
             OUT={output.output_dir:q}
-        bash {params.runner:q} {input.manifest:q} {threads} {log:q} '
+        bash {FOR_EACH_CLUSTER:q} {input.manifest:q} {threads} {log:q} '
             python "$SCRIPT" --gaf-file "$GAF/$1.gaf" --lor-lookup-file "$LOOKUP/$1.tsv" \
                 --output-file "$OUT/$1.tsv" --log-file "$2"'
         """

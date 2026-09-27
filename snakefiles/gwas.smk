@@ -14,14 +14,13 @@ rule pyseer_genotype_matrix_creator:
     params:
         # Miller's in-memory reshape exceeded 15 GiB on the 7.6 GB mutation
         # table; the script sorts externally and streams instead.
-        script = SCRIPTS_DIR / "long_to_wide.sh",
         sort_memory = lambda wc, resources: f"{max(resources.mem_mb // 2, 500)}M",
         # Sort spills about the input size; keep it on shared storage beside the output.
         sort_tmp = subpath(output[0], parent=True),
     shell:
         r"""
         # Rows are features (field 2), columns are samples (field 1), fill 0.
-        bash {params.script:q} {input:q} {output:q} {params.sort_tmp:q} {threads} {params.sort_memory} \
+        bash {LONG_TO_WIDE:q} {input:q} {output:q} {params.sort_tmp:q} {threads} {params.sort_memory} \
             2 1 feature 0 2> {log:q}
         """
 
