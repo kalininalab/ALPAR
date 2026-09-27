@@ -70,13 +70,21 @@ when it can finish, and `controller-usage.json` records Snakemake's peak RSS and
 exit code. A forced kill may prevent those files from being written; use the
 HTCondor event log in that case.
 
-During DAG construction the controller prints a Python stack every three
-minutes. Each `[ALPAR DAG]` entry reports a checkpoint lookup, FASTA scan, or
-input list expansion with elapsed time, list size, and the controller's peak
-RSS. If those callbacks finish but the stack stays inside Snakemake's DAG code,
-the cost is job graph construction. To request a stack immediately, enter the
-running job with `condor_ssh_to_job <job-id>` and send `SIGUSR1` to its Snakemake
-Python process. The signal prints a stack without terminating Snakemake.
+The controller prints a Python stack every three minutes. To request a stack
+immediately, enter the running job with `condor_ssh_to_job <job-id>` and send
+`SIGUSR1` to its Snakemake Python process. The signal prints a stack without
+terminating Snakemake.
+
+Pangenome clusters are processed in `pangenome_shards` fixed shards (config,
+default 256), one job per shard and rule, with no checkpoint. The earlier
+design created one job per cluster behind a checkpoint. With 34,148 clusters
+and two antibiotics that is about 300,000 jobs. After the checkpoint, the
+controller spent its time in Snakemake's `DAG.validate_group`, which searches
+the upstream graph once per group, and its RSS grew past 6 GiB. The input
+callbacks themselves took under a second. Shard counts above the number of
+clusters are allowed; empty shards produce empty output directories. Raise
+`--jobs` on the command line if more shards should run concurrently than the
+profile's limit allows.
 
 The selected commit's configuration determines input, output, and temporary
 paths. The current configuration reuses `/home/joca00004/out`, so this resumes

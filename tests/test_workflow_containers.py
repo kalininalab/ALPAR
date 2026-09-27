@@ -58,6 +58,14 @@ EXPECTED_ENVIRONMENTS = {
 }
 
 
+# Pangenome rules run one job per fixed shard of clusters. Grouping them would
+# pack every shard into one HTCondor job, so they must stay ungrouped.
+PANGENOME_SHARD_RULES = {
+    "align_clusters", "panpa_build_gfa", "bubblegun_runner",
+    "bubble_features", "panpa_align", "gaf_lor_features",
+}
+
+
 class WorkflowContainersTest(unittest.TestCase):
     @contextmanager
     def workflow(self, snakefile=None, **overrides):
@@ -119,7 +127,7 @@ class WorkflowContainersTest(unittest.TestCase):
 
     def test_general_purpose_container_is_inherited(self):
         with self.workflow() as workflow:
-            self.assertEqual(len(workflow.rules), 65)
+            self.assertEqual(len(workflow.rules), 66)
             for rule in workflow.rules:
                 if not rule.conda_env:
                     self.assertEqual(
@@ -225,7 +233,7 @@ class WorkflowContainersTest(unittest.TestCase):
             wildcard_rules = {
                 name
                 for name in EXPECTED_ENVIRONMENTS
-                if rules[name].wildcard_names
+                if rules[name].wildcard_names and name not in PANGENOME_SHARD_RULES
             }
             groups = {
                 name: rules[name]._group
