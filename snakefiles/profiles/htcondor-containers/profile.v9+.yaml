@@ -6,7 +6,7 @@ executor: htcondor
 cores: 32
 local-cores: 2
 # Remote execution requires a positive submission limit.
-jobs: 10
+jobs: 20
 
 # Pangenome shard groups: 32 shards per job, so 256 shards make 8 jobs per rule
 # (16 for per-antibiotic rules). Other groups take all components in one job.
