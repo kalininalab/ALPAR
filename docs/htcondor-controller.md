@@ -86,15 +86,22 @@ clusters are allowed; empty shards produce empty output directories. Raise
 `--jobs` on the command line if more shards should run concurrently than the
 profile's limit allows.
 
-Snakemake keeps job metadata, including the markers for incomplete outputs, in
-`<run-directory>/src/.snakemake`, which is private to each run. A new controller
-therefore cannot tell that a killed job left a partial output behind, and will
-treat that output as complete. Before relaunching after removing a controller,
-wait until its children have left the queue. Then delete every path listed
-under `<old-run>/src/.snakemake/incomplete`; the file names are base64-encoded
-output paths (`for m in $(ls <old-run>/src/.snakemake/incomplete); do echo "$m" | base64 -d; echo; done`). When a child job itself is the only one
-still running, as `binary_mutation_table` was on 2026-09-27, it is safer to let
-it finish.
+Each run's `src/.snakemake` is a symlink to one shared state directory,
+`/home/joca00004/snakemake-state/out` by default (`ALPAR_STATE_DIR`). Job metadata
+and incomplete markers therefore survive a restart, and `--rerun-incomplete` removes
+partial outputs from a killed controller. With empty metadata, Snakemake 9.27 reruns
+every `script:` rule and reports "Code has changed since last execution". The first
+launch with shared state copies metadata from older private-state runs, newest
+record first. Snakemake's lock in that directory refuses a second controller on the
+same outputs. If a controller was killed hard and left a stale lock, the next
+controller stops with a lock error. In that case, confirm that no controller or
+child job is still queued, then delete `$ALPAR_STATE_DIR/locks/*`.
+
+Runs launched before shared state was added, up to controller `64764` on
+2026-09-27, kept their state privately. Before relaunching after removing one of
+them, wait until its children have left the queue. Then delete every path listed
+under `<old-run>/src/.snakemake/incomplete`. The file names are base64-encoded
+output paths (`for m in $(ls <old-run>/src/.snakemake/incomplete); do echo "$m" | base64 -d; echo; done`).
 
 The selected commit's configuration determines input, output, and temporary
 paths. The current configuration reuses `/home/joca00004/out`, so this resumes
