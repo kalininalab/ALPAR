@@ -18,8 +18,11 @@ container_format: "docker://docker.io/cambouu/alpar-smk-{0}"
 
 genus: "ecoli"
 gpa_method: "cd-hit"
-# Pangenome clusters are processed in this many fixed shards (one job each).
-pangenome_shards: 256
+# Pangenome clusters are processed in this many fixed shards. Each shard is one
+# multithreaded job per rule that runs its clusters in parallel.
+pangenome_shards: 8
+# Memory budget (MB) for combined_ml, split equally between antibiotics.
+ml_mem_mb: 32000
 mock: False
 
 datasail_delta: 0.2

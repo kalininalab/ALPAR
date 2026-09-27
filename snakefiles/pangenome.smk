@@ -7,10 +7,14 @@ PANGENOME_LOGS_DIR = PANGENOME_OUT_DIR / "logs"
 # cluster. Tens of thousands of per-cluster jobs made Snakemake's checkpoint
 # re-evaluation and group validation take hours and many GiB in the controller.
 # A static shard count keeps the DAG known up front and needs no checkpoint.
-# Shard rules are grouped (profile group-components) so each HTCondor job runs
-# many shards in parallel, as other wildcard rules do.
-PANGENOME_SHARD_COUNT = int(config.get("pangenome_shards", 256))
+#
+# Each shard is one multithreaded job that processes its clusters in parallel
+# (for_each_cluster.sh), giving a few large HTCondor jobs. Snakemake job groups
+# are not used here: grouping 256 small shards took 22 minutes to plan and then
+# deadlocked ("Out of jobs ready to be started", snakemake issue #823).
+PANGENOME_SHARD_COUNT = int(config.get("pangenome_shards", 8))
 PANGENOME_SHARDS = tuple(f"{index:04d}" for index in range(PANGENOME_SHARD_COUNT))
+FOR_EACH_CLUSTER = SCRIPTS_DIR / "for_each_cluster.sh"
 
 wildcard_constraints:
     shard = r"\d{4}"
@@ -61,6 +65,7 @@ rule cluster_fasta_splits:
 
 # Per-cluster files retain the FASTA filename (e.g. Cluster_0.fasta).
 # PanPA appends .gfa to that filename; retaining it also preserves feature IDs.
+# In each for_each_cluster.sh snippet, $1 is the cluster and $2 a tool log path.
 SHARD_MANIFEST = PANGENOME_OUT_DIR / "cluster_shards" / "{shard}.txt"
 
 
@@ -69,7 +74,6 @@ SHARD_MANIFEST = PANGENOME_OUT_DIR / "cluster_shards" / "{shard}.txt"
 # -----------------------
 
 rule align_clusters:
-    group: "align_clusters"
     input:
         manifest = SHARD_MANIFEST,
         cluster_store = rules.split_cluster_fasta.output[0],
@@ -78,21 +82,20 @@ rule align_clusters:
     benchmark: BENCHMARKS_DIR / "align_clusters_{shard}.tsv"
     conda: ENVS_DIR.format("mafft")
     container: CONTAINERS.format("mafft:1.0.0")
-    threads: 1
+    params:
+        runner = FOR_EACH_CLUSTER,
+    threads: workflow.cores
     shell:
         r"""
         mkdir -p {output:q}
-        : > {log:q}
-        while IFS= read -r cluster; do
-            fasta={input.cluster_store:q}/"$cluster"
-            echo ">> $cluster" >> {log:q}
-            if [ "$(grep -c '^>' "$fasta")" -eq 1 ]; then
-                echo "Single sequence; skipping alignment." >> {log:q}
-                cp "$fasta" {output:q}/"$cluster"
+        export STORE={input.cluster_store:q} OUT={output:q}
+        bash {params.runner:q} {input.manifest:q} {threads} {log:q} '
+            if [ "$(grep -c "^>" "$STORE/$1")" -eq 1 ]; then
+                echo "Single sequence; skipping alignment."
+                cp "$STORE/$1" "$OUT/$1"
             else
-                mafft --auto --thread {threads} "$fasta" > {output:q}/"$cluster" 2>> {log:q}
-            fi
-        done < {input.manifest:q}
+                mafft --auto --thread 1 "$STORE/$1" > "$OUT/$1"
+            fi'
         """
 
 
@@ -137,7 +140,6 @@ rule panpa_build_index:
 
 
 rule panpa_build_gfa:
-    group: "panpa_build_gfa"
     input:
         manifest = SHARD_MANIFEST,
         alignments = rules.align_clusters.output[0],
@@ -146,23 +148,15 @@ rule panpa_build_gfa:
     benchmark: BENCHMARKS_DIR / "panpa_build_gfa_{shard}.tsv"
     conda: ENVS_DIR.format("panpa-vcf")
     container: CONTAINERS.format("panpa-vcf:1.0.0")
-    threads: 1
+    params:
+        runner = FOR_EACH_CLUSTER,
+    threads: workflow.cores
     shell:
         r"""
         mkdir -p {output:q}
-        : > {log:q}
-        cluster_log=$(mktemp)
-        trap 'rm -f "$cluster_log"' EXIT
-        while IFS= read -r cluster; do
-            echo ">> $cluster" >> {log:q}
-            PanPA \
-                --log_file "$cluster_log" \
-                build_gfa \
-                --fasta_files {input.alignments:q}/"$cluster" \
-                --out_dir {output:q} \
-                --cores {threads}
-            cat "$cluster_log" >> {log:q}
-        done < {input.manifest:q}
+        export ALIGNMENTS={input.alignments:q} OUT={output:q}
+        bash {params.runner:q} {input.manifest:q} {threads} {log:q} '
+            PanPA --log_file "$2" build_gfa --fasta_files "$ALIGNMENTS/$1" --out_dir "$OUT" --cores 1'
         """
 
 
@@ -171,7 +165,6 @@ rule panpa_build_gfa:
 # -----------------------
 
 rule bubblegun_runner:
-    group: "bubblegun_runner"
     input:
         manifest = SHARD_MANIFEST,
         gfa_dir = rules.panpa_build_gfa.output[0],
@@ -180,29 +173,19 @@ rule bubblegun_runner:
     benchmark: BENCHMARKS_DIR / "bubblegun_runner_{shard}.tsv"
     conda: ENVS_DIR.format("bubblegun")
     container: CONTAINERS.format("bubblegun:1.0.0")
-    threads: 1
+    params:
+        runner = FOR_EACH_CLUSTER,
+    threads: workflow.cores
     shell:
         r"""
         mkdir -p {output:q}
-        : > {log:q}
-        cluster_log=$(mktemp)
-        trap 'rm -f "$cluster_log"' EXIT
-        while IFS= read -r cluster; do
-            json={output:q}/"$cluster.json"
-            echo ">> $cluster" >> {log:q}
-            BubbleGun \
-                --log_file "$cluster_log" \
-                --in_graph {input.gfa_dir:q}/"$cluster.gfa" \
-                bchains \
-                --bubble_json "$json" \
-                >> {log:q} 2>&1
-            cat "$cluster_log" >> {log:q}
-
-            if [ ! -f "$json" ]; then
-                echo "No bubbles found." >> {log:q}
-                echo '{{}}' > "$json"
-            fi
-        done < {input.manifest:q}
+        export GFA={input.gfa_dir:q} OUT={output:q}
+        bash {params.runner:q} {input.manifest:q} {threads} {log:q} '
+            BubbleGun --log_file "$2" --in_graph "$GFA/$1.gfa" bchains --bubble_json "$OUT/$1.json"
+            if [ ! -f "$OUT/$1.json" ]; then
+                echo "No bubbles found."
+                echo "{{}}" > "$OUT/$1.json"
+            fi'
         """
 
 
@@ -211,7 +194,6 @@ rule bubblegun_runner:
 # -----------------------
 
 rule bubble_features:
-    group: "bubble_features"
     input:
         manifest = SHARD_MANIFEST,
         gfa_dir = rules.panpa_build_gfa.output[0],
@@ -224,11 +206,26 @@ rule bubble_features:
         lor_lookup_dir = directory(PANGENOME_OUT_DIR / "bubble_features_{antibiotic}_lor_lookup" / "{shard}"),
     log: PANGENOME_LOGS_DIR / "bubble_features" / "{antibiotic}" / "{shard}.log"
     benchmark: BENCHMARKS_DIR / "bubble_features_{antibiotic}_{shard}.tsv"
+    params:
+        script = SCRIPTS_DIR / "bubble_features.py",
+        runner = FOR_EACH_CLUSTER,
     conda: ENVS_DIR.format("python313")
     container: CONTAINERS.format("python313:1.0.0")
-    threads: 1
-    script:
-        SCRIPTS_DIR / "bubble_features_shard.py"
+    threads: workflow.cores
+    shell:
+        r"""
+        mkdir -p {output.output_dir:q} {output.lor_lookup_dir:q}
+        export SCRIPT={params.script:q} GFA={input.gfa_dir:q} BUBBLES={input.bubblegun_dir:q} \
+            PHENOTYPES={input.phenotype_table:q} ANTIBIOTIC={wildcards.antibiotic:q} \
+            OUT={output.output_dir:q} LOOKUP={output.lor_lookup_dir:q}
+        # main() logs and swallows exceptions, so a missing output marks a failed cluster.
+        bash {params.runner:q} {input.manifest:q} {threads} {log:q} '
+            python "$SCRIPT" \
+                --gfa-file "$GFA/$1.gfa" --bubble-gun "$BUBBLES/$1.json" \
+                --phenotype-table "$PHENOTYPES" --antibiotic "$ANTIBIOTIC" --log-file "$2" \
+                --output-file "$OUT/$1.tsv" --lor-lookup-file "$LOOKUP/$1.tsv"
+            test -f "$OUT/$1.tsv" && test -f "$LOOKUP/$1.tsv"'
+        """
 
 
 rule merge_bubble_features:
@@ -250,7 +247,6 @@ rule bubble_features_complete:
 # -----------------------
 
 rule panpa_align:
-    group: "panpa_align"
     input:
         manifest = SHARD_MANIFEST,
         gfa_dir = rules.panpa_build_gfa.output[0],
@@ -262,46 +258,34 @@ rule panpa_align:
     benchmark: BENCHMARKS_DIR / "panpa_align_{antibiotic}_{shard}.tsv"
     conda: ENVS_DIR.format("panpa-vcf")
     container: CONTAINERS.format("panpa-vcf:1.0.0")
-    threads: 1
+    params:
+        runner = FOR_EACH_CLUSTER,
+    threads: workflow.cores
     shell:
         r"""
         mkdir -p {output:q}
-        : > {log:q}
-        cluster_log=$(mktemp)
-        trap 'rm -f "$cluster_log"' EXIT
-        while IFS= read -r cluster; do
-            query_fasta={input.test_sequence_folder:q}/"$cluster"
-            gaf={output:q}/"$cluster.gaf"
-            echo ">> $cluster" >> {log:q}
-            if [ ! -f "$query_fasta" ]; then
-                printf 'Missing test FASTA: %s\n' "$query_fasta" >> {log:q}
+        export GFA={input.gfa_dir:q} QUERIES={input.test_sequence_folder:q} OUT={output:q}
+        bash {params.runner:q} {input.manifest:q} {threads} {log:q} '
+            query="$QUERIES/$1" gaf="$OUT/$1.gaf"
+            if [ ! -f "$query" ]; then
+                echo "Missing test FASTA: $query"
                 exit 1
             fi
-            if [ ! -s "$query_fasta" ]; then
-                echo "No test sequences; creating an empty GAF." >> {log:q}
+            if [ ! -s "$query" ]; then
+                echo "No test sequences; creating an empty GAF."
                 : > "$gaf"
-                continue
+                exit 0
             fi
-            PanPA \
-                --log_file "$cluster_log" \
-                align_single \
-                --gfa_files {input.gfa_dir:q}/"$cluster.gfa" \
-                --seqs "$query_fasta" \
-                --cores {threads} \
-                --out_gaf "$gaf" \
-                >> {log:q} 2>&1
-            cat "$cluster_log" >> {log:q}
-
+            PanPA --log_file "$2" align_single \
+                --gfa_files "$GFA/$1.gfa" --seqs "$query" --cores 1 --out_gaf "$gaf"
             # PanPA can finish successfully without emitting any alignments.
             if [ ! -f "$gaf" ]; then
                 : > "$gaf"
-            fi
-        done < {input.manifest:q}
+            fi'
         """
 
 
 rule gaf_lor_features:
-    group: "gaf_lor_features"
     input:
         manifest = SHARD_MANIFEST,
         gaf_dir = rules.panpa_align.output[0],
@@ -310,11 +294,21 @@ rule gaf_lor_features:
         output_dir = directory(PANGENOME_OUT_DIR / "bubble_features" / "test" / "{antibiotic}" / "{shard}"),
     log: PANGENOME_LOGS_DIR / "gaf_lor_features" / "{antibiotic}" / "{shard}.log"
     benchmark: BENCHMARKS_DIR / "gaf_lor_features_{antibiotic}_{shard}.tsv"
+    params:
+        script = SCRIPTS_DIR / "gaf_lor_features.py",
+        runner = FOR_EACH_CLUSTER,
     conda: ENVS_DIR.format("python313")
     container: CONTAINERS.format("python313:1.0.0")
-    threads: 1
-    script:
-        SCRIPTS_DIR / "gaf_lor_features_shard.py"
+    threads: workflow.cores
+    shell:
+        r"""
+        mkdir -p {output.output_dir:q}
+        export SCRIPT={params.script:q} GAF={input.gaf_dir:q} LOOKUP={input.lor_lookup_dir:q} \
+            OUT={output.output_dir:q}
+        bash {params.runner:q} {input.manifest:q} {threads} {log:q} '
+            python "$SCRIPT" --gaf-file "$GAF/$1.gaf" --lor-lookup-file "$LOOKUP/$1.tsv" \
+                --output-file "$OUT/$1.tsv" --log-file "$2"'
+        """
 
 
 rule gaf_lor_features_complete:

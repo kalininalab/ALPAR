@@ -21,7 +21,7 @@ PROFILE_DIR = REPO / "snakefiles" / "profiles" / "htcondor-containers"
 
 class WorkflowResourcesTest(unittest.TestCase):
     @contextmanager
-    def workflow(self, resources=None, overwrite_resources=None):
+    def workflow(self, resources=None, overwrite_resources=None, config=None):
         with TemporaryDirectory(prefix="alpar-memory-tests-") as temp:
             root = Path(temp)
             for antibiotic in ("drug_a", "drug_b"):
@@ -37,6 +37,7 @@ class WorkflowResourcesTest(unittest.TestCase):
                         "input_dir": str(root / "input"),
                         "output_dir": str(root / "output"),
                         "env_dir": None,
+                        **(config or {}),
                     }),
                     snakefile=REPO / "Snakefile",
                     workdir=root,
@@ -51,10 +52,10 @@ class WorkflowResourcesTest(unittest.TestCase):
             self.assertEqual(rules["snippy_runner"].resources["mem_mb"].value, 1000)
             self.assertEqual(rules["prokka_runner"].resources["mem_mb"].value, 600)
 
-    def test_ml_divides_integer_mb_budget_and_preserves_fallback(self):
-        for budget, expected in ((None, 2000), (32000, 16000), (32001, 16000)):
-            resources = {} if budget is None else {"mem_mb": budget}
-            with self.subTest(budget=budget), self.workflow(resources) as workflow:
+    def test_ml_divides_integer_mb_budget_independent_of_global_pool(self):
+        for budget, expected in ((None, 16000), (32000, 16000), (32001, 16000), (4000, 2000)):
+            config = {} if budget is None else {"ml_mem_mb": budget}
+            with self.subTest(budget=budget), self.workflow({"mem_mb": 640000}, config=config) as workflow:
                 rule = next(rule for rule in workflow.rules if rule.name == "combined_ml")
                 memory = rule.resources["mem_mb"].evaluate(wildcards=Wildcards()).value
                 self.assertEqual(memory, expected)
@@ -86,7 +87,7 @@ class WorkflowResourcesTest(unittest.TestCase):
         args = parser.parse_args([])
         self.assertEqual(args.executor, "htcondor")
         self.assertEqual(args.cores, 32)
-        self.assertEqual(args.resources["mem_mb"].value, 32000)
+        self.assertEqual(args.resources["mem_mb"].value, 640000)
         self.assertTrue(ResourceScopes(args.set_resource_scopes).is_global("mem_mb"))
         self.assertEqual(
             Path(args.configfile[0]).resolve(),

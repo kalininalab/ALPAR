@@ -66,9 +66,9 @@ def image_tag(key):
     return IMAGE_TAGS.get(key, "1.0.0")
 
 
-# Pangenome shard groups bundle 32 shards per HTCondor job instead of every
-# component, so the 256 shards spread over several jobs.
-PANGENOME_SHARD_GROUPS = {
+# Pangenome shard rules are multithreaded jobs that process their clusters in
+# parallel; they are deliberately not Snakemake job groups.
+PANGENOME_SHARD_RULES = {
     "align_clusters", "panpa_build_gfa", "bubblegun_runner",
     "bubble_features", "panpa_align", "gaf_lor_features",
 }
@@ -241,7 +241,7 @@ class WorkflowContainersTest(unittest.TestCase):
             wildcard_rules = {
                 name
                 for name in EXPECTED_ENVIRONMENTS
-                if rules[name].wildcard_names
+                if rules[name].wildcard_names and name not in PANGENOME_SHARD_RULES
             }
             groups = {
                 name: rules[name]._group
@@ -253,14 +253,9 @@ class WorkflowContainersTest(unittest.TestCase):
                 set(profile["group-components"]),
                 set(groups.values()),
             )
-            self.assertEqual(
-                {group for group, components in profile["group-components"].items() if components == 32},
-                PANGENOME_SHARD_GROUPS,
-            )
             self.assertTrue(all(
                 components == 2000
-                for group, components in profile["group-components"].items()
-                if group not in PANGENOME_SHARD_GROUPS
+                for components in profile["group-components"].values()
             ))
             for rule in workflow.rules:
                 if rule.name not in wildcard_rules:

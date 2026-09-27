@@ -6,7 +6,7 @@ import os
 import shutil
 import subprocess
 import importlib.util
-import math
+import re
 import sys
 from tempfile import TemporaryDirectory
 import unittest
@@ -14,14 +14,11 @@ import unittest
 import yaml
 
 REPO = Path(__file__).resolve().parents[1]
-SHARD_GROUPS = (
+SHARD_RULES = (
     "align_clusters", "panpa_build_gfa", "bubblegun_runner",
     "bubble_features", "panpa_align", "gaf_lor_features",
 )
-REAL_SCRIPTS = (
-    "write_input_paths.py", "shard_clusters.py",
-    "bubble_features_shard.py", "gaf_lor_features_shard.py",
-)
+REAL_SCRIPTS = ("write_input_paths.py", "shard_clusters.py", "for_each_cluster.sh")
 
 
 class PangenomeWorkflowTest(unittest.TestCase):
@@ -33,16 +30,8 @@ class PangenomeWorkflowTest(unittest.TestCase):
             scripts.mkdir()
             for name in REAL_SCRIPTS:
                 shutil.copy2(REPO / "snakefiles/scripts" / name, scripts / name)
-            stubs = root / "stubs"
-            stubs.mkdir()
-            (stubs / "loguru.py").write_text('''
-class _Logger:
-    def __getattr__(self, name):
-        return lambda *args, **kwargs: None
-logger = _Logger()
-''')
-            # Scientific computations are stand-ins; the shard drivers are real
-            # and call the per-cluster interfaces these modules imitate.
+            # Scientific computations are stand-ins with the real per-cluster
+            # command-line interfaces that the shard rules call.
             (scripts / "split_cluster_fasta.py").write_text('''
 from pathlib import Path
 out = Path(snakemake.output[0])
@@ -58,31 +47,31 @@ for path in Path(snakemake.input.cluster_store).glob("*.fasta"):
     (out / path.name).write_text("" if path.name == "Cluster_0.fasta" else path.read_text())
 ''')
             (scripts / "bubble_features.py").write_text('''
+import argparse
 from pathlib import Path
-class SnakemakeHandler:
-    def __init__(self, antibiotic, **paths):
-        self.antibiotic = antibiotic
-        self.__dict__.update({key: Path(value) for key, value in paths.items()})
-def main(handler):
-    assert handler.gfa_file.is_file()
-    assert handler.bubble_gun.read_text().strip() == "{}"
-    assert handler.phenotype_table.is_file()
-    assert handler.log_file.is_file()
-    cluster = handler.output_file.stem
-    handler.output_file.write_text(f"strain_a\\t{cluster}_chain_1\\t1.0\\n")
-    handler.lor_lookup_file.write_text(f">1>2\\t{cluster}_chain_1\\t1.0\\n")
+parser = argparse.ArgumentParser()
+for flag in ("gfa-file", "bubble-gun", "phenotype-table", "log-file", "antibiotic", "output-file", "lor-lookup-file"):
+    parser.add_argument("--" + flag, required=True)
+args = parser.parse_args()
+assert Path(args.gfa_file).is_file()
+assert Path(args.bubble_gun).read_text().strip() == "{}"
+assert Path(args.phenotype_table).is_file()
+assert not Path(args.log_file).exists() and Path(args.log_file).parent.is_dir()
+cluster = Path(args.output_file).stem
+Path(args.output_file).write_text(f"strain_a\t{cluster}_chain_1\t1.0\n")
+Path(args.lor_lookup_file).write_text(f">1>2\t{cluster}_chain_1\t1.0\n")
 ''')
             (scripts / "gaf_lor_features.py").write_text('''
+import argparse
 from pathlib import Path
-class GafLorFeaturesSettings:
-    def __init__(self, _cli_parse_args=True, **paths):
-        assert not _cli_parse_args
-        self.__dict__.update({key: Path(value) for key, value in paths.items()})
-def gaf_lor_features(handler):
-    assert handler.lor_lookup_file.is_file()
-    cluster = handler.output_file.stem
-    row = f"strain_b\\t{cluster}_chain_1\\t1.0\\n" if handler.gaf_file.stat().st_size else ""
-    handler.output_file.write_text(row)
+parser = argparse.ArgumentParser()
+for flag in ("gaf-file", "lor-lookup-file", "output-file", "log-file"):
+    parser.add_argument("--" + flag, required=True)
+args = parser.parse_args()
+assert Path(args.lor_lookup_file).is_file()
+cluster = Path(args.output_file).stem
+row = f"strain_b\t{cluster}_chain_1\t1.0\n" if Path(args.gaf_file).stat().st_size else ""
+Path(args.output_file).write_text(row)
 ''')
             bindir = root / "bin"
             bindir.mkdir()
@@ -146,7 +135,6 @@ include: {str(REPO / "snakefiles/pangenome.smk")!r}
     def run_workflow(self, root, *args, fail_tool=None):
         env = os.environ.copy()
         env["PATH"] = str(root / "bin") + os.pathsep + str(Path(sys.executable).parent) + os.pathsep + env["PATH"]
-        env["PYTHONPATH"] = str(root / "stubs")
         if fail_tool:
             env["FAIL_TOOL"] = fail_tool
         return subprocess.run(
@@ -177,16 +165,17 @@ include: {str(REPO / "snakefiles/pangenome.smk")!r}
             )
             self.assert_success(dry_run)
             dry_log = dry_run.stdout + dry_run.stderr
-            # The profile loads the real config, so the dry run plans its shard
-            # count, bundled group-components shards per HTCondor group job.
+            # The profile loads the real config: one multithreaded job per shard
+            # and rule, with no Snakemake job groups for the shard rules.
             config = yaml.safe_load((REPO / "snakefiles/config/config.yaml").read_text())
-            profile = yaml.safe_load(
-                (REPO / "snakefiles/profiles/htcondor-containers/profile.v9+.yaml").read_text()
-            )
-            for group in SHARD_GROUPS:
-                jobs_per_rule = math.ceil(config["pangenome_shards"] / profile["group-components"][group])
-                antibiotics = 1 if group in ("align_clusters", "panpa_build_gfa", "bubblegun_runner") else 2
-                self.assertEqual(dry_log.count(f"Group job {group} "), jobs_per_rule * antibiotics, group)
+            for rule in SHARD_RULES:
+                self.assertNotIn(f"Group job {rule} ", dry_log)
+                antibiotics = 1 if rule in ("align_clusters", "panpa_build_gfa", "bubblegun_runner") else 2
+                self.assertEqual(
+                    len(re.findall(rf"^rule {rule}:$", dry_log, re.M)),
+                    config["pangenome_shards"] * antibiotics, rule,
+                )
+                self.assertIn(f"threads: 32", dry_log)
             self.assertNotIn("checkpoint", dry_log.lower())
             self.assert_success(self.run_workflow(root, "--", *self.targets()))
             out = root / "out/pangenome"

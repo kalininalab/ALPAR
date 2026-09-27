@@ -52,17 +52,11 @@ rule combined_ml:
     container: CONTAINERS.format("ml:1.0.0")
     threads: lambda wildcards: workflow.cores // len(ANTIBIOTICS)
     resources:
-        # Keep HTCondor's reservation aligned with this rule's dynamic budget.
-        mem_mb = lambda wildcards: (
-            workflow.global_resources["mem_mb"].value
-            if "mem_mb" in workflow.global_resources
-            else 4000
-        ) // len(ANTIBIOTICS),
-        htcondor_request_mem_mb = lambda wildcards: (
-            workflow.global_resources["mem_mb"].value
-            if "mem_mb" in workflow.global_resources
-            else 4000
-        ) // len(ANTIBIOTICS),
+        # Each antibiotic gets an equal share of the ML memory budget. It is
+        # independent of the global mem_mb pool, which limits concurrent jobs.
+        # Keep HTCondor's reservation aligned with this rule's budget.
+        mem_mb = int(config.get("ml_mem_mb", 4000)) // len(ANTIBIOTICS),
+        htcondor_request_mem_mb = int(config.get("ml_mem_mb", 4000)) // len(ANTIBIOTICS),
     script:
         SCRIPTS_DIR / "combined_ml.py"
 

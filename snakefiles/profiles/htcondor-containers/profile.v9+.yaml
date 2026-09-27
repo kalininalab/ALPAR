@@ -11,8 +11,6 @@ jobs: 20
 # choosing among hundreds of ready jobs; greedy selection scales without it.
 scheduler: greedy
 
-# Pangenome shard groups: 32 shards per job, so 256 shards make 8 jobs per rule
-# (16 for per-antibiotic rules). Other groups take all components in one job.
 group-components:
   snippy_batch: 2000
   annotation_file_from_snippy_batch: 2000
@@ -20,12 +18,6 @@ group-components:
   datasail_runner_batch: 2000
   split_phenotype_dataframe_batch: 2000
   cluster_fasta_splits_batch: 2000
-  align_clusters: 32
-  panpa_build_gfa: 32
-  bubblegun_runner: 32
-  bubble_features: 32
-  panpa_align: 32
-  gaf_lor_features: 32
   pivot_merged_features_miller_batch: 2000
   prps_runner_batch: 2000
   pyseer_phenotype_file_creator_batch: 2000
@@ -36,8 +28,10 @@ group-components:
   decision_tree_input_creator_batch: 2000
   combined_ml_batch: 2000
 
+# Global pool: total memory of all concurrently running jobs (20 jobs x 32 GB).
+# Group jobs stay near 32 GB because cores: 32 limits how many members run at once.
 resources:
-  mem_mb: 32000
+  mem_mb: 640000
 
 set-resource-scopes:
   mem_mb: global
@@ -147,34 +141,38 @@ set-resources:
     htcondor_request_mem_mb: 7630
     container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
   align_clusters:
-    # Observed per-shard peak on 2026-09-27: 180-290 MB.
-    mem_mb: 1000
-    htcondor_request_mem_mb: 954
+    # Shard job: 32 parallel MAFFT runs; observed 180-290 MB each (2026-09-27).
+    mem_mb: 16000
+    htcondor_request_mem_mb: 15258
     container_image: docker.io/cambouu/alpar-smk-mafft:1.0.0
   panpa_build_index:
     mem_mb: 1000
     htcondor_request_mem_mb: 954
     container_image: docker.io/cambouu/alpar-smk-panpa-vcf:1.0.0
   panpa_build_gfa:
-    # Observed per-shard peak on 2026-09-27: 200-240 MB.
-    mem_mb: 1000
-    htcondor_request_mem_mb: 954
+    # Shard job: 32 parallel PanPA build_gfa runs; observed 200-240 MB each.
+    mem_mb: 16000
+    htcondor_request_mem_mb: 15258
     container_image: docker.io/cambouu/alpar-smk-panpa-vcf:1.0.0
   bubblegun_runner:
-    mem_mb: 1000
-    htcondor_request_mem_mb: 954
+    # Shard job: 32 parallel BubbleGun runs; observed about 150 MB each.
+    mem_mb: 16000
+    htcondor_request_mem_mb: 15258
     container_image: docker.io/cambouu/alpar-smk-bubblegun:1.0.0
   bubble_features:
-    mem_mb: 8000
-    htcondor_request_mem_mb: 7630
+    # Shard job: 32 parallel Python runs; unmeasured, previously 8 GB per cluster.
+    mem_mb: 64000
+    htcondor_request_mem_mb: 61035
     container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
   panpa_align:
-    mem_mb: 2000
-    htcondor_request_mem_mb: 1908
+    # Shard job: 32 parallel PanPA align_single runs; unmeasured.
+    mem_mb: 32000
+    htcondor_request_mem_mb: 30517
     container_image: docker.io/cambouu/alpar-smk-panpa-vcf:1.0.0
   gaf_lor_features:
-    mem_mb: 8000
-    htcondor_request_mem_mb: 7630
+    # Shard job: 32 parallel Python runs; unmeasured.
+    mem_mb: 32000
+    htcondor_request_mem_mb: 30517
     container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
   pivot_merged_features_miller:
     container_image: docker.io/cambouu/alpar-smk-miller:1.0.0
