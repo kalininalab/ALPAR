@@ -76,15 +76,30 @@ immediately, enter the running job with `condor_ssh_to_job <job-id>` and send
 terminating Snakemake.
 
 Pangenome clusters are processed in `pangenome_shards` fixed shards (config,
-default 256), one job per shard and rule, with no checkpoint. The earlier
-design created one job per cluster behind a checkpoint. With 34,148 clusters
-and two antibiotics that is about 300,000 jobs. After the checkpoint, the
-controller spent its time in Snakemake's `DAG.validate_group`, which searches
-the upstream graph once per group, and its RSS grew past 6 GiB. The input
-callbacks themselves took under a second. Shard counts above the number of
-clusters are allowed; empty shards produce empty output directories. Raise
-`--jobs` on the command line if more shards should run concurrently than the
-profile's limit allows.
+default 8), with no checkpoint. Each shard rule runs as one HTCondor job with
+`threads: 32`. `for_each_cluster.sh` processes the shard's clusters 32 at a time
+and fails the shard if any cluster fails; the other clusters still run, and the
+shard log marks each failure with `FAILED: <cluster>`. Per-shard memory in the
+profile is sized for 32 parallel clusters.
+
+The earlier designs failed for these reasons:
+- One job per cluster behind a checkpoint gave about 300,000 jobs (34,148
+  clusters, two antibiotics). After the checkpoint, the controller spent hours
+  in Snakemake's `DAG.validate_group`, and its RSS grew past 6 GiB.
+- 256 small shards, one job each, crashed the default ILP scheduler with a
+  segfault in PuLP. The profile now sets `scheduler: greedy`.
+- 256 small shards bundled with job groups took 22 minutes to plan and then
+  deadlocked with "Out of jobs ready to be started" (snakemake issue #823).
+
+The profile's `resources: mem_mb` is a global pool: the total memory of all
+running jobs. It is set to 20 jobs x 32 GB, matching `jobs: 20`. Group jobs
+stay near 32 GB because `cores: 32` limits how many members run at once.
+`combined_ml` takes its memory from the config's `ml_mem_mb`, not from this
+pool. Relaunches must not rerun finished work. Script paths therefore appear
+in shell commands as Snakefile globals, never in `params`, and the profile's
+`rerun-triggers` omit `code`: its fingerprint of `script:` rules includes the
+per-run export path. After changing a script in a way that needs
+recomputation, pass `--forcerun <rule>`.
 
 Each run's `src/.snakemake` is a symlink to one shared state directory,
 `/home/joca00004/snakemake-state/out` by default (`ALPAR_STATE_DIR`). Job metadata
