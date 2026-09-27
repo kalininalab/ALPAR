@@ -3,12 +3,10 @@
 from contextlib import contextmanager
 from pathlib import Path
 import os
-import runpy
 import shutil
 import subprocess
 import sys
 from tempfile import TemporaryDirectory
-from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -29,7 +27,7 @@ class PangenomeWorkflowTest(unittest.TestCase):
             root = Path(temp)
             scripts = root / "scripts"
             scripts.mkdir()
-            for name in ("concatenate_files.py", "write_input_paths.py"):
+            for name in ("write_input_paths.py",):
                 shutil.copy2(REPO / "snakefiles/scripts" / name, scripts / name)
             # Scientific computations are stand-ins; assertions enforce the real
             # single-file script interface while Snakemake executes the real DAG.
@@ -202,21 +200,6 @@ include: {str(REPO / "snakefiles/pangenome.smk")!r}
                     "Cluster_0.fasta", "Cluster_1.fasta",
                 ))
                 self.assertEqual(glob.call_count, 2)
-
-    def test_merge_replaces_output_and_handles_empty_inputs(self):
-        with TemporaryDirectory(prefix="alpar-merge-") as temp:
-            root = Path(temp)
-            source = root / "input.tsv"
-            source.write_bytes(b"strain\tfeature\t1\n")
-            output = root / "output.tsv"
-            output.write_text("old content")
-            for inputs, expected in (([source], source.read_bytes()), ([], b"")):
-                runpy.run_path(
-                    str(REPO / "snakefiles/scripts/concatenate_files.py"),
-                    init_globals={"snakemake": SimpleNamespace(input=inputs, output=[output])},
-                )
-                self.assertEqual(output.read_bytes(), expected)
-
 
 if __name__ == "__main__":
     unittest.main()

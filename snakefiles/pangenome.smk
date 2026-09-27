@@ -210,8 +210,10 @@ rule merge_bubble_features:
             cluster=get_pangenome_clusters(wc), antibiotic=wc.antibiotic,
         )
     output: PANGENOME_OUT_DIR / "bubble_features_{antibiotic}.tsv"
-    script:
-        SCRIPTS_DIR / "concatenate_files.py"
+    params:
+        input_count = lambda wc, input: len(input),
+    shell:
+        "test {params.input_count} -gt 0 && cat {input:q} > {output:q}"
 
 
 rule bubble_features_complete:
@@ -304,8 +306,10 @@ rule merge_bubble_features_test:
             cluster=get_pangenome_clusters(wc), antibiotic=wc.antibiotic,
         )
     output: PANGENOME_OUT_DIR / "bubble_features_test_{antibiotic}.tsv"
-    script:
-        SCRIPTS_DIR / "concatenate_files.py"
+    params:
+        input_count = lambda wc, input: len(input),
+    shell:
+        "test {params.input_count} -gt 0 && cat {input:q} > {output:q}"
 
 
 # -----------------------
