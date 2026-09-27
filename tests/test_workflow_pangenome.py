@@ -1,22 +1,23 @@
-"""Exercise pangenome DAG expansion and per-file execution with fake bio tools."""
+"""Exercise sharded pangenome execution and recovery with fake bio tools."""
 
 from contextlib import contextmanager
 from pathlib import Path
 import os
 import shutil
 import subprocess
+import importlib.util
 import sys
 from tempfile import TemporaryDirectory
 import unittest
-from unittest.mock import patch
-
-from snakemake.api import SnakemakeApi
-from snakemake.settings.types import ResourceSettings
 
 REPO = Path(__file__).resolve().parents[1]
-GROUPS = (
+SHARD_GROUPS = (
     "align_clusters", "panpa_build_gfa", "bubblegun_runner",
     "bubble_features", "panpa_align", "gaf_lor_features",
+)
+REAL_SCRIPTS = (
+    "write_input_paths.py", "shard_clusters.py",
+    "bubble_features_shard.py", "gaf_lor_features_shard.py",
 )
 
 
@@ -27,10 +28,18 @@ class PangenomeWorkflowTest(unittest.TestCase):
             root = Path(temp)
             scripts = root / "scripts"
             scripts.mkdir()
-            for name in ("write_input_paths.py",):
+            for name in REAL_SCRIPTS:
                 shutil.copy2(REPO / "snakefiles/scripts" / name, scripts / name)
-            # Scientific computations are stand-ins; assertions enforce the real
-            # single-file script interface while Snakemake executes the real DAG.
+            stubs = root / "stubs"
+            stubs.mkdir()
+            (stubs / "loguru.py").write_text('''
+class _Logger:
+    def __getattr__(self, name):
+        return lambda *args, **kwargs: None
+logger = _Logger()
+''')
+            # Scientific computations are stand-ins; the shard drivers are real
+            # and call the per-cluster interfaces these modules imitate.
             (scripts / "split_cluster_fasta.py").write_text('''
 from pathlib import Path
 out = Path(snakemake.output[0])
@@ -47,20 +56,30 @@ for path in Path(snakemake.input.cluster_store).glob("*.fasta"):
 ''')
             (scripts / "bubble_features.py").write_text('''
 from pathlib import Path
-assert Path(snakemake.input.gfa_file).is_file()
-assert Path(snakemake.input.bubble_gun).read_text().strip() == "{}"
-assert Path(snakemake.input.phenotype_table).is_file()
-cluster = Path(snakemake.output.output_file).stem
-row = f"strain_a\\t{cluster}_chain_1\\t1.0\\n"
-Path(snakemake.output.output_file).write_text(row)
-Path(snakemake.output.lor_lookup_file).write_text(f">1>2\\t{cluster}_chain_1\\t1.0\\n")
+class SnakemakeHandler:
+    def __init__(self, antibiotic, **paths):
+        self.antibiotic = antibiotic
+        self.__dict__.update({key: Path(value) for key, value in paths.items()})
+def main(handler):
+    assert handler.gfa_file.is_file()
+    assert handler.bubble_gun.read_text().strip() == "{}"
+    assert handler.phenotype_table.is_file()
+    assert handler.log_file.is_file()
+    cluster = handler.output_file.stem
+    handler.output_file.write_text(f"strain_a\\t{cluster}_chain_1\\t1.0\\n")
+    handler.lor_lookup_file.write_text(f">1>2\\t{cluster}_chain_1\\t1.0\\n")
 ''')
             (scripts / "gaf_lor_features.py").write_text('''
 from pathlib import Path
-assert Path(snakemake.input.lor_lookup_file).is_file()
-cluster = Path(snakemake.output.output_file).stem
-row = f"strain_b\\t{cluster}_chain_1\\t1.0\\n" if Path(snakemake.input.gaf_file).stat().st_size else ""
-Path(snakemake.output.output_file).write_text(row)
+class GafLorFeaturesSettings:
+    def __init__(self, _cli_parse_args=True, **paths):
+        assert not _cli_parse_args
+        self.__dict__.update({key: Path(value) for key, value in paths.items()})
+def gaf_lor_features(handler):
+    assert handler.lor_lookup_file.is_file()
+    cluster = handler.output_file.stem
+    row = f"strain_b\\t{cluster}_chain_1\\t1.0\\n" if handler.gaf_file.stat().st_size else ""
+    handler.output_file.write_text(row)
 ''')
             bindir = root / "bin"
             bindir.mkdir()
@@ -104,6 +123,8 @@ SCRIPTS_DIR = Path({str(scripts)!r})
 ENVS_DIR = {str(REPO / "snakefiles/envs/alpar-smk-{0}.yaml")!r}
 CONTAINERS = "docker://docker.io/cambouu/alpar-smk-{{0}}"
 ANTIBIOTICS = ("drug_a", "drug_b")
+# More shards than clusters, so one shard is empty.
+config.setdefault("pangenome_shards", 3)
 wildcard_constraints:
     antibiotic = "drug_a|drug_b"
 rule cdhit_runner:
@@ -122,6 +143,7 @@ include: {str(REPO / "snakefiles/pangenome.smk")!r}
     def run_workflow(self, root, *args, fail_tool=None):
         env = os.environ.copy()
         env["PATH"] = str(root / "bin") + os.pathsep + str(Path(sys.executable).parent) + os.pathsep + env["PATH"]
+        env["PYTHONPATH"] = str(root / "stubs")
         if fail_tool:
             env["FAIL_TOOL"] = fail_tool
         return subprocess.run(
@@ -138,68 +160,64 @@ include: {str(REPO / "snakefiles/pangenome.smk")!r}
             for split in ("", "_test") for drug in ("drug_a", "drug_b")
         ]]
 
-    def test_checkpoint_grouping_execution_and_single_file_recovery(self):
+    def shard_of(self, root, cluster):
+        manifests = sorted((root / "out/pangenome/cluster_shards").glob("*.txt"))
+        self.assertEqual([path.stem for path in manifests], ["0000", "0001", "0002"])
+        return next(path.stem for path in manifests if cluster in path.read_text().split())
+
+    def test_sharded_execution_and_single_shard_recovery(self):
         with self.fixture() as root:
-            # Execute just the real checkpoint boundary with a tiny split fixture.
-            self.assert_success(self.run_workflow(root, "--", "split_cluster_fasta"))
             dry_run = self.run_workflow(
                 root, "--dry-run", "--jobs", "2",
                 "--profile", str(REPO / "snakefiles/profiles/htcondor-containers"),
                 "--", *self.targets(),
             )
             self.assert_success(dry_run)
-            for group in GROUPS:
-                self.assertIn(f"Group job {group}", dry_run.stdout + dry_run.stderr)
-            # Recreate the checkpoint during the full run as on fresh data.
-            shutil.rmtree(root / "out/pangenome/cluster_sequences")
+            dry_log = dry_run.stdout + dry_run.stderr
+            # Each shard rule forms its own group job; three shards fit in one.
+            for group in SHARD_GROUPS:
+                self.assertEqual(dry_log.count(f"Group job {group} "), 1, group)
+            self.assertNotIn("checkpoint", dry_log.lower())
             self.assert_success(self.run_workflow(root, "--", *self.targets()))
             out = root / "out/pangenome"
             self.assertTrue((root / "out/flags/pangenome.done").is_file())
-            self.assertFalse((out / "panpa/alignments/drug_a/Cluster_0.fasta.gaf").read_bytes())
-            self.assertEqual((out / "bubblegun/Cluster_0.fasta.json").read_text().strip(), "{}")
+            shard0, shard1 = self.shard_of(root, "Cluster_0.fasta"), self.shard_of(root, "Cluster_1.fasta")
+            self.assertNotEqual(shard0, shard1)
+            self.assertFalse((out / f"panpa/alignments/drug_a/{shard0}/Cluster_0.fasta.gaf").read_bytes())
+            self.assertEqual((out / f"bubblegun/{shard0}/Cluster_0.fasta.json").read_text().strip(), "{}")
             for drug in ("drug_a", "drug_b"):
                 self.assertEqual(len((out / f"bubble_features_{drug}.tsv").read_text().splitlines()), 2)
                 self.assertEqual(len((out / f"bubble_features_test_{drug}.tsv").read_text().splitlines()), 1)
             manifest = (out / "panpa/alignments.txt").read_text().splitlines()
             self.assertEqual([Path(path).name for path in manifest], ["Cluster_0.fasta", "Cluster_1.fasta"])
             self.assertTrue(all(Path(path).is_absolute() for path in manifest))
-            retained = out / "bubble_features/train/drug_a/Cluster_1.fasta.tsv"
+            retained = out / f"bubble_features/train/drug_a/{shard1}/Cluster_1.fasta.tsv"
             retained_mtime = retained.stat().st_mtime_ns
             merged = out / "bubble_features_drug_a.tsv"
             original = merged.read_bytes()
-            (out / "bubble_features/train/drug_a/Cluster_0.fasta.tsv").unlink()
+            shutil.rmtree(out / f"bubble_features/train/drug_a/{shard0}")
             self.assert_success(self.run_workflow(root, "--", *self.targets()))
             self.assertEqual(retained.stat().st_mtime_ns, retained_mtime)
             self.assertEqual(merged.read_bytes(), original)
-            # A failing graph tool must not be turned into a successful empty GAF.
-            gaf = out / "panpa/alignments/drug_a/Cluster_1.fasta.gaf"
-            gaf.unlink()
-            failed = self.run_workflow(root, "--", str(gaf.relative_to(root)), fail_tool="PanPA")
+            # A failing graph tool must fail its shard, not yield an empty GAF.
+            shard_gafs = out / f"panpa/alignments/drug_a/{shard1}"
+            shutil.rmtree(shard_gafs)
+            failed = self.run_workflow(root, "--", str(shard_gafs.relative_to(root)), fail_tool="PanPA")
             self.assertNotEqual(failed.returncode, 0)
-            self.assertFalse(gaf.exists())
+            self.assertFalse(shard_gafs.exists())
 
-    def test_cluster_inventory_is_cached_until_directory_changes(self):
-        with self.fixture() as root, SnakemakeApi() as api:
-            workflow_api = api.workflow(
-                ResourceSettings(cores=2), snakefile=root / "Snakefile", workdir=root,
-            )
-            scan = workflow_api._workflow.globals["_pangenome_cluster_names"]
-            folder = root / "clusters"
-            folder.mkdir()
-            (folder / "Cluster_1.fasta").touch()
-            (folder / ".snakemake_timestamp").touch()
-            original_glob = Path.glob
-            with patch.object(Path, "glob", autospec=True, side_effect=original_glob) as glob:
-                generation = folder.stat().st_mtime_ns
-                self.assertEqual(scan(folder, generation), ("Cluster_1.fasta",))
-                self.assertEqual(scan(folder, generation), ("Cluster_1.fasta",))
-                self.assertEqual(glob.call_count, 1)
-                (folder / "Cluster_0.fasta").touch()
-                os.utime(folder, ns=(generation + 1, generation + 1))
-                self.assertEqual(scan(folder, folder.stat().st_mtime_ns), (
-                    "Cluster_0.fasta", "Cluster_1.fasta",
-                ))
-                self.assertEqual(glob.call_count, 2)
+    def test_shards_balance_cluster_sizes_deterministically(self):
+        spec = importlib.util.spec_from_file_location(
+            "shard_clusters", REPO / "snakefiles/scripts/shard_clusters.py",
+        )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        sizes = {"big.fasta": 100, "mid.fasta": 60, "small_a.fasta": 40, "small_b.fasta": 40, "tiny.fasta": 1}
+        shards = module.assign_shards(sizes, 3)
+        self.assertEqual(shards, module.assign_shards(dict(reversed(sizes.items())), 3))
+        self.assertEqual(sorted(name for shard in shards for name in shard), sorted(sizes))
+        self.assertEqual(sorted(sum(sizes[name] for name in shard) for shard in shards), [61, 80, 100])
+        self.assertEqual(module.assign_shards({"only.fasta": 5}, 2), [["only.fasta"], []])
 
 if __name__ == "__main__":
     unittest.main()

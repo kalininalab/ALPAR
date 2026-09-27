@@ -58,6 +58,14 @@ EXPECTED_ENVIRONMENTS = {
 }
 
 
+# Pangenome shard groups bundle 32 shards per HTCondor job instead of every
+# component, so the 256 shards spread over several jobs.
+PANGENOME_SHARD_GROUPS = {
+    "align_clusters", "panpa_build_gfa", "bubblegun_runner",
+    "bubble_features", "panpa_align", "gaf_lor_features",
+}
+
+
 class WorkflowContainersTest(unittest.TestCase):
     @contextmanager
     def workflow(self, snakefile=None, **overrides):
@@ -119,7 +127,7 @@ class WorkflowContainersTest(unittest.TestCase):
 
     def test_general_purpose_container_is_inherited(self):
         with self.workflow() as workflow:
-            self.assertEqual(len(workflow.rules), 65)
+            self.assertEqual(len(workflow.rules), 66)
             for rule in workflow.rules:
                 if not rule.conda_env:
                     self.assertEqual(
@@ -237,9 +245,14 @@ class WorkflowContainersTest(unittest.TestCase):
                 set(profile["group-components"]),
                 set(groups.values()),
             )
+            self.assertEqual(
+                {group for group, components in profile["group-components"].items() if components == 32},
+                PANGENOME_SHARD_GROUPS,
+            )
             self.assertTrue(all(
                 components == 2000
-                for components in profile["group-components"].values()
+                for group, components in profile["group-components"].items()
+                if group not in PANGENOME_SHARD_GROUPS
             ))
             for rule in workflow.rules:
                 if rule.name not in wildcard_rules:

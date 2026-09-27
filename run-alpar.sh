@@ -109,6 +109,9 @@ runs_dir=${ALPAR_RUNS_DIR:-/home/joca00004/runs}
 snakemake_python=${ALPAR_SNAKEMAKE_PYTHON:-/home/joca00004/.venvs/snakemake-htcondor/bin/python}
 controller_image=${ALPAR_CONTROLLER_IMAGE:-docker.io/python:3.11-bookworm}
 controller_memory=${ALPAR_CONTROLLER_MEMORY:-16GB}
+# Snakemake state (metadata, incomplete markers, locks) shared by every run
+# that writes to the same output directory.
+state_dir=${ALPAR_STATE_DIR:-/home/joca00004/snakemake-state/out}
 commit_ref=HEAD
 
 usage() {
@@ -119,8 +122,10 @@ Example: ./run-alpar.sh --commit 7e1d1464 automatix --latency-wait 120
 Exports the selected commit and submits one HTCondor controller (2 CPUs, 16 GiB).
 The default target is automatix. Uncommitted and untracked files are excluded.
 Uses the selected commit's config, including its output paths.
-ALPAR_REPO, ALPAR_RUNS_DIR, ALPAR_CONTROLLER_MEMORY and ALPAR_CONTROLLER_IMAGE
-can override the defaults. The controller token is valid for two days.
+Snakemake state is shared across runs through ALPAR_STATE_DIR, so metadata and
+incomplete markers survive a restart and the lock prevents concurrent controllers.
+ALPAR_REPO, ALPAR_RUNS_DIR, ALPAR_STATE_DIR, ALPAR_CONTROLLER_MEMORY and
+ALPAR_CONTROLLER_IMAGE can override the defaults. The controller token is valid for two days.
 EOF
 }
 
@@ -148,6 +153,16 @@ fi
 mkdir "$run_dir/src" "$run_dir/logs"
 mkdir -p -m 700 "$run_dir/auth"
 git -C "$repo" archive "$commit" | tar -xf - -C "$run_dir/src"
+# Without shared state, each run starts with empty metadata: Snakemake 9.27 then
+# reruns every script rule ("Code has changed") and cannot see partial outputs
+# left by a killed controller. Adopt metadata from older private-state runs,
+# oldest first, keeping the newest record for each output.
+mkdir -p "$state_dir/metadata"
+for legacy in "$runs_dir"/*/src/.snakemake/metadata; do
+    [[ -d $legacy && ! -L ${legacy%/metadata} ]] || continue
+    find "$legacy" -maxdepth 1 -type f -exec cp -pu -t "$state_dir/metadata" {} +
+done
+ln -s "$state_dir" "$run_dir/src/.snakemake"
 printf '%s\n' "$commit" > "$run_dir/commit"
 cp -- "$(readlink -f -- "$0")" "$run_dir/run-alpar.sh"
 sha256sum "$run_dir/run-alpar.sh" > "$run_dir/launcher.sha256"

@@ -8,6 +8,8 @@ local-cores: 2
 # Remote execution requires a positive submission limit.
 jobs: 10
 
+# Pangenome shard groups: 32 shards per job, so 256 shards make 8 jobs per rule
+# (16 for per-antibiotic rules). Other groups take all components in one job.
 group-components:
   snippy_batch: 2000
   annotation_file_from_snippy_batch: 2000
@@ -15,12 +17,12 @@ group-components:
   datasail_runner_batch: 2000
   split_phenotype_dataframe_batch: 2000
   cluster_fasta_splits_batch: 2000
-  align_clusters: 2000
-  panpa_build_gfa: 2000
-  bubblegun_runner: 2000
-  bubble_features: 2000
-  panpa_align: 2000
-  gaf_lor_features: 2000
+  align_clusters: 32
+  panpa_build_gfa: 32
+  bubblegun_runner: 32
+  bubble_features: 32
+  panpa_align: 32
+  gaf_lor_features: 32
   pivot_merged_features_miller_batch: 2000
   prps_runner_batch: 2000
   pyseer_phenotype_file_creator_batch: 2000
@@ -142,8 +144,9 @@ set-resources:
     htcondor_request_mem_mb: 7630
     container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
   align_clusters:
-    mem_mb: 2000
-    htcondor_request_mem_mb: 1908
+    # Observed per-shard peak on 2026-09-27: 180-290 MB.
+    mem_mb: 1000
+    htcondor_request_mem_mb: 954
     container_image: docker.io/cambouu/alpar-smk-mafft:1.0.0
   panpa_build_index:
     mem_mb: 1000

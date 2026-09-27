@@ -18,6 +18,8 @@ container_format: "docker://docker.io/cambouu/alpar-smk-{0}"
 
 genus: "ecoli"
 gpa_method: "cd-hit"
+# Pangenome clusters are processed in this many fixed shards (one job each).
+pangenome_shards: 256
 mock: False
 
 datasail_delta: 0.2
