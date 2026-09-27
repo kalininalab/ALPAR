@@ -58,6 +58,14 @@ EXPECTED_ENVIRONMENTS = {
 }
 
 
+# Images default to tag 1.0.0; these environments have been rebuilt since.
+IMAGE_TAGS = {"gwas": "1.0.1"}
+
+
+def image_tag(key):
+    return IMAGE_TAGS.get(key, "1.0.0")
+
+
 # Pangenome shard groups bundle 32 shards per HTCondor job instead of every
 # component, so the 256 shards spread over several jobs.
 PANGENOME_SHARD_GROUPS = {
@@ -102,7 +110,7 @@ class WorkflowContainersTest(unittest.TestCase):
                     )
                     self.assertEqual(
                         rules[name].container_img,
-                        f"docker://docker.io/cambouu/alpar-smk-{key}:1.0.0",
+                        f"docker://docker.io/cambouu/alpar-smk-{key}:{image_tag(key)}",
                     )
                     self.assertFalse(rules[name].is_containerized)
 
@@ -143,7 +151,7 @@ class WorkflowContainersTest(unittest.TestCase):
                 key = EXPECTED_ENVIRONMENTS.get(rule.name, "python313")
                 self.assertEqual(
                     rule.container_img,
-                    f"docker://docker.io/example/custom-prefix-{key}:1.0.0",
+                    f"docker://docker.io/example/custom-prefix-{key}:{image_tag(key)}",
                 )
 
     def test_rule_can_change_its_tag_independently(self):
@@ -153,17 +161,17 @@ class WorkflowContainersTest(unittest.TestCase):
             shutil.copytree(REPO / "snakefiles", root / "snakefiles")
             gwas = root / "snakefiles" / "gwas.smk"
             source = gwas.read_text()
-            self.assertEqual(source.count('CONTAINERS.format("gwas:1.0.0")'), 3)
+            self.assertEqual(source.count('CONTAINERS.format("gwas:1.0.1")'), 3)
             gwas.write_text(source.replace(
-                'CONTAINERS.format("gwas:1.0.0")',
                 'CONTAINERS.format("gwas:1.0.1")',
+                'CONTAINERS.format("gwas:1.0.2")',
                 1,
             ))
             with self.workflow(snakefile=root / "Snakefile") as workflow:
                 rules = {rule.name: rule for rule in workflow.rules}
                 for name, key in EXPECTED_ENVIRONMENTS.items():
                     with self.subTest(rule=name):
-                        tag = "1.0.1" if name == "pyseer_similarity_matrix_creator" else "1.0.0"
+                        tag = "1.0.2" if name == "pyseer_similarity_matrix_creator" else image_tag(key)
                         self.assertEqual(
                             rules[name].container_img,
                             f"docker://docker.io/cambouu/alpar-smk-{key}:{tag}",
