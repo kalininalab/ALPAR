@@ -201,12 +201,30 @@ def main(handler: SnakemakeHandler):
         param_grid_low_memory_mode = True
         logger.warning("Activated param_grid_low_memory_mode for XGBoost due to input table size.")
 
-    # Load genotype data
+    def _float_with_default(value, default=0.0) -> float:
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return default
+
+    # Load genotype data straight into a float32 matrix. The table can have
+    # millions of feature columns, and a dict of Python lists of strings and floats
+    # needed an order of magnitude more memory. XGBoost and sklearn tree models
+    # use float32 internally, so model results are unchanged.
+    # genotype_data maps each strain to its row in genotype_matrix.
     with open(binary_mutation_table, 'r') as file:
+        n_strains = sum(1 for _ in file) - 1
+    with open(binary_mutation_table, 'r', newline='') as file:
         reader = csv.reader(file, delimiter='\t')
         headers = next(reader)
-        genotype_data = {rows[0]: rows[1:] for rows in reader}
-        feature_names = headers[1:] 
+        feature_names = headers[1:]
+        genotype_matrix = np.zeros((n_strains, len(feature_names)), dtype=np.float32)
+        genotype_data = {}
+        for row_index, rows in enumerate(reader):
+            genotype_data[rows[0]] = row_index
+            genotype_matrix[row_index] = np.fromiter(
+                map(_float_with_default, rows[1:]), dtype=np.float32, count=len(feature_names)
+            )
     logger.info(
         f"Loaded genotype table with {len(genotype_data)} strains and {len(feature_names)} features"
     )
@@ -259,14 +277,14 @@ def main(handler: SnakemakeHandler):
 
     strain_to_index = {strain: idx for idx, strain in enumerate(genotype_data.keys())}
 
-    # Convert data to numpy arrays for machine learning
-    def _float_with_default(value, default=0.0) -> float:
-        try:
-            return float(value)
-        except (ValueError, TypeError):
-            return default
-
-    genotype_array = np.array([list(map(_float_with_default, genotypes)) for genotypes in genotype_data.values()])
+    # Convert data to numpy arrays for machine learning; avoid copying the
+    # genotype matrix when no strain was dropped.
+    kept_rows = np.fromiter(genotype_data.values(), dtype=np.intp, count=len(genotype_data))
+    if np.array_equal(kept_rows, np.arange(genotype_matrix.shape[0])):
+        genotype_array = genotype_matrix
+    else:
+        genotype_array = genotype_matrix[kept_rows]
+    del genotype_matrix
     phenotype_array = np.array([_float_with_default(phenotypes[antibiotic_index]) for phenotypes in phenotype_data.values()])
     logger.info(
         f"Prepared arrays: genotype_array shape={genotype_array.shape}, phenotype_array shape={phenotype_array.shape}"
@@ -322,11 +340,11 @@ def main(handler: SnakemakeHandler):
                 y_validation.append(phenotype_array[idx])  # Append the phenotype value using the index
 
         # Convert lists to numpy arrays
-        X_train = np.array(X_train, dtype=float)
+        X_train = np.array(X_train, dtype=np.float32)
         y_train = np.array(y_train, dtype=float)
-        X_test = np.array(X_test, dtype=float)
+        X_test = np.array(X_test, dtype=np.float32)
         y_test = np.array(y_test, dtype=float)
-        X_validation = np.array(X_validation, dtype=float)
+        X_validation = np.array(X_validation, dtype=np.float32)
         y_validation = np.array(y_validation, dtype=float)
         logger.info(
             "Explicit split complete: "
@@ -364,9 +382,9 @@ def main(handler: SnakemakeHandler):
                 y_test.append(phenotype_array[idx])  # Append the phenotype value using the index
 
         # Convert lists to numpy arrays
-        X_train = np.array(X_train, dtype=float)
+        X_train = np.array(X_train, dtype=np.float32)
         y_train = np.array(y_train, dtype=float)
-        X_test = np.array(X_test, dtype=float)
+        X_test = np.array(X_test, dtype=np.float32)
         y_test = np.array(y_test, dtype=float)
         logger.info(f"Explicit split complete: train={X_train.shape}, test={X_test.shape}")
         logger.info(
