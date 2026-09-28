@@ -212,15 +212,18 @@ def main(handler: SnakemakeHandler):
     # needed an order of magnitude more memory. XGBoost and sklearn tree models
     # use float32 internally, so model results are unchanged.
     # genotype_data maps each strain to its row in genotype_matrix.
-    with open(binary_mutation_table, 'r') as file:
+    # Rows are split on '\n' and cells on tabs only. Some upstream tables had
+    # CRLF line endings, leaving '\r' inside cells; csv.reader and text-mode line
+    # iteration treat that as a row break. float() ignores the '\r'.
+    with open(binary_mutation_table, 'rb') as file:
         n_strains = sum(1 for _ in file) - 1
-    with open(binary_mutation_table, 'r', newline='') as file:
-        reader = csv.reader(file, delimiter='\t')
-        headers = next(reader)
+    with open(binary_mutation_table, 'r', newline='\n') as file:
+        headers = next(file).rstrip('\r\n').split('\t')
         feature_names = headers[1:]
         genotype_matrix = np.zeros((n_strains, len(feature_names)), dtype=np.float32)
         genotype_data = {}
-        for row_index, rows in enumerate(reader):
+        for row_index, line in enumerate(file):
+            rows = line.rstrip('\n').split('\t')
             genotype_data[rows[0]] = row_index
             genotype_matrix[row_index] = np.fromiter(
                 map(_float_with_default, rows[1:]), dtype=np.float32, count=len(feature_names)

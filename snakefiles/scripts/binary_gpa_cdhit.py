@@ -53,7 +53,7 @@ def binary_gpa_cdhit(handler: SnakemakeHandler) -> None:
         handler.clstr_file.open('r', encoding='utf-8') as infile,
         handler.output_file.open('w', encoding='utf-8', newline='') as outfile
     ):
-        csv_writer = csv.writer(outfile, delimiter='\t')
+        csv_writer = csv.writer(outfile, delimiter='\t', lineterminator='\n')  # default '\r\n' left '\r' in values
 
         clstr_strains = set[str]()
         clstr_ref_prot = ''

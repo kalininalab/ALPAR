@@ -38,6 +38,7 @@ awk -F '\t' -v columns="$work/columns" -v row_key="$row_field" -v column_key="$c
         printf "\n"
     }
     NR > 1 && $row_key != current { flush(); split("", row) }
-    { current = $row_key; row[index_of[$column_key]] = $3 }
+    # Strip a stray carriage return from CRLF-terminated input lines.
+    { sub(/\r$/, "", $3); current = $row_key; row[index_of[$column_key]] = $3 }
     END { if (NR > 0) flush() }
 ' > "$output"

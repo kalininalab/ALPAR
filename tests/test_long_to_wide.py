@@ -95,6 +95,19 @@ class PresenceMatrixTest(unittest.TestCase):
         self.assertEqual(matrix, expected)
         self.assertEqual(order, ["s1", "s2", "s3"])
 
+    def test_crlf_input_does_not_leak_carriage_returns(self):
+        with TemporaryDirectory(prefix="alpar-presence-") as temp:
+            root = Path(temp)
+            source = root / "long.tsv"
+            source.write_bytes(b"s1\tgene_a\t1\r\ns2\tgene_b\t1\r\ns1\tgene_b\t0.5\n")
+            subprocess.run(
+                ["bash", str(SCRIPT), str(source), str(root / "wide.tsv"), str(root), "2", "10M", "1", "2", "hash", ""],
+                check=True, capture_output=True, text=True, timeout=60,
+            )
+            data = (root / "wide.tsv").read_bytes()
+        self.assertNotIn(b"\r", data)
+        self.assertEqual(data.decode(), "hash\tgene_a\tgene_b\ns1\t1\t0.5\ns2\t\t1\n")
+
     @unittest.skipUnless(shutil.which("mlr"), "miller is not installed")
     def test_same_cells_as_miller(self):
         rows = [("s1", "f2", "1"), ("s2", "f1", "1"), ("s1", "f1", "1"), ("s3", "f3", "1")]
