@@ -36,8 +36,9 @@ rule combined_ml:
     input:
         binary_mutation_table = rules.pivot_merged_features_miller.output[0],
         phenotype_table = rules.phenotype_dataframe_creator.output[0],
-        train = lambda wildcards: expand(rules.split_train_test.output, split_category=["train"], **wildcards),
-        test = lambda wildcards: expand(rules.split_train_test.output, split_category=["test"], **wildcards),
+        # combined_ml.py validates train/test as single paths, not lists.
+        train = lambda wildcards: expand(rules.split_train_test.output, split_category=["train"], **wildcards)[0],
+        test = lambda wildcards: expand(rules.split_train_test.output, split_category=["test"], **wildcards)[0],
     output:
         best_params = ML_OUT_DIR / "{antibiotic}" / "seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type}_FIA_{feature_importance_analysis_strategy}_best_params.txt",
         model_file  = ML_OUT_DIR / "{antibiotic}" / "seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type}_FIA_{feature_importance_analysis_strategy}_model.sav",
