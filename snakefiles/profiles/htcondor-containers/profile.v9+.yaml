@@ -31,7 +31,9 @@ group-components:
   pyseer_post_processor_clean_batch: 2000
   pyseer_gwas_graph_creator_batch: 2000
   decision_tree_input_creator_batch: 2000
-  combined_ml_batch: 2000
+  # One antibiotic per job: bundled, both shared one container and ciprofloxacin
+  # was killed for memory on 2026-09-28.
+  combined_ml_batch: 1
 
 # Global pool: total memory of all concurrently running jobs (20 jobs x 32 GB).
 # Group jobs stay near 32 GB because cores: 32 limits how many members run at once.

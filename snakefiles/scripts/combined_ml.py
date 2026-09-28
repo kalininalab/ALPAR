@@ -518,8 +518,6 @@ def main(handler: SnakemakeHandler):
     elif model_type == "xgb":
         logger.info("Starting XGBoost pipeline")
 
-        dtrain = xgb.DMatrix(X_train, label=y_train, feature_names=feature_names)
-        dtest = xgb.DMatrix(X_test, label=y_test, feature_names=feature_names)
 
         if param_grid_size == "small":
             param_grid = {
@@ -664,6 +662,10 @@ def main(handler: SnakemakeHandler):
                 logger.info(f"XGB GridSearchCV best params: {best_params}")
 
                 # Train the final model with the best parameters
+                # Built only here: two DMatrix copies of a 1M-feature table cost
+                # tens of GB, and the other XGB branches never use them.
+                dtrain = xgb.DMatrix(X_train, label=y_train, feature_names=feature_names)
+                dtest = xgb.DMatrix(X_test, label=y_test, feature_names=feature_names)
                 bst = xgb.train(best_params, dtrain, num_boost_round=n_estimators)
 
                 # Predict on the test set

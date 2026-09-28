@@ -253,9 +253,12 @@ class WorkflowContainersTest(unittest.TestCase):
                 set(profile["group-components"]),
                 set(groups.values()),
             )
+            # combined_ml runs one antibiotic per job so each gets its own memory.
+            self.assertEqual(profile["group-components"]["combined_ml_batch"], 1)
             self.assertTrue(all(
                 components == 2000
-                for components in profile["group-components"].values()
+                for group, components in profile["group-components"].items()
+                if group != "combined_ml_batch"
             ))
             for rule in workflow.rules:
                 if rule.name not in wildcard_rules:

@@ -23,8 +23,8 @@ gpa_method: "cd-hit"
 pangenome_shards: 8
 # Memory budget (MB) for combined_ml, split equally between antibiotics. The
 # 1,868 x 1.12M float32 feature matrix is 8.4 GB; with split copies and XGBoost's
-# DMatrix each job needs about 64 GB.
-ml_mem_mb: 128000
+# DMatrix each job needs well over 64 GB (ampicillin alone used 47 GB).
+ml_mem_mb: 256000
 mock: False
 
 datasail_delta: 0.2

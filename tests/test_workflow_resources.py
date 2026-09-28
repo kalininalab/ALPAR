@@ -53,7 +53,7 @@ class WorkflowResourcesTest(unittest.TestCase):
             self.assertEqual(rules["prokka_runner"].resources["mem_mb"].value, 600)
 
     def test_ml_divides_integer_mb_budget_independent_of_global_pool(self):
-        for budget, expected in ((None, 64000), (32000, 16000), (32001, 16000), (4000, 2000)):
+        for budget, expected in ((None, 128000), (32000, 16000), (32001, 16000), (4000, 2000)):
             config = {} if budget is None else {"ml_mem_mb": budget}
             with self.subTest(budget=budget), self.workflow({"mem_mb": 640000}, config=config) as workflow:
                 rule = next(rule for rule in workflow.rules if rule.name == "combined_ml")
