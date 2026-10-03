@@ -1,4 +1,6 @@
 .vscode
+.venv/
+/EDA/output/
 /example/example_output
 /example_output
 /sr_amr/__pycache__
@@ -10,3 +12,7 @@
 .pytest_cache
 .__pycache__
 ALPAR.egg-info/
+/data/
+
+*/.DS_Store
+zip_source_files/

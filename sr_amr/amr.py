@@ -1142,7 +1142,7 @@ def prps_pipeline(args):
     if args.temp is None:
         args.temp = os.path.join(args.output, "temp")
         if not os.path.exists(args.temp):
-            os.mkdir(args.temp)
+            os.makedirs(args.temp, exist_ok=True)
 
     prps_output = os.path.join(args.output, "prps")
     prps_temp = os.path.join(args.temp, "prps")
