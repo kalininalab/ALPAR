@@ -56,7 +56,7 @@ rule combined_ml:
         # Each antibiotic gets an equal share of the ML memory budget. It is
         # independent of the global mem_mb pool, which limits concurrent jobs.
         # Keep HTCondor's reservation aligned with this rule's budget.
-        mem_mb = int(config.get("ml_mem_mb", 4000)) // len(ANTIBIOTICS),
+        mem_mb = int(config.get("ml_mem_mb", 4000)) // len(ANTIBIOTICS),        
         htcondor_request_mem_mb = int(config.get("ml_mem_mb", 4000)) // len(ANTIBIOTICS),
     script:
         SCRIPTS_DIR / "combined_ml.py"
@@ -71,6 +71,6 @@ rule ml:
             test_size=[0.2],
             resampling_strategy=["cv"],
             model_type=["xgb"],
-            feature_importance_analysis_strategy=["gini"]
+            feature_importance_analysis_strategy=["gini"] # perm_importance
         )
     output: touch(OUT_DIR / "flags" / "ml_runner.done")
