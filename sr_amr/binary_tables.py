@@ -643,8 +643,8 @@ def cdhit_protein_dictionary_creator(fasta_file):
                 protein_dict[protein_id] = protein_name
     return protein_dict
 
-def cdhit_protein_name_corrector(input_file, output_file):
-    fasta_file_name = input_file.split("/")[-1].split(".")[0]
+def cdhit_protein_name_corrector(input_file, output_file, strain_name=None):
+    fasta_file_name = strain_name if strain_name else input_file.split("/")[-1].split(".")[0]
     with open(output_file, "w") as outfile:
         with open(input_file, "r") as infile:
             lines = infile.readlines()
@@ -674,7 +674,7 @@ def process_single_strain(args):
         
         if file.endswith(".faa"):
             output_faa = os.path.join(temp_folder, f"{given_random_name}_corrected.faa")
-            cdhit_protein_name_corrector(full_path, output_faa)
+            cdhit_protein_name_corrector(full_path, output_faa, given_random_name)
             
         elif file.endswith(".gbk") or file.endswith(".gbff"):
             current_records = gbk_parser(given_random_name, full_path)
