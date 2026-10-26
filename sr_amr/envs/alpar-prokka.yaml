@@ -4,5 +4,6 @@ channels:
   - bioconda
   - defaults
 dependencies:
-  - python>=3.12
-  - prokka
+  - python=3.12
+  - prokka=1.14.6
+  - perl-xml-simple

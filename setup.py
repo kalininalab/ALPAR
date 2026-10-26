@@ -41,7 +41,7 @@ setup(
     package_data={
         "sr_amr": ["envs/*.yaml", "envs/*.yml", "card_data/*"],
     },
-    python_requires=">=3.12",
+    python_requires=">=3.12,<3.14",
     keywords="bioinformatics",
     entry_points={
         'console_scripts': [

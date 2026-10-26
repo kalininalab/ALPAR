@@ -4,11 +4,12 @@ channels:
   - bioconda
   - defaults
 dependencies:
-  - python>=3.12
-  - mashtree
-  - pandas
+  - python=3.12
+  - mashtree=1.4.6
+  - mash=2.3
+  - pandas=3.0.2
   - pip
   - pip:
-    - psutil
-    - joblib
-    - tqdm
+    - psutil==7.2.2
+    - joblib==1.5.3
+    - tqdm==4.67.3

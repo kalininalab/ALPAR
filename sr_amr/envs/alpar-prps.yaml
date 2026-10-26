@@ -6,10 +6,10 @@ channels:
 dependencies:
   - python==3.12
   - pip
-  - pandas
+  - pandas=3.0.2
   - pip:
-    - ete3
+    - ete3==3.1.3
     - psutil
     - tqdm
-    - pycgi
+    - pycgi==0.1a3
 

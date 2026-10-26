@@ -34,6 +34,15 @@ def ensure_conda_env(env_name, python_version="3.12"):
     
     # Conda returns full paths; we check if the env name matches the base name of any path
     exists = any(os.path.basename(env) == env_name for env in envs)
+
+    if not exists:
+        # conda 26.x fails to create environments that contain pip packages
+        try:
+            ver = subprocess.run(['conda', '--version'], capture_output=True, text=True).stdout.split()[-1]
+            if int(ver.split('.')[0]) >= 26:
+                print(f"Warning: conda {ver} may fail to create environments with pip packages. conda 24.11 is recommended.")
+        except Exception:
+            pass
     
     if not exists:
         print(f"Creating environment '{env_name}'...")

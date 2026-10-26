@@ -8,6 +8,8 @@ Automated Learning Pipeline for Antimicrobial Resistance
 
 Single-Reference AMR is installable from [conda](https://anaconda.org/kalininalab/ALPAR) using [mamba](https://mamba.readthedocs.io/en/latest/installation.html#existing-conda-install>):
 
+> **Note:** conda 26.x has a bug that prevents creating environments with pip packages; use conda 24.11. ALPAR supports Python 3.12 and 3.13.
+
 To install it into the new environment:
 
 `````shell
