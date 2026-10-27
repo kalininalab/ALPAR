@@ -270,24 +270,25 @@ alpar ml -i example/example_output/binary_mutation_table.tsv -p example/example_
 
 ## Citation
 
-If you use ALPAR, please cite the preprint:
+If you use ALPAR, please cite:
 
-Yurtseven et al. ALPAR: Automated Learning Pipeline for Antimicrobial Resistance. bioRxiv (2025). doi:10.1101/2025.07.08.663126  
-Preprint: https://www.biorxiv.org/content/10.1101/2025.07.08.663126v1
+Yurtseven A, Joeres R, Kalinina OV. ALPAR: automated learning pipeline for antimicrobial resistance. Bioinformatics 2026; 42(8):btag545. doi:10.1093/bioinformatics/btag545  
+Article: https://doi.org/10.1093/bioinformatics/btag545
 
 ### Plain text
-Yurtseven et al (2025). ALPAR: Automated Learning Pipeline for Antimicrobial Resistance. bioRxiv. doi:10.1101/2025.07.08.663126
+Yurtseven A, Joeres R, Kalinina OV. ALPAR: automated learning pipeline for antimicrobial resistance. Bioinformatics 2026; 42(8):btag545. doi:10.1093/bioinformatics/btag545
 
 ### BibTeX
 ```bibtex
-@article{ALPAR_2025_preprint,
-  title   = {ALPAR: Automated Learning Pipeline for Antimicrobial Resistance},
+@article{ALPAR_2026,
+  title   = {ALPAR: automated learning pipeline for antimicrobial resistance},
   author  = {Yurtseven, Alper and Joeres, Roman and Kalinina, Olga V.},
-  year    = {2025},
-  journal = {bioRxiv},
-  publisher = {Cold Spring Harbor Laboratory},
-  doi     = {10.1101/2025.07.08.663126},
-  url     = {https://www.biorxiv.org/content/10.1101/2025.07.08.663126v1},
-  note    = {Preprint. Not peer reviewed.}
+  year    = {2026},
+  journal = {Bioinformatics},
+  volume  = {42},
+  number  = {8},
+  pages   = {btag545},
+  doi     = {10.1093/bioinformatics/btag545},
+  url     = {https://doi.org/10.1093/bioinformatics/btag545}
 }
 ```

@@ -2,31 +2,34 @@
 ALPAR Paper
 ###################
 
-Preprint
-========
-The ALPAR preprint is available on bioRxiv:
+Publication
+===========
+The ALPAR paper is published in Bioinformatics:
 
-ALPAR: Automated Learning Pipeline for Antimicrobial Resistance (2025).  
-DOI: https://doi.org/10.1101/2025.07.08.663126  
-Direct link: https://www.biorxiv.org/content/10.1101/2025.07.08.663126v1
+ALPAR: automated learning pipeline for antimicrobial resistance (2026).  
+DOI: https://doi.org/10.1093/bioinformatics/btag545  
+Direct link: https://academic.oup.com/bioinformatics/article/42/8/btag545/8739913
+
+The earlier bioRxiv preprint (doi:10.1101/2025.07.08.663126) is superseded by the published article; please cite the article.
 
 Suggested Citation
 ------------------
-Yurtseven et al. 2025. ALPAR: Automated Learning Pipeline for Antimicrobial Resistance. bioRxiv. doi:10.1101/2025.07.08.663126
+Yurtseven A, Joeres R, Kalinina OV. ALPAR: automated learning pipeline for antimicrobial resistance. Bioinformatics 2026; 42(8):btag545. doi:10.1093/bioinformatics/btag545
 
 BibTeX
 ------
 .. code-block:: bibtex
 
-    @article{ALPAR_2025_preprint,
-      title   = {ALPAR: Automated Learning Pipeline for Antimicrobial Resistance},
+    @article{ALPAR_2026,
+      title   = {ALPAR: automated learning pipeline for antimicrobial resistance},
       author  = {Yurtseven, Alper and Joeres, Roman and Kalinina, Olga V.},
-      year    = {2025},
-      journal = {bioRxiv},
-      publisher = {Cold Spring Harbor Laboratory},
-      doi     = {10.1101/2025.07.08.663126},
-      url     = {https://www.biorxiv.org/content/10.1101/2025.07.08.663126v1},
-      note    = {Preprint. Not peer reviewed.}
+      year    = {2026},
+      journal = {Bioinformatics},
+      volume  = {42},
+      number  = {8},
+      pages   = {btag545},
+      doi     = {10.1093/bioinformatics/btag545},
+      url     = {https://doi.org/10.1093/bioinformatics/btag545}
     }
 
 Abstract
