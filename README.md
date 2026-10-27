@@ -15,15 +15,36 @@ To install it into the new environment:
 `````shell
 mamba create -n alpar -c conda-forge -c kalininalab -c bioconda -c etetoolkit alpar
 conda activate alpar
-pip install panacota
 `````
 
 Or to install it into the already existing environment:
 
 `````shell
 mamba install -c conda-forge -c kalininalab -c bioconda -c etetoolkit alpar
-pip install panacota
 `````
+
+## Tool Environments
+
+The `alpar` environment only contains the ALPAR package itself. Each external tool runs in its own conda environment, defined in `sr_amr/envs/`. These are created automatically on first use (`conda env create`) and ALPAR re-runs the relevant step inside them with `conda run`, so you do not need to install the tools yourself.
+
+| Environment | Used by | Key pinned versions |
+| --- | --- | --- |
+| `alpar-snippy` | variant calling | snippy 4.6.0 |
+| `alpar-prokka` | annotation | prokka 1.14.6, perl-xml-simple |
+| `alpar-bakta` | annotation | bakta 1.12.0, diamond 2.1.25 |
+| `alpar-panaroo` | gene presence-absence | panaroo 1.6.0 |
+| `alpar-cd-hit` | gene presence-absence | cd-hit 4.8.1 |
+| `alpar-mashtree` | `phylogenetic_tree` | mashtree 1.4.6, mash 2.3 |
+| `alpar-panacota` | `panacota` | PanACoTA 1.4.0, prokka 1.14.6, Python 3.7 |
+| `alpar-pyseer` | `gwas` | pyseer 1.4.0 |
+| `alpar-prps` | `prps` | ete3 3.1.3 |
+| `alpar-ml` | `ml` | scikit-learn 1.8.0, xgboost 3.2.0 |
+| `alpar-datasail` | train/test splitting | datasail 1.3.0 |
+
+Notes:
+- Versions are pinned so results do not change between rebuilds. To rebuild an environment, remove it (`conda env remove -n alpar-prokka`) and run ALPAR again.
+- Use conda 24.11; conda 26.x cannot create environments containing pip packages.
+- The main `alpar` environment must use Python 3.12 or 3.13. `alpar-panacota` runs Python 3.7 and cannot read pickle protocol 5 files written by Python 3.14.
 
 ## Example Files
 
